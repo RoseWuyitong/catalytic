@@ -11,7 +11,7 @@
 }
 
 .not_in_stop <- function(obj, expected_objs, suggestion) {
-  if (obj %in% expected_objs) stop(suggestion)
+  if (!all(obj %in% expected_objs)) stop(suggestion)
 }
 
 .not_single_str_stop <- function(obj, suggestion) {

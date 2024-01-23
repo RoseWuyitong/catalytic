@@ -1,5 +1,5 @@
-log_density <- function(distribution) {
-  switch(distribution,
+log_density <- function(regression_type) {
+  switch(regression_type,
     "logistic" = function(X, Y, beta, weights = FALSE, ...) {
       theta <- matrix_multiply(X, beta)
       if (isFALSE(weights)) {
@@ -12,30 +12,31 @@ log_density <- function(distribution) {
   )
 }
 
-dist_mean <- function(distribution) {
-  switch(distribution,
+reg_mean <- function(regression_type) {
+  switch(regression_type,
     "logistic" = function(X, beta, ...) 1 / (1 + exp(-matrix_multiply(X, beta))),
-    "linear" = function(X, beta, ...) matrix_multiply(X, beta)
+    "linear" = function(X, beta, ...) matrix_multiply(X, beta),
+    stop("please enter right regression type.")
   )
 }
 
-y_value <- function(distribution) {
-  switch(distribution,
+y_value <- function(regression_type) {
+  switch(regression_type,
     "logistic" = function(X, beta, ...) {
-      generate_data(
+      generate_data_from_dist(
         "bernoulli",
         nrow(X),
-        dist_mean("logistic")(X, beta)
+        reg_mean("logistic")(X, beta)
       )
     },
-    "linear" = function(X, beta, ...) dist_mean("linear")(X, beta)
+    "linear" = function(X, beta, ...) reg_mean("linear")(X, beta)
   )
 }
 
 lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
-    "square_error" = function(X, beta, distribution, ...) 2 * dist_mean(distribution)(X, beta),
-    "classification_error" = function(X, beta, distribution, ...) 2 * dist_mean(distribution)(X, beta),
+    "square_error" = function(X, beta, distribution, ...) 2 * reg_mean(distribution)(X, beta),
+    "classification_error" = function(X, beta, distribution, ...) 2 * reg_mean(distribution)(X, beta),
     "logistic_deviance" = function(X, beta, ...) matrix_multiply(X, beta)
   )
 }
@@ -70,174 +71,8 @@ matrix_multiply <- function(X, Y, intl = TRUE) {
     return(Y %*% X)
   }
 
-  return(NA)
-}
 
-#' resampling data
-#'
-#' @param original_data numeric or complex or logical vectors.
-#' Data used for resampling.
-#' @param resample_data_size integer.
-#' Number of resampled output data.
-#' @param resample_method str.
-#' Choose from (coordinate,
-#' symmetrizing,
-#' smoothing,
-#' flattering,
-#' simple).
-#' @param smoothing_noise_variance numeric.
-#' The variance used for smoothing resample method only.
-#'
-#' @return matrix.
-#' Resampled data.
-#'
-#' @export
-#'
-#' @examples
-#' ## Pass a vector to resampling, and it will transform it into matrix before further process
-#' resampling(1:5, resample_method = "coordinate")
-#'
-#' ## Pass the same input, and it will output the memerised result
-#' resampling(
-#'   1:5,
-#'   resample_method = "coordinate"
-#' ) == resampling(
-#'   1:5,
-#'   resample_method = "coordinate"
-#' )
-#'
-#' ## Pass the different input, and it will output the processed result
-#' resampling(1:5,
-#'   resample_data_size = 5,
-#'   resample_method = "coordinate"
-#' )
-resampling <- memoise::memoise(
-  function(original_data,
-           resample_data_size = 10,
-           resample_method = "simple",
-           smoothing_noise_variance = 1) {
-    original_data <- as.matrix(original_data)
-    resampled_data <- switch(resample_method,
-      "coordinate" = apply(original_data,
-        2,
-        sample,
-        size = resample_data_size,
-        replace = TRUE
-      ),
-      "symmetrizing" = apply(
-        original_data,
-        2,
-        function(x) {
-          sample(c(x, 2 * mean(original_data) - x),
-            resample_data_size,
-            replace = TRUE
-          )
-        }
-      ),
-      "smoothing" = original_data + stats::rnorm(
-        length(original_data),
-        0,
-        sqrt(smoothing_noise_variance)
-      ),
-      "flattering" = apply(
-        original_data,
-        2,
-        function(x) {
-          sample(c(x, sample(c(unique(original_data)), 1)),
-            resample_data_size,
-            replace = TRUE
-          ) # todo: change
-        }
-      ),
-      NA
-    )
-
-    return(resampled_data)
-  }
-)
-
-#' generate data from distribution
-#'
-#' @param from_dist str.
-#' The distribution for generating data, choose from
-#' (bernoulli,
-#' gaussian,
-#' uniform)
-#' @param sample_size integer.
-#' The number of output sample data
-#' @param dist_mean double.
-#' The mean of the distribution for generating data
-#' @param dist_sd double.
-#' The standard deviation of the distribution for generating data
-#'
-#' @return matrix. sample data
-#' @export
-#'
-#' @examples
-#' ## Generate 10 data from Gaussian distribution with mean 0 and sd 1
-#' generate_data_from_dist(from_dist = "gaussian")
-#'
-#' ## Pass the same input, and it will output the memerised result
-#' generate_data_from_dist(
-#'   from_dist = "gaussian"
-#' ) == generate_data_from_dist(
-#'   from_dist = "gaussian"
-#' )
-#'
-#' ## Pass the different input, and it will output the processed result
-#'
-#' generate_data_from_dist(
-#'   from_dist = "gaussian",
-#'   sample_size = 5
-#' )
-generate_data_from_dist <- memoise::memoise(
-  function(from_dist = "uniform",
-           sample_size = 10,
-           dist_mean = 0,
-           dist_sd = 1) {
-    result <- switch(from_dist,
-      "bernoulli" = stats::rbinom(
-        sample_size,
-        1,
-        meadist_meann_
-      ),
-      "gaussian" = stats::rnorm(
-        sample_size,
-        dist_mean,
-        dist_sd
-      ),
-      "uniform" = rep(dist_mean, sample_size)
-    )
-
-    return(as.matrix(result))
-  }
-)
-
-fit <- function(covariate,
-                response,
-                weights = FALSE,
-                method = "mle",
-                family = "binomial") {
-  data_ <- cbind(as.data.frame(response), as.data.frame(covariate))
-  names(data_)[1] <- "outcome"
-
-  switch(method,
-    "mle" = if (isFALSE(weights)) {
-      glm(outcome ~ ., data = data_, family = family)
-    } else {
-      glm(outcome ~ ., data = data_, family = family, weights = weights)
-    },
-    "pseudo_mle" = if (isFALSE(weights)) {
-      glm(outcome ~ ., data = data_, family = family, maxit = 25)
-    } else {
-      glm(outcome ~ ., data = data_, family = family, weights = weights, maxit = 25)
-    },
-    "cauchy" = if (isFALSE(weights)) {
-      bayesglm(outcome ~ ., data = data_, family = family)
-    } else {
-      bayesglm(outcome ~ ., data = data_, family = family, weights = weights)
-    }
-  )
+  return(rep(Y[1], nrow(X)))
 }
 
 adjust_data_type <- function(X) {
@@ -254,9 +89,100 @@ adjust_data_type <- function(X) {
   return(X)
 }
 
-is_continue <- function(lst) {
+is_continuous <- function(lst) {
   if (is.numeric(lst) & length(unique(lst)) > 2) {
     return(TRUE)
   }
   return(FALSE)
+}
+
+fit <- function(x,
+                y,
+                weights = NULL,
+                method = "mle",
+                family = "gaussian") {
+  switch(method,
+    "mle" = if (identical(x, 1)) {
+      stats::glm(y ~ 1, family = family, weights = weights)
+    } else {
+      stats::glm(y ~ ., data = x, family = family, weights = weights)
+    },
+    "pseudo_mle" = if (identical(x, 1)) {
+      stats::glm(y ~ 1, family = family, weights = weights, maxit = 25)
+    } else {
+      stats::glm(y ~ ., data = x, family = family, weights = weights, maxit = 25)
+    },
+    "cauchy" = if (identical(x, 1)) {
+      arm::bayesglm(y ~ 1, family = family, weights = weights)
+    } else {
+      arm::bayesglm(y ~ ., data = x, family = family, weights = weights)
+    }
+  )
+}
+
+get_iqr <- function(x) {
+  right_quantile <- 0.75
+  iqr_value <- 0
+  while (iqr_value == 0 & right_quantile < 1) {
+    iqr_value <- diff(quantile(as.numeric(x),
+      c(1 - right_quantile, right_quantile),
+      na.rm = FALSE,
+      names = FALSE,
+      type = 7
+    ))
+    right_quantile <- right_quantile + 0.05
+  }
+
+  return(iqr_value)
+}
+
+generate_data_from_dist <- function(generate_dist = "bernoulli",
+                                    sample_size = 10,
+                                    mean_ = 0,
+                                    sd = 1) {
+  switch(generate_dist,
+    "bernoulli" = rbinom(
+      sample_size,
+      1,
+      mean_
+    ),
+    "gaussian" = rnorm(
+      sample_size,
+      mean_,
+      sd
+    ),
+    "uniform" = rep(mean_, sample_size)
+  )
+}
+
+discrepancy_functions <- function(discrepancy_function) {
+  switch(discrepancy_function,
+    "logarithmic" = function(x, y, beta, reg_type) {
+      # cap the value between 0.0001 and 0.9999 for better calculation process
+      a_cap <- pmax(0.0001, pmin(0.9999, reg_mean(data_$reg_type)(data_$obs_x, beta_tau)))
+      b_cap <- pmax(0.0001, pmin(0.9999, y))
+      a * log(a_cap / b_cap) + (1 - a) * log((1 - a_cap) / (1 - b_cap))
+    },
+    "square_error" = function(x, y, beta, reg_type) (y - reg_mean(data_$reg_type)(data_$obs_x, beta_tau))^2,
+    "classification_error" = function(x, y, beta, reg_type) as.numeric(y == reg_mean(data_$reg_type)(data_$obs_x, beta_tau)),
+    "logistic_deviance" = function(x, y, beta, reg_type) {
+      ifelse(identical(reg_type, "logistic"),
+        log_density(reg_type)(x, y, beta),
+        stop("you can only use logistic_deviance for logistic regression")
+      )
+    }
+  )
+}
+
+lambda_function <- function(discrepancy_function) {
+  switch(discrepancy_function,
+    "square_error" = function(X, beta, reg_type) 2 * reg_mean(reg_type)(X, beta),
+    "classification_error" = function(X, beta, reg_type) 2 * reg_mean(reg_type)(X, beta),
+    "logistic_deviance" = function(X, beta, reg_type) {
+      ifelse(identical(reg_type, "logistic"),
+        matrix_multiply(X, beta),
+        stop("you can only use logistic_deviance for logistic regression")
+      )
+    }
+  )
 }
