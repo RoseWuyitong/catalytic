@@ -71,8 +71,7 @@ matrix_multiply <- function(X, Y, intl = TRUE) {
     return(Y %*% X)
   }
 
-
-  return(rep(Y[1], nrow(X)))
+  stop(paste("Cannot multiply these two matrix", str(X), str(Y)))
 }
 
 adjust_data_type <- function(X) {
