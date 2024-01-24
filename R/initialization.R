@@ -58,8 +58,8 @@ initialization <- function(observed_covariate,
     data_$obs_x[synthetic_response_generation_model]
   }
   data_$syn_y_gen_model <- fit(x, data_$obs_y, family = data_$fit_fam)
-  data_$syn_y <- as.double(y_value(data_$reg_type)(data_$syn_x[synthetic_response_generation_model],
-    data_$syn_y_gen_model$coefficients))
+  data_$syn_y <- y_value(data_$reg_type)(data_$syn_x[synthetic_response_generation_model],
+    data_$syn_y_gen_model$coefficients)
 
   # Combined synthetic data and observed data
   data_$comb_x <- rbind(data_$obs_x, data_$syn_x)

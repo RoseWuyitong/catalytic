@@ -1,4 +1,4 @@
-test_that("initialization: normal run linear regression", {
+test_that("initialization: normal run - linear regression", {
   data_ <- initialization(
     matrix(c(1, 4, 8, 2, 5, 8, 3, 6, 9), nrow = 3),
     c(1, 2, 3)
@@ -6,7 +6,7 @@ test_that("initialization: normal run linear regression", {
   expect_equal(as.double(data_$syn_y_gen_model$coefficients), as.double(2))
 })
 
-test_that("initialization: normal run logistic regression", {
+test_that("initialization: normal run - logistic regression", {
   data_ <- initialization(
     matrix(c(1, 4, 8, 2, 5, 8, 3, 6, 9), nrow = 3),
     c(1, 0,1),

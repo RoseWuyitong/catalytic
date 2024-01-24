@@ -1,32 +1,42 @@
-frequentist_predictive_risk_estimation <- # TODO: change name, e.g. tune tau
+frequentist_prior <-
   function(data_,
-           taus = NULL, # TODO: if user input one value, warning and select a range of taus around the tau.
-           omega_estimate_method = "parametric_bootstrap",
+           taus = NULL,
+           risk_estimate_method = "parametric_bootstrap",
            discrepancy_function = "square_error",
            bootstrap_iteration_times = 100,
            tau_0 = 1) {
     .not_in_stop(
-      c("comb_y", "comb_x", "obs_n", "syn_n", "fit_fam", "obs_x", "obs_y", "reg_type"),
+      c("comb_y", "comb_x", "obs_n", "syn_n", "fit_fam", "obs_x", "obs_y", "reg_type", "x_col_n"),
       names(data_),
       "Not all necessary variables are present in data_."
     )
 
-    if (is.null(taus)) {
-      taus <- data_$syn_n / 4 # should be p/4
-    } else if (is.double(taus)) {
-      taus <- taus
-    } else {
-      stop("Please enter taus in double format")
-    }
-
-
-    .large_number_warning(data_$syn_n,
-                          100,
-                          "Number of synthetic data is large, suggest use cross-validation.")
+    if (is.null(taus)) taus <- data_$x_col_n / 4
 
     if (is.null(data_$est_beta)) data_$est_beta <- list()
 
-     min_risk_estimate <- Inf
+    if (length(taus) == 1) {
+      message("Will only get the point estimate for single tau value for faster process.")
+
+      data_$est_beta <- unique(append(data_$est_beta, list(list(
+        "method" = paste(
+          "single point estimate:",
+          "tau = ",
+          taus
+        ),
+        "beta" = fit(data_$comb_x,
+                     data_$comb_y,
+                     weights = c(rep(1, data_$obs_n), rep(taus / data_$syn_n, data_$syn_n)),
+                     family = data_$fit_fam
+        )$coefficients))))
+
+      return(data_)
+    }
+
+    if (risk_estimate_method == "mallows_estimate" &
+        discrepancy_function != "square_error") stop("Please use square_error with mallows_estimate")
+
+    min_risk_estimate <- Inf
     optimal_tau <- Inf
     for (tau in taus) {
       beta_tau <- fit(data_$comb_x,
@@ -41,9 +51,10 @@ frequentist_predictive_risk_estimation <- # TODO: change name, e.g. tune tau
         data_$reg_type))
 
       omega <- do.call(
-        omega_estimate_method,
+        risk_estimate_method,
         list(
           data_,
+          tau,
           discrepancy_function,
           tau_0,
           bootstrap_iteration_times
@@ -58,8 +69,8 @@ frequentist_predictive_risk_estimation <- # TODO: change name, e.g. tune tau
     data_$est_beta <- unique(append(data_$est_beta, list(list(
       "method" = paste(
         "frequentist:",
-        "omega estimate method =",
-        omega_estimate_method,
+        "risk estimate method =",
+        risk_estimate_method,
         "; discrepancy function =",
         discrepancy_function,
         "; bootstrap iteration times =",
@@ -82,10 +93,14 @@ frequentist_predictive_risk_estimation <- # TODO: change name, e.g. tune tau
 
 
 parametric_bootstrap <- function(data_,
+                                 tau,
                                  discrepancy_function = "square_error",
                                  tau_0 = 1,
                                  bootstrap_iteration_times = 100) {
-  # TODO: threhold should be 100
+  .large_number_warning(data_$syn_n,
+                        100,
+                        "Number of synthetic data is large, suggest use cross-validation.")
+
   hat_tau_0_beta <- fit(data_$comb_x,
     data_$comb_y,
     weights = c(rep(1, data_$obs_n), rep(tau_0 / data_$syn_n, data_$syn_n)),
@@ -129,10 +144,18 @@ parametric_bootstrap <- function(data_,
 }
 
 steinian_estimate <- function(data_,
+                              tau,
                               discrepancy_function = "square_error",
                               tau_0 = 1,
-                              bootstrap_iteration_times = NULL) {
-  # TODO: threhold should be 50
+                              ...) {
+  .large_number_warning(data_$syn_n,
+                        50,
+                        "Number of synthetic data is large, suggest use cross-validation\\parametric_bootstrap.")
+
+  .not_same_stop(data_$reg_type,
+                 "logistic",
+                 "Only logistic regression can use steinian_estimate.")
+
   hat_beta_0 <- fit(data_$comb_x,
     data_$comb_y,
     weights = c(rep(1, data_$obs_n), rep(tau_0 / data_$syn_n, data_$syn_n)),
@@ -171,3 +194,74 @@ steinian_estimate <- function(data_,
 
   return(steinian_sum / data_$obs_n)
 }
+
+mallows_estimate <- function(data_,
+                             tau,
+                             discrepancy_function = "square_error",
+                             tau_0 = 1,
+                             ...) {
+
+  .not_same_stop(data_$reg_type,
+                 "linear",
+                 "Only linear regression can use steinian_estimate.")
+
+  beta_0 <- fit(data_$comb_x,
+                data_$comb_y,
+                weights = c(rep(1, data_$obs_n), rep(tau_0 / data_$syn_n, data_$syn_n)),
+                family = data_$fit_fam
+  )$coefficients
+
+  var_Y <-
+
+  tau_H <-
+
+  return(2*var_Y*sum(diag(tau_H))/length(tau_H))
+}
+
+H_matrix <- function(X, X_star, tau, M, Y) {
+
+  X <- as.matrix(X)
+  X_star <- as.matrix(X_star)
+  Y <- as.matrix(Y)
+  return(
+    t(X)%*%(X%*%t(X)+(tau/M)*t(X_star)%*%X_star)^(-1)%*%
+      (t(X)+tau/(M*nrow(X))*t(X_star)%*%matrix(rep(1, M))%*%t(matrix(rep(1,nrow(X)))))
+  )
+
+}
+
+# TODO: confirm it is belong to frequentist/ seperate
+cross_validation <- function(data_,
+                             tau,
+                             discrepancy_function = "square_error",
+                             tau_0 = 1,
+                             cv_fold_num = 5,
+                             ...
+                             ) {
+
+  error_sum <- 0
+
+  for (fold in 1:cv_fold_num) {
+
+    test_x <- data_$obs_x[(nrow(data_$obs_x)*(fold-1)/cv_fold_num+1):
+                  (nrow(data_$obs_x)*fold/cv_fold_num),]
+    test_y <- data_$obs_y[(nrow(data_$obs_x)*(fold-1)/cv_fold_num+1):
+                            (nrow(data_$obs_x)*fold/cv_fold_num)]
+
+    train_x <- data_$obs_x[-(nrow(data_$obs_x)*(fold-1)/cv_fold_num+1):
+                                -(nrow(data_$obs_x)*fold/cv_fold_num),]
+    train_y <- data_$obs_y[-(nrow(data_$obs_x)*(fold-1)/cv_fold_num+1):
+                             -(nrow(data_$obs_x)*fold/cv_fold_num)]
+
+    estimate_beta <- fit(train_x, train_y, family=data_$fit_fam)$coefficients
+
+    error_sum <- error_sum + mean(discrepancy_functions(discrepancy_function)(test_x,
+                                                                              test_y,
+                                                                              estimate_beta,
+                                                                              data_$reg_type))
+  }
+
+  return(error_sum/cv_fold_num)
+
+}
+

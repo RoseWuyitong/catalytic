@@ -24,7 +24,7 @@ y_value <- function(regression_type) {
   switch(regression_type,
     "logistic" = function(X, beta, ...) {
       generate_data_from_dist(
-        "bernoulli",
+        "binomial",
         nrow(X),
         reg_mean("logistic")(X, beta)
       )
@@ -135,12 +135,12 @@ get_iqr <- function(x) {
   return(iqr_value)
 }
 
-generate_data_from_dist <- function(generate_dist = "bernoulli",
+generate_data_from_dist <- function(generate_dist = "gaussian",
                                     sample_size = 10,
                                     mean_ = 0,
                                     sd = 1) {
   switch(generate_dist,
-    "bernoulli" = rbinom(
+    "binomial" = rbinom(
       sample_size,
       1,
       mean_
@@ -158,12 +158,12 @@ discrepancy_functions <- function(discrepancy_function) {
   switch(discrepancy_function,
     "logarithmic" = function(x, y, beta, reg_type) {
       # cap the value between 0.0001 and 0.9999 for better calculation process
-      a_cap <- pmax(0.0001, pmin(0.9999, reg_mean(data_$reg_type)(data_$obs_x, beta_tau)))
-      b_cap <- pmax(0.0001, pmin(0.9999, y))
-      a * log(a_cap / b_cap) + (1 - a) * log((1 - a_cap) / (1 - b_cap))
+      x_cap <- pmax(0.0001, pmin(0.9999, reg_mean(reg_type)(x, beta)))
+      y_cap <- pmax(0.0001, pmin(0.9999, y))
+      x * log(x_cap / y_cap) + (1 - x) * log((1 - x_cap) / (1 - y_cap))
     },
-    "square_error" = function(x, y, beta, reg_type) (y - reg_mean(data_$reg_type)(data_$obs_x, beta_tau))^2,
-    "classification_error" = function(x, y, beta, reg_type) as.numeric(y == reg_mean(data_$reg_type)(data_$obs_x, beta_tau)),
+    "square_error" = function(x, y, beta, reg_type) (y - reg_mean(reg_type)(x, beta))^2,
+    "classification_error" = function(x, y, beta, reg_type) as.numeric(y == reg_mean(reg_type)(x, beta)),
     "logistic_deviance" = function(x, y, beta, reg_type) {
       ifelse(identical(reg_type, "logistic"),
         log_density(reg_type)(x, y, beta),

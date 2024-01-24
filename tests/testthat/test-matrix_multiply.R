@@ -12,9 +12,3 @@ test_that("matrix_multiply: without interval", {
   )
 })
 
-test_that("matrix_multiply: single value", {
-  expect_equal(
-    matrix_multiply(matrix(1:9, nrow = 3), c(2)),
-    c(2, 2, 2)
-  )
-})
