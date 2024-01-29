@@ -8,7 +8,14 @@ log_density <- function(regression_type) {
         return(-sum(weights * (theta * Y - log(1 + exp(theta)))))
       }
     },
-    "linear" = NA
+    "linear" = function(X, Y, beta, weights = FALSE, ...) {
+      theta <- matrix_multiply(X, beta)
+      if (isFALSE(weights)) {
+        return(sum(theta * Y - log(theta)))
+      } else {
+        return(sum(weights * (theta * Y - log(theta))))
+      }
+    }
   )
 }
 
@@ -35,9 +42,11 @@ y_value <- function(regression_type) {
 
 lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
-    "square_error" = function(X, beta, distribution, ...) 2 * reg_mean(distribution)(X, beta),
-    "classification_error" = function(X, beta, distribution, ...) 2 * reg_mean(distribution)(X, beta),
-    "logistic_deviance" = function(X, beta, ...) matrix_multiply(X, beta)
+    "square_error" = function(X, beta, reg_type, ...) 2 * reg_mean(reg_type)(X, beta),
+    "classification_error" = function(X, beta, reg_type, ...) 2 * reg_mean(reg_type)(X, beta),
+    "logistic_deviance" = function(X, beta, reg_type="logistic", ...) ifelse(identical(reg_type, "logistic"),
+                                                                             matrix_multiply(X, beta),
+                                                                             stop("you can only use logistic_deviance for logistic regression"))
   )
 }
 

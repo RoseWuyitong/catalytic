@@ -20,5 +20,7 @@ Imports:
     arm,
     e1071,
     memoise,
+    pracma,
     rlang,
+    rstan,
     stats

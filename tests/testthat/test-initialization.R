@@ -9,14 +9,16 @@ test_that("initialization: normal run - linear regression", {
 test_that("initialization: normal run - logistic regression", {
   data_ <- initialization(
     matrix(c(1, 4, 8, 2, 5, 8, 3, 6, 9), nrow = 3),
-    c(1, 0,1),
+    c(1, 0, 1),
     synthetic_data_size = 30,
     synthetic_response_generation_family = "binomial",
     regression_type = "logistic",
-    synthetic_response_generation_model = c(1,2)
+    synthetic_response_generation_model = c(1, 2)
   )
-  expect_equal(as.double(data_$syn_y_gen_model$coefficients),
-  as.double(c(149.2517687, 94.2642749, -109.9749873)))
+  expect_equal(
+    as.double(data_$syn_y_gen_model$coefficients),
+    as.double(c(149.2517687, 94.2642749, -109.9749873))
+  )
 })
 
 

@@ -11,4 +11,3 @@ test_that("matrix_multiply: without interval", {
     matrix(1:9, nrow = 3) %*% c(2, 3, 4)
   )
 })
-

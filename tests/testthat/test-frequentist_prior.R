@@ -1,16 +1,19 @@
-test_that("frequentist_prior: normal run - linear regression", {
+test_that("frequentist_prior: normal run - parametric_boostrap", {
   data_ <- initialization(
     matrix(c(1, 4, 8, 2, 5, 8, 3, 6, 9), nrow = 3),
     c(1, 2, 3),
   )
 
-  data_ <- frequentist_prior(data_, taus=1:5)
+  data_ <- frequentist_prior(data_, taus = 1:5)
 
-  expect_true(grepl("frequentist: risk estimate method = parametric_bootstrap ; discrepancy function = square_error ; bootstrap iteration times = 100 ; tau 0 =  1 ; optimal tau",
-                           data_$est_beta[[1]]$method, fixed=TRUE))})
+  expect_true(grepl("frequentist: risk estimate method = parametric_bootstrap ; discrepancy function = square_error ; bootstrap iteration times = 100 ; tau 0 =  1 ; cv fold num =  5 ; optimal tau",
+    data_$est_beta[[1]]$method,
+    fixed = TRUE
+  ))
+})
 
 
-test_that("frequentist_prior: normal run - logistic regression", {
+test_that("frequentist_prior: normal run - steinian_estimate", {
   data_ <- initialization(
     matrix(c(1, 4, 8, 2, 5, 8, 3, 6, 9), nrow = 3),
     as.integer(c(1, 0, 1)),
@@ -18,10 +21,41 @@ test_that("frequentist_prior: normal run - logistic regression", {
     synthetic_response_generation_family = "binomial"
   )
 
-  data_ <- frequentist_prior(data_, taus=1:5)
+  data_ <- frequentist_prior(data_, taus = 1:5, risk_estimate_method = "steinian_estimate")
 
-  expect_true(grepl("frequentist: risk estimate method = parametric_bootstrap ; discrepancy function = square_error ; bootstrap iteration times = 100 ; tau 0 =  1 ; optimal tau",
-                    data_$est_beta[[1]]$method, fixed=TRUE))})
+  expect_true(grepl("frequentist: risk estimate method = parametric_bootstrap ; discrepancy function = square_error ; bootstrap iteration times = 100 ; tau 0 =  1 ; cv fold num =  5 ; optimal tau",
+    data_$est_beta[[1]]$method,
+    fixed = TRUE
+  ))
+})
+
+test_that("frequentist_prior: normal run - cross_validation", {
+  data_ <- initialization(
+    matrix(rnorm(100, 1, 1), nrow = 25),
+    rnorm(25, 0, 1),
+  )
+
+  data_ <- frequentist_prior(data_, taus = 1:5, risk_estimate_method = "cross_validation")
+
+  expect_true(grepl("frequentist: risk estimate method = cross_validation ; discrepancy function = square_error ; bootstrap iteration times = 100 ; tau 0 =  1 ; cv fold num =  5 ; optimal tau",
+    data_$est_beta[[1]]$method,
+    fixed = TRUE
+  ))
+})
+
+test_that("frequentist_prior: normal run - mallows_estimate", {
+  data_ <- initialization(
+    matrix(rnorm(100, 1, 1), nrow = 25),
+    rnorm(25, 0, 1),
+  )
+
+  data_ <- frequentist_prior(data_, taus = 1:5, risk_estimate_method = "mallows_estimate")
+
+  expect_true(grepl("frequentist: risk estimate method = mallows_estimate ; discrepancy function = square_error ; bootstrap iteration times = 100 ; tau 0 =  1 ; cv fold num =  5 ; optimal tau",
+    data_$est_beta[[1]]$method,
+    fixed = TRUE
+  ))
+})
 
 
 test_that("frequentist_prior: store all beta", {
@@ -32,13 +66,17 @@ test_that("frequentist_prior: store all beta", {
     synthetic_response_generation_family = "binomial"
   )
 
-  data_ <- frequentist_prior(data_, taus=1:5)
-  data_ <- frequentist_prior(data_, taus=1:5,  risk_estimate_method = "steinian_estimate")
+  data_ <- frequentist_prior(data_, taus = 1:5)
+  data_ <- frequentist_prior(data_, taus = 1:5, risk_estimate_method = "steinian_estimate")
 
   expect_true(grepl("frequentist: risk estimate method = parametric_bootstrap ; discrepancy function = square_error ; bootstrap iteration times = 100 ; tau 0 =  1 ; optimal tau",
-                    data_$est_beta[[1]]$method, fixed=TRUE))
+    data_$est_beta[[1]]$method,
+    fixed = TRUE
+  ))
   expect_true(grepl("frequentist: risk estimate method = steinian_estimate ; discrepancy function = square_error ; bootstrap iteration times = 100 ; tau 0 =  1 ; optimal tau",
-                    data_$est_beta[[2]]$method, fixed=TRUE))
+    data_$est_beta[[2]]$method,
+    fixed = TRUE
+  ))
 })
 
 test_that("frequentist_prior: not data_ stop", {
