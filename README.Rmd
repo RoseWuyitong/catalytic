@@ -11,6 +11,10 @@ knitr::opts_chunk$set(
   fig.path = "man/figures/README-",
   out.width = "100%"
 )
+options(warn = -1)
+source("~/catalytic/R/.warning_functions.R")
+source("~/catalytic/R/frequentist_prior.R")
+source("~/catalytic/R/utils.R")
 ```
 
 # catalytic
@@ -31,25 +35,64 @@ devtools::install_github("RoseWuyitong/catalytic")
 
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
+This is a basic example which shows you how to solve a logistic regression problem:
 
 ```{r example}
 library(catalytic)
-## basic example code
+set.seed(1)
+
+## Generate dummy data sets for a logistic regression model
+N <- 25 # Number of observations
+p <- 10  # Number predictors for the data
+beta_true <- c(1, 2, -3, 4, -5, 6, -7, 8, -9, 10, 11)  # true coefficients 
+
+obs_x <- matrix(rnorm(N * p), N, p)
+obs_y <- rbinom(N, 1, stats::plogis(obs_x %*% beta_true[-1] + beta_true[1]))
+
+## Initialization
+data_ <- initialization(obs_x, obs_y, synthetic_response_generation_family="binomial", regression_type = "logistic")
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+The synthetic covariate and response will be generated after initialization:
 
-```{r cars}
-summary(cars)
+```{r initialization data_$syn_x}
+data_$syn_x
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this.
+```{r initialization data_$syn_y}
+data_$syn_y
+```
+And all the information:
 
-You can also embed plots, for example:
-
-```{r pressure, echo = FALSE}
-plot(pressure)
+```{r initialization names(data_)}
+names(data_)
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+Then you can choose different way to get the point estimate:
+
+```{r frequentist_prior}
+
+## Single tau
+data_ <- frequentist_prior(data_, taus=10)
+
+## Multiple taus 
+data_ <- frequentist_prior(data_, 
+                           taus=1:10, 
+                           risk_estimate_method = "parametric_bootstrap",
+                           discrepancy_function = "logistic_deviance")
+
+data_ <- frequentist_prior(data_,
+                           taus = 1:10,
+                           risk_estimate_method = "steinian_estimate",
+                           discrepancy_function = "logistic_deviance")
+
+data_ <- frequentist_prior(data_,
+                           taus = 1:10,
+                           risk_estimate_method = "cross_validation",
+                           discrepancy_function = "logistic_deviance")
+
+## Results
+data_$est_beta
+
+```
+

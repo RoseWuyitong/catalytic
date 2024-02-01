@@ -44,9 +44,8 @@ lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
     "square_error" = function(X, beta, reg_type, ...) 2 * reg_mean(reg_type)(X, beta),
     "classification_error" = function(X, beta, reg_type, ...) 2 * reg_mean(reg_type)(X, beta),
-    "logistic_deviance" = function(X, beta, reg_type="logistic", ...) ifelse(identical(reg_type, "logistic"),
-                                                                             matrix_multiply(X, beta),
-                                                                             stop("you can only use logistic_deviance for logistic regression"))
+    "logistic_deviance" = function(X, beta, reg_type="logistic", ...) matrix_multiply(X, beta)
+
   )
 }
 
@@ -109,21 +108,22 @@ fit <- function(x,
                 weights = NULL,
                 method = "mle",
                 family = "gaussian") {
+
   switch(method,
     "mle" = if (identical(x, 1)) {
       stats::glm(y ~ 1, family = family, weights = weights)
     } else {
-      stats::glm(y ~ ., data = x, family = family, weights = weights)
+      stats::glm(y ~ ., data = as.data.frame(x), family = family, weights = weights)
     },
     "pseudo_mle" = if (identical(x, 1)) {
       stats::glm(y ~ 1, family = family, weights = weights, maxit = 25)
     } else {
-      stats::glm(y ~ ., data = x, family = family, weights = weights, maxit = 25)
+      stats::glm(y ~ ., data = as.data.frame(x), family = family, weights = weights, maxit = 25)
     },
     "cauchy" = if (identical(x, 1)) {
       arm::bayesglm(y ~ 1, family = family, weights = weights)
     } else {
-      arm::bayesglm(y ~ ., data = x, family = family, weights = weights)
+      arm::bayesglm(y ~ ., data = as.data.frame(x), family = family, weights = weights)
     }
   )
 }
@@ -173,24 +173,16 @@ discrepancy_functions <- function(discrepancy_function) {
     },
     "square_error" = function(x, y, beta, reg_type) (y - reg_mean(reg_type)(x, beta))^2,
     "classification_error" = function(x, y, beta, reg_type) as.numeric(y == reg_mean(reg_type)(x, beta)),
-    "logistic_deviance" = function(x, y, beta, reg_type) {
-      ifelse(identical(reg_type, "logistic"),
-        log_density(reg_type)(x, y, beta),
-        stop("you can only use logistic_deviance for logistic regression")
+    "logistic_deviance" = function(x, y, beta, reg_type) log_density(reg_type)(x, y, beta)
       )
     }
-  )
-}
+
 
 lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
     "square_error" = function(X, beta, reg_type) 2 * reg_mean(reg_type)(X, beta),
     "classification_error" = function(X, beta, reg_type) 2 * reg_mean(reg_type)(X, beta),
-    "logistic_deviance" = function(X, beta, reg_type) {
-      ifelse(identical(reg_type, "logistic"),
-        matrix_multiply(X, beta),
-        stop("you can only use logistic_deviance for logistic regression")
+    "logistic_deviance" = function(X, beta, reg_type) matrix_multiply(X, beta)
+
       )
     }
-  )
-}

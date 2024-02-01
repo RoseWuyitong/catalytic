@@ -1,5 +1,26 @@
 source("~/catalytic/R/.warning_functions.R")
 
+#' Initialize catalytic related data
+#'
+#' @param observed_covariate Observed data, x.
+#' @param observed_response Observed response, y.
+#' @param observed_covariate_degree Degree of the observed data, default NULL.
+#' @param synthetic_data_size Number of synthetic data to be generated, default 100.
+#' @param synthetic_response_generation_model Simple model for generating synthetic response, default NULL(intercept).
+#' @param synthetic_response_generation_family Family for generating synthetic response, default gaussian.
+#' @param regression_type Regression type, default linear. Choose from ("linear", "logistic").
+#'
+#' @return Object contains all the information for further process.
+#' @export
+#'
+#' @examples
+#' initialization(matrix(1:9, nrow = 3),
+#' c(1, 2, 3))
+#'
+#' initialization(matrix(1:9, nrow=3),
+#' c(1, 0, 1),
+#' synthetic_response_generation_family="binomial",
+#' regression_type="logistic")
 initialization <- function(observed_covariate,
                            observed_response,
                            observed_covariate_degree = NULL,

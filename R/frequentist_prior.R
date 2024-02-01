@@ -172,27 +172,23 @@ steinian_estimate <- function(data_,
     data_$comb_y,
     weights = c(rep(1, data_$obs_n), rep(tau / data_$syn_n, data_$syn_n)),
     family = data_$fit_fam
-  )$coefficients
+  )
 
 
   D <- mean(discrepancy_functions(discrepancy_function)(data_$obs_x,
     data_$obs_y,
-    beta_tau,
+    beta_tau$coefficients,
     data_$reg_type))
 
   hat_beta_0 <- fit(data_$comb_x,
     data_$comb_y,
     weights = c(rep(1, data_$obs_n), rep(tau_0 / data_$syn_n, data_$syn_n)),
     family = data_$fit_fam
-  )$coefficients
+  )
 
-  hat_mu_0 <- reg_mean(data_$reg_type)(data_$obs_x, hat_beta_0)
+  hat_mu_0 <- reg_mean(data_$reg_type)(data_$obs_x, hat_beta_0$coefficients)
 
-  hat_tau_beta <- fit(data_$comb_x,
-    data_$comb_y,
-    weights = c(rep(1, data_$obs_n), rep(tau / data_$syn_n, data_$syn_n)),
-    family = data_$fit_fam
-  )$coefficients
+  with_ <- with(hat_beta_0, fitted.values * (1 - fitted.values))
 
   steinian_sum <- 0
   for (obs in 1:data_$obs_n) {
@@ -205,18 +201,14 @@ steinian_estimate <- function(data_,
       family = data_$fit_fam
     )$coefficients
 
+
     steinian_sum <- steinian_sum +
-      hat_mu_0[obs] *
-        (1 - hat_mu_0)[obs] *
-        (2 * data_$comb_x[obs, 1] - 1) *
-        (lambda_function(discrepancy_function)(
-          data_$comb_x[obs, ], hat_tau_beta, data_$reg_type) -
-          lambda_function(discrepancy_function)(
-            data_$comb_x[obs, ], trigangle_hat_tau_beta, data_$reg_type)
-        )
+      with_[obs] * (2*data_$comb_y[obs] -1) * (tcrossprod(
+        as.matrix(data_$comb_x[obs, ]), as.matrix(beta_tau$coefficient - trigangle_hat_tau_beta)[-1])+(
+          beta_tau$coefficient - trigangle_hat_tau_beta)[1])
   }
 
-  return(D + steinian_sum / data_$obs_n)
+  return(D + steinian_sum)
 }
 
 mallows_estimate <- function(data_,
@@ -270,21 +262,20 @@ H_matrix <- function(X, X_star, tau, M, n) {
 cross_validation <- function(data_,
                              tau,
                              discrepancy_function = "square_error",
-                             tau_0 = 1,
                              cv_fold_num = 5,
                              ...) {
   error_sum <- 0
-
+  random_sample <- sample(1:data_$obs_n)
   for (fold in 1:cv_fold_num) {
-    test_x <- data_$obs_x[(nrow(data_$obs_x) * (fold - 1) / cv_fold_num + 1):
-    (nrow(data_$obs_x) * fold / cv_fold_num), ]
-    test_y <- data_$obs_y[(nrow(data_$obs_x) * (fold - 1) / cv_fold_num + 1):
-    (nrow(data_$obs_x) * fold / cv_fold_num)]
+    test_x <- data_$obs_x[random_sample[(data_$obs_n * (fold - 1) / cv_fold_num + 1):
+                                          (data_$obs_n * fold / cv_fold_num)], ]
+    test_y <- data_$obs_y[random_sample[(data_$obs_n * (fold - 1) / cv_fold_num + 1):
+                                          (data_$obs_n * fold / cv_fold_num)]]
 
-    train_x <- data_$obs_x[-(nrow(data_$obs_x) * (fold - 1) / cv_fold_num + 1):
-    -(nrow(data_$obs_x) * fold / cv_fold_num), ]
-    train_y <- data_$obs_y[-(nrow(data_$obs_x) * (fold - 1) / cv_fold_num + 1):
-    -(nrow(data_$obs_x) * fold / cv_fold_num)]
+    train_x <- data_$obs_x[-random_sample[(data_$obs_n * (fold - 1) / cv_fold_num + 1):
+                                            (data_$obs_n * fold / cv_fold_num)], ]
+    train_y <- data_$obs_y[-random_sample[(data_$obs_n * (fold - 1) / cv_fold_num + 1):
+                                            (data_$obs_n * fold / cv_fold_num)]]
 
     estimate_beta <- fit(rbind(train_x, data_$syn_x),
                          c(train_y, data_$syn_y),
