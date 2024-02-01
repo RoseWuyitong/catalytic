@@ -56,11 +56,11 @@ data_ <- initialization(obs_x, obs_y, synthetic_response_generation_family="bino
 The synthetic covariate and response will be generated after initialization:
 
 ```{r initialization data_$syn_x}
-data_$syn_x
+head(data_$syn_x)
 ```
 
 ```{r initialization data_$syn_y}
-data_$syn_y
+head(data_$syn_y)
 ```
 And all the information:
 
