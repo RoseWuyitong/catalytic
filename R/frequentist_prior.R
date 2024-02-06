@@ -30,7 +30,7 @@ frequentist_prior <-
           weights = c(rep(1, data_$obs_n), rep(taus / data_$syn_n, data_$syn_n)),
           family = data_$fit_fam
         )$coefficients,
-        "taus" = taus,
+        "tau" = taus,
         "risk" = NA
       ))))
 
@@ -267,7 +267,6 @@ mallows_estimate <- function(data_,
 H_matrix <- function(X, X_star, tau, M, n) {
   X <- as.matrix(X)
   X_star <- as.matrix(X_star)
-  Y <- as.matrix(Y)
   return(X %*% (
     (t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))^(-1)) %*% (
     t(X) + tau / (M * n) * t(X_star) %*% rep(1, M) %*% t(rep(1, n))

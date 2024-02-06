@@ -52,7 +52,11 @@ obs_x <- matrix(rnorm(N * p), N, p)
 obs_y <- rbinom(N, 1, stats::plogis(obs_x %*% beta_true[-1] + beta_true[1]))
 
 ## Initialization
-data_ <- initialization(obs_x, obs_y, synthetic_response_generation_family = "binomial", regression_type = "logistic")
+data_ <- initialization(obs_x,
+  obs_y,
+  synthetic_response_generation_family = "binomial",
+  regression_type = "logistic"
+)
 ```
 
 The synthetic covariate and response will be generated after initialization:

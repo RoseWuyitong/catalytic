@@ -8,7 +8,7 @@
 
 The goal of catalytic is to build framework for catalytic prior
 distributions, as proposed in the paper “Catalytic prior distributions
-with application to generalized linear models” by Huang et al. The goal
+with application to generalized linear models” by Huang et al. The goal
 is to stabilize high-dimensional working models by shrinking them
 towards simplified models. This is achieved by supplementing observed
 data with weighted synthetic data generated from a predictive
@@ -47,7 +47,11 @@ obs_x <- matrix(rnorm(N * p), N, p)
 obs_y <- rbinom(N, 1, stats::plogis(obs_x %*% beta_true[-1] + beta_true[1]))
 
 ## Initialization
-data_ <- initialization(obs_x, obs_y, synthetic_response_generation_family = "binomial", regression_type = "logistic")
+data_ <- initialization(obs_x,
+  obs_y,
+  synthetic_response_generation_family = "binomial",
+  regression_type = "logistic"
+)
 #> generating synthetic covariate
 #> Column 1 is processing
 #> Column 2 is processing
@@ -122,8 +126,8 @@ data_ <- frequentist_prior(data_,
 data_ <- bayesian_hyperpriors(data_)
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
 #> Chain 1: 
-#> Chain 1: Gradient evaluation took 3.4e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.34 seconds.
+#> Chain 1: Gradient evaluation took 4.3e-05 seconds
+#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.43 seconds.
 #> Chain 1: Adjust your expectations accordingly!
 #> Chain 1: 
 #> Chain 1: 
@@ -140,9 +144,9 @@ data_ <- bayesian_hyperpriors(data_)
 #> Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
 #> Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
 #> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.491 seconds (Warm-up)
-#> Chain 1:                0.393 seconds (Sampling)
-#> Chain 1:                0.884 seconds (Total)
+#> Chain 1:  Elapsed Time: 0.497 seconds (Warm-up)
+#> Chain 1:                0.382 seconds (Sampling)
+#> Chain 1:                0.879 seconds (Total)
 #> Chain 1: 
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
@@ -165,15 +169,15 @@ data_ <- bayesian_hyperpriors(data_)
 #> Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
 #> Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
 #> Chain 2: 
-#> Chain 2:  Elapsed Time: 0.469 seconds (Warm-up)
-#> Chain 2:                0.435 seconds (Sampling)
-#> Chain 2:                0.904 seconds (Total)
+#> Chain 2:  Elapsed Time: 0.448 seconds (Warm-up)
+#> Chain 2:                0.425 seconds (Sampling)
+#> Chain 2:                0.873 seconds (Total)
 #> Chain 2: 
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
 #> Chain 3: 
-#> Chain 3: Gradient evaluation took 1.8e-05 seconds
-#> Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.18 seconds.
+#> Chain 3: Gradient evaluation took 1.6e-05 seconds
+#> Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.16 seconds.
 #> Chain 3: Adjust your expectations accordingly!
 #> Chain 3: 
 #> Chain 3: 
@@ -190,9 +194,9 @@ data_ <- bayesian_hyperpriors(data_)
 #> Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
 #> Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
 #> Chain 3: 
-#> Chain 3:  Elapsed Time: 0.473 seconds (Warm-up)
-#> Chain 3:                0.309 seconds (Sampling)
-#> Chain 3:                0.782 seconds (Total)
+#> Chain 3:  Elapsed Time: 0.468 seconds (Warm-up)
+#> Chain 3:                0.302 seconds (Sampling)
+#> Chain 3:                0.77 seconds (Total)
 #> Chain 3: 
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
@@ -215,9 +219,9 @@ data_ <- bayesian_hyperpriors(data_)
 #> Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
 #> Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
 #> Chain 4: 
-#> Chain 4:  Elapsed Time: 0.492 seconds (Warm-up)
-#> Chain 4:                0.447 seconds (Sampling)
-#> Chain 4:                0.939 seconds (Total)
+#> Chain 4:  Elapsed Time: 0.488 seconds (Warm-up)
+#> Chain 4:                0.443 seconds (Sampling)
+#> Chain 4:                0.931 seconds (Total)
 #> Chain 4:
 
 data_ <- bayesian_hyperpriors(data_,
@@ -228,8 +232,8 @@ data_ <- bayesian_hyperpriors(data_,
 )
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
 #> Chain 1: 
-#> Chain 1: Gradient evaluation took 3.6e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.36 seconds.
+#> Chain 1: Gradient evaluation took 4.3e-05 seconds
+#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.43 seconds.
 #> Chain 1: Adjust your expectations accordingly!
 #> Chain 1: 
 #> Chain 1: 
@@ -255,8 +259,8 @@ data_ <- bayesian_hyperpriors(data_,
 #> Chain 1: Iteration: 500 / 500 [100%]  (Sampling)
 #> Chain 1: 
 #> Chain 1:  Elapsed Time: 0.017 seconds (Warm-up)
-#> Chain 1:                0.056 seconds (Sampling)
-#> Chain 1:                0.073 seconds (Total)
+#> Chain 1:                0.057 seconds (Sampling)
+#> Chain 1:                0.074 seconds (Total)
 #> Chain 1: 
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
@@ -337,7 +341,7 @@ data_$est_beta
 #>          V6          V7          V8          V9         V10 
 #> -0.27720667  0.60650005 -0.89820432  0.80758469  0.87946610 
 #> 
-#> [[1]]$taus
+#> [[1]]$tau
 #> [1] 10
 #> 
 #> [[1]]$risk
@@ -391,32 +395,20 @@ data_$est_beta
 #> [1] "bayesian: joint = FALSE ; tau =  2.5 ; chains =  4 ; iter =  2000 ; warmup =  1000"
 #> 
 #> [[4]]$beta_median
-#>  [1]  0.4017043  2.6774610  1.5247548 -2.2613643  2.5360893 -1.8316026
-#>  [7]  4.1066374 -4.0810769  4.6537178  5.0941590
+#>  [1] -0.5839221  0.4017043  2.6774610  1.5247548 -2.2613643  2.5360893
+#>  [7] -1.8316026  4.1066374 -4.0810769  4.6537178  5.0941590
 #> 
 #> [[4]]$beta_lower_iqr
-#>  [1] -2.3292451 -1.9558797 -1.3093614 -6.5748463 -1.1065238 -5.9512497
-#>  [7]  0.8337115 -9.2513612  1.7071399  1.9488505
+#>  [1] -4.4242926 -2.3292451 -1.9558797 -1.3093614 -6.5748463 -1.1065238
+#>  [7] -5.9512497  0.8337115 -9.2513612  1.7071399  1.9488505
 #> 
 #> [[4]]$beta_higher_iqr
-#>  [1]  3.4379749  8.3313037  4.8645181  0.9481895  8.1907729  1.2991286
-#>  [7]  9.0214365 -0.5624854  9.2656509 10.2523937
+#>  [1]  2.7886719  3.4379749  8.3313037  4.8645181  0.9481895  8.1907729
+#>  [7]  1.2991286  9.0214365 -0.5624854  9.2656509 10.2523937
 #> 
 #> [[4]]$beta_mean
-#>  [1]  0.443834  2.784132  1.583725 -2.392700  2.778007 -1.957504  4.323497
-#>  [8] -4.292634  4.886253  5.356910
-#> 
-#> [[4]]$tau_median
-#> [1] -0.5839221
-#> 
-#> [[4]]$tau_lower_iqr
-#> [1] -4.424293
-#> 
-#> [[4]]$tau_higher_iqr
-#> [1] 2.788672
-#> 
-#> [[4]]$tau_mean
-#> [1] -0.6313193
+#>  [1] -0.6313193  0.4438340  2.7841319  1.5837247 -2.3927004  2.7780074
+#>  [7] -1.9575045  4.3234972 -4.2926342  4.8862528  5.3569101
 #> 
 #> [[4]]$rhat_pass
 #> [1] "PASS"
@@ -455,7 +447,7 @@ data_$est_beta
 #> beta[11]   5.36    0.04 2.12   1.95   3.83   5.09   6.60 10.25  2308    1
 #> lp__     -14.59    0.09 3.03 -21.20 -16.42 -14.21 -12.34 -9.86  1070    1
 #> 
-#> Samples were drawn using HMC(diag_e) at Tue Feb  6 11:08:14 2024.
+#> Samples were drawn using HMC(diag_e) at Tue Feb  6 13:14:58 2024.
 #> For each parameter, n_eff is a crude measure of effective sample size,
 #> and Rhat is the potential scale reduction factor on split chains (at 
 #> convergence, Rhat=1).
@@ -466,24 +458,32 @@ data_$est_beta
 #> [1] "bayesian: joint = TRUE ; tau =   ; chains =  3 ; iter =  500 ; warmup =  100"
 #> 
 #> [[5]]$beta_median
-#>  [1]   0.006524268 -21.244721606  15.412801333  77.130105192  30.838857630
-#>  [6] -35.982668060  52.577153789 -47.098517879 131.661832411 -62.605142402
-#> [11] 112.158469210 135.556242992
+#>  [1] -21.24472  15.41280  77.13011  30.83886 -35.98267  52.57715 -47.09852
+#>  [8] 131.66183 -62.60514 112.15847 135.55624
 #> 
 #> [[5]]$beta_lower_iqr
-#>  [1]  4.225685e-04 -8.032600e+01 -3.255176e+01 -1.733734e+01 -1.684637e+01
-#>  [6] -7.671598e+01 -1.281618e+01 -9.531378e+01  5.543255e+01 -1.452628e+02
-#> [11]  4.979661e+01  4.514558e+01
+#>  [1]  -80.32600  -32.55176  -17.33734  -16.84637  -76.71598  -12.81618
+#>  [7]  -95.31378   55.43255 -145.26279   49.79661   45.14558
 #> 
 #> [[5]]$beta_higher_iqr
-#>  [1]   0.04168677  21.56830411  60.01653206 151.23142188  95.74278053
-#>  [6]  29.58786157 106.63506719  -7.00188762 208.52815032 -18.17658208
-#> [11] 229.12107777 203.54817846
+#>  [1]  21.568304  60.016532 151.231422  95.742781  29.587862 106.635067
+#>  [7]  -7.001888 208.528150 -18.176582 229.121078 203.548178
 #> 
 #> [[5]]$beta_mean
-#>  [1]   0.01047889 -22.57973224  14.07313594  74.29929655  31.73075381
-#>  [6] -30.78463306  49.80320882 -48.88333408 135.96471895 -67.32547667
-#> [11] 122.08430916 131.37422168
+#>  [1] -22.57973  14.07314  74.29930  31.73075 -30.78463  49.80321 -48.88333
+#>  [8] 135.96472 -67.32548 122.08431 131.37422
+#> 
+#> [[5]]$tau_median
+#> [1] 0.006524268
+#> 
+#> [[5]]$tau_lower_iqr
+#> [1] 0.0004225685
+#> 
+#> [[5]]$tau_higher_iqr
+#> [1] 0.04168677
+#> 
+#> [[5]]$tau_mean
+#> [1] 0.01047889
 #> 
 #> [[5]]$rhat_pass
 #> [1] "FAIL"
@@ -523,7 +523,7 @@ data_$est_beta
 #> beta[11] 131.37   14.83 43.55   45.15 104.60 135.56 163.31 203.55     9 1.65
 #> lp__      -6.32    0.07  0.86   -8.57  -6.63  -6.12  -5.79  -5.21   176 1.01
 #> 
-#> Samples were drawn using HMC(diag_e) at Tue Feb  6 11:08:35 2024.
+#> Samples were drawn using HMC(diag_e) at Tue Feb  6 13:15:19 2024.
 #> For each parameter, n_eff is a crude measure of effective sample size,
 #> and Rhat is the potential scale reduction factor on split chains (at 
 #> convergence, Rhat=1).
