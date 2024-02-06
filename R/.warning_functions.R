@@ -17,3 +17,10 @@
 .not_single_str_stop <- function(obj, suggestion) {
   if (!is.character(obj) | length(obj) != 1) stop(suggestion)
 }
+
+.large_number_ask <- function(num1, threshold, question, stop_ans) {
+  if (num1 > threshold) {
+    user_input <- readline(prompt = question)
+    if (identical(user_input, stop_ans)) stop("program stop")
+  }
+}

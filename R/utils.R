@@ -44,8 +44,7 @@ lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
     "square_error" = function(X, beta, reg_type, ...) 2 * reg_mean(reg_type)(X, beta),
     "classification_error" = function(X, beta, reg_type, ...) 2 * reg_mean(reg_type)(X, beta),
-    "logistic_deviance" = function(X, beta, reg_type="logistic", ...) matrix_multiply(X, beta)
-
+    "logistic_deviance" = function(X, beta, reg_type = "logistic", ...) matrix_multiply(X, beta)
   )
 }
 
@@ -108,7 +107,6 @@ fit <- function(x,
                 weights = NULL,
                 method = "mle",
                 family = "gaussian") {
-
   switch(method,
     "mle" = if (identical(x, 1)) {
       stats::glm(y ~ 1, family = family, weights = weights)
@@ -174,8 +172,8 @@ discrepancy_functions <- function(discrepancy_function) {
     "square_error" = function(x, y, beta, reg_type) (y - reg_mean(reg_type)(x, beta))^2,
     "classification_error" = function(x, y, beta, reg_type) as.numeric(y == reg_mean(reg_type)(x, beta)),
     "logistic_deviance" = function(x, y, beta, reg_type) log_density(reg_type)(x, y, beta)
-      )
-    }
+  )
+}
 
 
 lambda_function <- function(discrepancy_function) {
@@ -183,6 +181,34 @@ lambda_function <- function(discrepancy_function) {
     "square_error" = function(X, beta, reg_type) 2 * reg_mean(reg_type)(X, beta),
     "classification_error" = function(X, beta, reg_type) 2 * reg_mean(reg_type)(X, beta),
     "logistic_deviance" = function(X, beta, reg_type) matrix_multiply(X, beta)
+  )
+}
 
-      )
-    }
+gelman_rubin_statistic <- function(rstan_model, rhat_threhold = 0.01) {
+  if (all(
+    abs(
+      head(
+        rstan::summary(rstan_model)$summary[, "Rhat"], -1
+      ) - 1
+    ) < rhat_threhold
+  )) {
+    return("PASS")
+  }
+
+  warning("Burn-in//warm up times are not large enought.")
+  return("FAIL")
+}
+
+
+effective_sample_size <- function(rstan_model, ess_threhold = 100) {
+  if (all(
+    head(
+      rstan::summary(rstan_model)$summary[, "n_eff"], -1
+    ) > ess_threhold
+  )) {
+    return("PASS")
+  }
+
+  warning("Iteration times are not large enought.")
+  return("FAIL")
+}

@@ -32,7 +32,6 @@ frequentist_prior <-
         )$coefficients,
         "taus" = taus,
         "risk" = NA
-
       ))))
 
       return(data_)
@@ -42,17 +41,20 @@ frequentist_prior <-
     risk_estimate_collect <- c()
     optimal_tau <- Inf
     for (tau in taus) {
-      risk_estimate_collect <- append(risk_estimate_collect,
-                                      do.call(
-        risk_estimate_method,
-        list(
-          data_ = data_,
-          tau = tau,
-          discrepancy_function = discrepancy_function,
-          tau_0 = tau_0,
-          bootstrap_iteration_times = bootstrap_iteration_times,
-          cv_fold_num = cv_fold_num
-        )))
+      risk_estimate_collect <- append(
+        risk_estimate_collect,
+        do.call(
+          risk_estimate_method,
+          list(
+            data_ = data_,
+            tau = tau,
+            discrepancy_function = discrepancy_function,
+            tau_0 = tau_0,
+            bootstrap_iteration_times = bootstrap_iteration_times,
+            cv_fold_num = cv_fold_num
+          )
+        )
+      )
     }
     optimal_tau <- taus[which.min(risk_estimate_collect)]
     data_$est_beta <- unique(append(data_$est_beta, list(list(
@@ -67,10 +69,9 @@ frequentist_prior <-
         "; tau 0 = ",
         tau_0,
         "; cv fold num = ",
-        cv_fold_num,
-        "; optimal tau = ",
-        optimal_tau
+        cv_fold_num
       ),
+      "optimal_tau" = optimal_tau,
       "beta" = fit(data_$comb_x,
         data_$comb_y,
         weights = c(rep(1, data_$obs_n), rep(optimal_tau / data_$syn_n, data_$syn_n)),
@@ -91,9 +92,16 @@ parametric_bootstrap <- function(data_,
                                  bootstrap_iteration_times = 100,
                                  ...) {
   .large_number_warning(
-    data_$syn_n,
+    data_$obs_n,
     100,
-    "Number of synthetic data is large, suggest use cross-validation."
+    "Number of observation data is large, suggest use cross-validation."
+  )
+
+  .large_number_ask(
+    data_$obs_n,
+    150,
+    "The number of observation data is too large, do you want to continue? y/n",
+    "n"
   )
 
   beta_tau <- fit(data_$comb_x,
@@ -157,9 +165,16 @@ steinian_estimate <- function(data_,
                               tau_0 = 1,
                               ...) {
   .large_number_warning(
-    data_$syn_n,
+    data_$obs_n,
     50,
-    "Number of synthetic data is large, suggest use cross-validation\\parametric_bootstrap."
+    "Number of observation data is large, suggest use cross-validation\\parametric_bootstrap."
+  )
+
+  .large_number_ask(
+    data_$obs_n,
+    100,
+    "The number of observation data is too large, do you want to continue? y/n",
+    "n"
   )
 
   .not_same_stop(
@@ -203,9 +218,10 @@ steinian_estimate <- function(data_,
 
 
     steinian_sum <- steinian_sum +
-      with_[obs] * (2*data_$comb_y[obs] -1) * (tcrossprod(
-        as.matrix(data_$comb_x[obs, ]), as.matrix(beta_tau$coefficient - trigangle_hat_tau_beta)[-1])+(
-          beta_tau$coefficient - trigangle_hat_tau_beta)[1])
+      with_[obs] * (2 * data_$comb_y[obs] - 1) * (tcrossprod(
+        as.matrix(data_$comb_x[obs, ]), as.matrix(beta_tau$coefficient - trigangle_hat_tau_beta)[-1]
+      ) + (
+        beta_tau$coefficient - trigangle_hat_tau_beta)[1])
   }
 
   return(D + steinian_sum)
@@ -252,10 +268,10 @@ H_matrix <- function(X, X_star, tau, M, n) {
   X <- as.matrix(X)
   X_star <- as.matrix(X_star)
   Y <- as.matrix(Y)
-  return(X%*%(
-    (t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))^(-1))%*%(
-      t(X)+tau/(M*n)*t(X_star)%*%rep(1, M)%*%t(rep(1, n))
-    ))
+  return(X %*% (
+    (t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))^(-1)) %*% (
+    t(X) + tau / (M * n) * t(X_star) %*% rep(1, M) %*% t(rep(1, n))
+  ))
 }
 
 
@@ -268,19 +284,20 @@ cross_validation <- function(data_,
   random_sample <- sample(1:data_$obs_n)
   for (fold in 1:cv_fold_num) {
     test_x <- data_$obs_x[random_sample[(data_$obs_n * (fold - 1) / cv_fold_num + 1):
-                                          (data_$obs_n * fold / cv_fold_num)], ]
+    (data_$obs_n * fold / cv_fold_num)], ]
     test_y <- data_$obs_y[random_sample[(data_$obs_n * (fold - 1) / cv_fold_num + 1):
-                                          (data_$obs_n * fold / cv_fold_num)]]
+    (data_$obs_n * fold / cv_fold_num)]]
 
     train_x <- data_$obs_x[-random_sample[(data_$obs_n * (fold - 1) / cv_fold_num + 1):
-                                            (data_$obs_n * fold / cv_fold_num)], ]
+    (data_$obs_n * fold / cv_fold_num)], ]
     train_y <- data_$obs_y[-random_sample[(data_$obs_n * (fold - 1) / cv_fold_num + 1):
-                                            (data_$obs_n * fold / cv_fold_num)]]
+    (data_$obs_n * fold / cv_fold_num)]]
 
     estimate_beta <- fit(rbind(train_x, data_$syn_x),
-                         c(train_y, data_$syn_y),
-                         weights = c(rep(1, nrow(train_x)), rep(tau/data_$syn_n, data_$syn_n)),
-                         family = data_$fit_fam)$coefficients
+      c(train_y, data_$syn_y),
+      weights = c(rep(1, nrow(train_x)), rep(tau / data_$syn_n, data_$syn_n)),
+      family = data_$fit_fam
+    )$coefficients
 
     error_sum <- error_sum + mean(discrepancy_functions(discrepancy_function)(
       test_x,
