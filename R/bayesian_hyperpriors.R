@@ -11,9 +11,7 @@ bayesian_hyperpriors <- function(data_,
     "Not all necessary variables are present in data_."
   )
 
-  if (is.null(tau) & !joint) {
-    tau <- data_$x_col_n / 4
-  }
+  if (is.null(tau) & !joint) tau <- data_$x_col_n / 4
 
   if (is.null(data_$est_beta)) data_$est_beta <- list()
 
@@ -39,9 +37,8 @@ bayesian_hyperpriors <- function(data_,
     warmup = warmup,
     algorithm = mcmc_algorithm
   )
-
-  data_$est_beta <- if (joint) {
-    unique(append(data_$est_beta, list(list(
+  data_$est_beta <- unique(append(data_$est_beta, list(c(
+    list(
       "method" = paste(
         "bayesian:",
         "joint =",
@@ -55,46 +52,32 @@ bayesian_hyperpriors <- function(data_,
         "; warmup = ",
         warmup
       ),
-      "beta_median" = as.numeric(head(rstan::summary(rstan_model)$summary[, "50%"][-1], -1)),
-      "beta_lower_iqr" = as.numeric(head(rstan::summary(rstan_model)$summary[, "2.5%"][-1], -1)),
-      "beta_higher_iqr" = as.numeric(head(rstan::summary(rstan_model)$summary[, "97.5%"][-1], -1)),
-      "beta_mean" = as.numeric(head(rstan::summary(rstan_model)$summary[, "mean"][-1], -1)),
-      "tau_median" = as.numeric(rstan::summary(rstan_model)$summary[, "50%"][1]),
-      "tau_lower_iqr" = as.numeric(rstan::summary(rstan_model)$summary[, "2.5%"][1]),
-      "tau_higher_iqr" = as.numeric(rstan::summary(rstan_model)$summary[, "97.5%"][1]),
-      "tau_mean" = as.numeric(rstan::summary(rstan_model)$summary[, "mean"][1]),
       "rhat_pass" = gelman_rubin_statistic(rstan_model),
       "ess_pass" = effective_sample_size(rstan_model),
       "rhat" = head(rstan::summary(rstan_model)$summary[, "Rhat"], -1),
       "ess" = head(rstan::summary(rstan_model)$summary[, "n_eff"], -1),
       "model" = rstan_model
-    ))))
-  } else {
-    unique(append(data_$est_beta, list(list(
-      "method" = paste(
-        "bayesian:",
-        "joint =",
-        joint,
-        "; tau = ",
-        tau,
-        "; chains = ",
-        chains,
-        "; iter = ",
-        iter,
-        "; warmup = ",
-        warmup
-      ),
-      "beta_median" = as.numeric(head(rstan::summary(rstan_model)$summary[, "50%"], -1)),
-      "beta_lower_iqr" = as.numeric(head(rstan::summary(rstan_model)$summary[, "2.5%"], -1)),
-      "beta_higher_iqr" = as.numeric(head(rstan::summary(rstan_model)$summary[, "97.5%"], -1)),
-      "beta_mean" = as.numeric(head(rstan::summary(rstan_model)$summary[, "mean"], -1)),
-      "rhat_pass" = gelman_rubin_statistic(rstan_model),
-      "ess_pass" = effective_sample_size(rstan_model),
-      "rhat" = head(rstan::summary(rstan_model)$summary[, "Rhat"], -1),
-      "ess" = head(rstan::summary(rstan_model)$summary[, "n_eff"], -1),
-      "model" = rstan_model
-    ))))
-  }
+    ),
+    if (joint) {
+      list(
+        "beta_median" = as.numeric(head(rstan::summary(rstan_model)$summary[, "50%"][-1], -1)),
+        "beta_lower_iqr" = as.numeric(head(rstan::summary(rstan_model)$summary[, "2.5%"][-1], -1)),
+        "beta_higher_iqr" = as.numeric(head(rstan::summary(rstan_model)$summary[, "97.5%"][-1], -1)),
+        "beta_mean" = as.numeric(head(rstan::summary(rstan_model)$summary[, "mean"][-1], -1)),
+        "tau_median" = as.numeric(rstan::summary(rstan_model)$summary[, "50%"][1]),
+        "tau_lower_iqr" = as.numeric(rstan::summary(rstan_model)$summary[, "2.5%"][1]),
+        "tau_higher_iqr" = as.numeric(rstan::summary(rstan_model)$summary[, "97.5%"][1]),
+        "tau_mean" = as.numeric(rstan::summary(rstan_model)$summary[, "mean"][1])
+      )
+    } else {
+      list(
+        "beta_median" = as.numeric(head(rstan::summary(rstan_model)$summary[, "50%"], -1)),
+        "beta_lower_iqr" = as.numeric(head(rstan::summary(rstan_model)$summary[, "2.5%"], -1)),
+        "beta_higher_iqr" = as.numeric(head(rstan::summary(rstan_model)$summary[, "97.5%"], -1)),
+        "beta_mean" = as.numeric(head(rstan::summary(rstan_model)$summary[, "mean"], -1))
+      )
+    }
+  ))))
 
 
   return(data_)

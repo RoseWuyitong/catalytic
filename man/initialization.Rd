@@ -36,11 +36,14 @@ Object contains all the information for further process.
 Initialize catalytic related data
 }
 \examples{
-initialization(matrix(1:9, nrow = 3),
-c(1, 2, 3))
+initialization(
+  matrix(1:9, nrow = 3),
+  c(1, 2, 3)
+)
 
-initialization(matrix(1:9, nrow=3),
-c(1, 0, 1),
-synthetic_response_generation_family="binomial",
-regression_type="logistic")
+initialization(matrix(1:9, nrow = 3),
+  c(1, 0, 1),
+  synthetic_response_generation_family = "binomial",
+  regression_type = "logistic"
+)
 }

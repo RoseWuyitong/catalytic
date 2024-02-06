@@ -17,6 +17,7 @@ model {
   vector[obs_n] obs_mu = beta[1] + obs_x * beta[2:(x_col_n+1)];
   vector[syn_n] syn_mu = beta[1] + syn_x * beta[2:(x_col_n+1)];
   real syn_weight = tau/syn_n;
+
   // Likelihood
   for (i in 1:obs_n)
     target += bernoulli_logit_lpmf(obs_y[i] | obs_mu[i]);
