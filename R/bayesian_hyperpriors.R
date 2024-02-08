@@ -4,7 +4,9 @@ bayesian_hyperpriors <- function(data_,
                                  chains = 4,
                                  iter = 2000,
                                  warmup = 1000,
-                                 mcmc_algorithm = "HMC") {
+                                 mcmc_algorithm = "HMC",
+                                 joint_alpha = 2,
+                                 joint_gamma = 1) {
   .not_in_stop(
     c("comb_y", "comb_x", "obs_n", "syn_n", "fit_fam", "obs_x", "obs_y", "reg_type", "x_col_n"),
     names(data_),
@@ -30,7 +32,15 @@ bayesian_hyperpriors <- function(data_,
       obs_y = data_$obs_y,
       syn_x = data_$syn_x,
       syn_y = data_$syn_y,
-      tau = tau
+      tau = tau,
+      kappa = log_density(data_$reg_type)(data_$syn_x,
+                                          data_$syn_y,
+                                          fit(data_$syn_x,
+                                              data_$syn_y,
+                                              family=data_$fit_fam)$coefficients,
+                                          weights=1/data_$syn_n),
+      alpha = joint_alpha,
+      gamma = joint_gamma
     ),
     chains = chains,
     iter = iter,
@@ -78,7 +88,6 @@ bayesian_hyperpriors <- function(data_,
       )
     }
   ))))
-
 
   return(data_)
 }

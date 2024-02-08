@@ -6,6 +6,9 @@ data {
   matrix[syn_n, x_col_n] syn_x;
   vector[obs_n] obs_y;
   vector[syn_n] syn_y;
+  real kappa;
+  real alpha;
+  real gamma;
 }
 
 parameters {
@@ -27,4 +30,6 @@ model {
   // Catalytic prior
   for (i in 1:syn_n)
       target += syn_weight * normal_lpdf(syn_y[i] | syn_mu[i], syn_sigma);
+
+  target += (tau ^ ((x_col_n+alpha)/2-1))*exp(-tau*(kappa+gamma^-1));
 }

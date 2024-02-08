@@ -6,6 +6,9 @@ data {
   matrix[syn_n, x_col_n] syn_x;
   int<lower=0,upper=1> obs_y[obs_n];
   int<lower=0,upper=1> syn_y[syn_n];
+  real kappa;
+  real alpha;
+  real gamma;
 }
 
 parameters {
@@ -25,4 +28,6 @@ model {
   // Catalytic prior
   for (i in 1:syn_n)
       target += syn_weight * bernoulli_logit_lpmf(syn_y[i] | syn_mu[i]);
+
+  target += (tau ^ (x_col_n+alpha-1))*exp(-tau*(kappa+gamma^-1));
 }
