@@ -1,0 +1,32 @@
+---
+title: "How to Use the catalytic Package"
+author: "Huang Dongming and Wu Yitong"
+date: "2024-02-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This vignette provides an _overview_ of how to use the functions in the 
+__catalytic__ package that focuses on commonalities. The other __catalytic__ 
+vignettes go into the particularities of each of the individual model-estimating
+functions.
+
+The goal of the __catalytic__ package is to build framework for catalytic prior distributions, as proposed in the paper "Catalytic prior distributions with application to generalized linear models" by Huang et al. Stabilizing high-dimensional working models by shrinking them towards simplified models. This is achieved by supplementing observed data with weighted synthetic data generated from a predictive distribution under the simpler model.
+
+
+# Step 1:
+
+```{r catalytic-mle, eval=TRUE}
+swim_data <- readRDS("~/catalytic/data/swim_data.rds")
+
+swim_glm_1 <- glm(emp1y ~ ., data = swim_data, family = binomial(link = "logit"))
+
+head(coef(summary(swim_glm_1)))
+```
+
+# Step 2:

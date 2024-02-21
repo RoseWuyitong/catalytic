@@ -1,50 +1,57 @@
-log_density <- function(regression_type) {
-  switch(regression_type,
-    "logistic" = function(X, Y, beta, weights = FALSE, ...) {
-      theta <- matrix_multiply(X, beta)
+log_density <- function(family) {
+  switch(family,
+    "binomial" = function(X, Y, model, weights = FALSE, ...) {
+      theta <- matrix_multiply(X, model$coefficients)
       if (isFALSE(weights)) {
         return(-sum(theta * Y - log(1 + exp(theta))))
       } else {
-        return(-sum(weights * (theta * Y - log(1 + exp(theta)))))
+        return(-weights * sum(theta * Y - log(1 + exp(theta))))
       }
     },
-    "linear" = function(X, Y, beta, weights = FALSE, ...) {
-      theta <- matrix_multiply(X, beta)
+    "gaussian" = function(X, Y, model, weights = FALSE, ...) {
+      theta <- matrix_multiply(X, model$coefficients)
       if (isFALSE(weights)) {
-        return(sum(theta * Y - log(theta)))
+        return(- 0.5 * (1+log(2*pi*var(model$residuals))))
       } else {
-        return(sum(weights * (theta * Y - log(theta))))
+        return(- 0.5 * weights * (1+log(2*pi*var(model$residuals)))) # TODO: check
       }
     }
   )
 }
 
-reg_mean <- function(regression_type) {
-  switch(regression_type,
-    "logistic" = function(X, beta, ...) 1 / (1 + exp(-matrix_multiply(X, beta))),
-    "linear" = function(X, beta, ...) matrix_multiply(X, beta),
+fam_mean <- function(family) {
+  switch(family,
+    "binomial" = function(X, beta, ...) 1 / (1 + exp(-matrix_multiply(X, beta))),
+    "gaussian" = function(X, beta, ...) matrix_multiply(X, beta),
     stop("please enter right regression type.")
   )
 }
 
-y_value <- function(regression_type) {
-  switch(regression_type,
-    "logistic" = function(X, beta, ...) {
+y_value <- function(family) {
+  switch(family,
+    "binomial" = function(X, model) {
       generate_data_from_dist(
         "binomial",
         nrow(X),
-        reg_mean("logistic")(X, beta)
+        fam_mean("binomial")(X, model$coefficients)
       )
     },
-    "linear" = function(X, beta, ...) reg_mean("linear")(X, beta)
+    "gaussian" = function(X, model) {
+      generate_data_from_dist(
+        "gaussian",
+        nrow(X),
+        fam_mean("gaussian")(X, model$coefficients),
+        sqrt(sum(model$residuals^2) / model$df.residual) # TODO: check
+      )
+    }
   )
 }
 
 lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
-    "square_error" = function(X, beta, reg_type, ...) 2 * reg_mean(reg_type)(X, beta),
-    "classification_error" = function(X, beta, reg_type, ...) 2 * reg_mean(reg_type)(X, beta),
-    "logistic_deviance" = function(X, beta, reg_type = "logistic", ...) matrix_multiply(X, beta)
+    "square_error" = function(X, beta, family, ...) 2 * fam_mean(family)(X, beta),
+    "classification_error" = function(X, beta, family, ...) 2 * fam_mean(family)(X, beta),
+    "logistic_deviance" = function(X, beta, family = "binomial", ...) matrix_multiply(X, beta)
   )
 }
 
@@ -95,12 +102,6 @@ adjust_data_type <- function(X) {
   return(X)
 }
 
-is_continuous <- function(lst) {
-  if (is.numeric(lst) & length(unique(lst)) > 2) {
-    return(TRUE)
-  }
-  return(FALSE)
-}
 
 fit <- function(x,
                 y,
@@ -163,24 +164,24 @@ generate_data_from_dist <- function(generate_dist = "gaussian",
 
 discrepancy_functions <- function(discrepancy_function) {
   switch(discrepancy_function,
-    "logarithmic" = function(x, y, beta, reg_type) {
+    "logarithmic" = function(x, y, beta, family) {
       # cap the value between 0.0001 and 0.9999 for better calculation process
-      x_cap <- pmax(0.0001, pmin(0.9999, reg_mean(reg_type)(x, beta)))
+      x_cap <- pmax(0.0001, pmin(0.9999, fam_mean(family)(x, beta)))
       y_cap <- pmax(0.0001, pmin(0.9999, y))
       x * log(x_cap / y_cap) + (1 - x) * log((1 - x_cap) / (1 - y_cap))
     },
-    "square_error" = function(x, y, beta, reg_type) (y - reg_mean(reg_type)(x, beta))^2,
-    "classification_error" = function(x, y, beta, reg_type) as.numeric(y == reg_mean(reg_type)(x, beta)),
-    "logistic_deviance" = function(x, y, beta, reg_type) log_density(reg_type)(x, y, beta)
+    "square_error" = function(x, y, beta, family) (y - fam_mean(family)(x, beta))^2,
+    "classification_error" = function(x, y, beta, family) as.numeric(y == fam_mean(family)(x, beta)),
+    "logistic_deviance" = function(x, y, beta, family) log_density(family)(x, y, beta)
   )
 }
 
 
 lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
-    "square_error" = function(X, beta, reg_type) 2 * reg_mean(reg_type)(X, beta),
-    "classification_error" = function(X, beta, reg_type) 2 * reg_mean(reg_type)(X, beta),
-    "logistic_deviance" = function(X, beta, reg_type) matrix_multiply(X, beta)
+    "square_error" = function(X, beta, family) 2 * fam_mean(family)(X, beta),
+    "classification_error" = function(X, beta, family) 2 * fam_mean(family)(X, beta),
+    "logistic_deviance" = function(X, beta, family) matrix_multiply(X, beta)
   )
 }
 
@@ -211,4 +212,64 @@ effective_sample_size <- function(rstan_model, ess_threhold = 100) {
 
   warning("Iteration times are not large enought.")
   return("FAIL")
+}
+
+
+generate_df_from_formula <- function(formula, data) {
+  rhs_vars <- gsub(" ", "", strsplit(deparse(rhs(formula)), "\\+(?![^()]*\\))", perl = TRUE)[[1]])
+
+  if (identical(rhs_vars, "1")) {
+    return(data.frame(rep(1, nrow(data))))
+  }
+
+  if (identical(rhs_vars, ".")) {
+    return(as.data.frame(data))
+  }
+
+  new_df <- data.frame(var = character(nrow(data)))
+  for (var in rhs_vars) {
+    if (grepl("poly\\(.*,\\d+(\\.\\d+)?\\)", var)) {
+      a <- poly(
+        data[[sub("poly\\((.*),\\d+(\\.\\d+)?\\)", "\\1", var)]],
+        as.double(sub("poly\\(.*,(\\d+(\\.\\d+)?)\\)", "\\1", var))
+      )
+
+      new_df <- cbind(new_df, poly(
+        data[[sub("poly\\((.*),\\d+(\\.\\d+)?\\)", "\\1", var)]],
+        as.double(sub("poly\\(.*,(\\d+(\\.\\d+)?)\\)", "\\1", var))
+      ))
+    } else {
+      new_df <- cbind(new_df, parse_var_with_operator(var, data))
+    }
+  }
+  return(new_df[-1])
+}
+
+parse_var_with_operator <- function(var, data) {
+  # Split the var by '*'
+  parts <- strsplit(var, "\\*")[[1]]
+  parsed_parts <- vector(mode = "list", length = length(parts))
+
+  for (i in seq_along(parts)) {
+    part <- trimws(parts[i])
+    # Extract variable names from the part
+    vs <- regmatches(part, gregexpr("\\b[A-Za-z0-9_]+\\b", part))[[1]]
+    new_part <- part
+
+    for (v in vs) {
+      # Replace variable names with data[[v]]
+      new_part <- gsub(v, paste0("data[['", v, "']]"), new_part)
+    }
+
+    # Adjust the exponent notation to remove "data[['" and "']]"
+    new_part <- gsub("data\\[\\['(\\d+)'\\]\\]", "\\1", new_part)
+
+    # Append the transformed part
+    parsed_parts[[i]] <- new_part
+  }
+
+  # Combine the transformed parts with '*'
+  parsed_formula <- paste(parsed_parts, collapse = "*")
+
+  return(eval(parse(text = parsed_formula)))
 }

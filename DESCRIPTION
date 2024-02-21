@@ -22,4 +22,5 @@ Imports:
     pracma,
     rlang,
     rstan,
+    rstanarm,
     stats

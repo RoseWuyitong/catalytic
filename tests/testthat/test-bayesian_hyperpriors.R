@@ -29,12 +29,10 @@ test_that("bayesian_hyperpriors: logistic none-joint - normal run", {
 })
 
 test_that("bayesian_hyperpriors: linear joint - normal run", {
-  obs_x <- matrix(rnorm(100, 1, 1), nrow = 25)
-  obs_y <- obs_x %*% c(1,-1,1,-1) + 1
+  obs_x <- matrix(rnorm(10000, 1, 1), nrow = 2500)
+  obs_y <- obs_x %*% c(1, -1, 1, -1) + 1
 
-  data_ <- initialization(
-    obs_x,
-           obs_y)
+  data_ <- initialization(obs_x, obs_y)
 
   data_ <- bayesian_hyperpriors(data_, joint = TRUE)
 

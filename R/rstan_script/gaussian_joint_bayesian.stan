@@ -4,14 +4,15 @@ data {
   int<lower=1> x_col_n;
   matrix[obs_n, x_col_n] obs_x;
   matrix[syn_n, x_col_n] syn_x;
-  int<lower=0,upper=1> obs_y[obs_n];
-  int<lower=0,upper=1> syn_y[syn_n];
+  vector[obs_n] obs_y;
+  vector[syn_n] syn_y;
   real kappa;
   real alpha;
   real gamma;
 }
 
 parameters {
+  real<lower=0> sigma
   real<lower=0> tau;
   vector[x_col_n+1] beta;
 }
@@ -23,11 +24,12 @@ model {
 
   // Likelihood
   for (i in 1:obs_n)
-    target += bernoulli_logit_lpmf(obs_y[i] | obs_mu[i]);
+    target += normal_lpdf(obs_y[i] | obs_mu[i], sigma);
 
   // Catalytic prior
   for (i in 1:syn_n)
-      target += syn_weight * bernoulli_logit_lpmf(syn_y[i] | syn_mu[i]);
+      target += syn_weight * normal_lpdf(syn_y[i] | syn_mu[i], sigma);
 
-  target += (tau ^ (x_col_n+alpha-1))*exp(-tau*(kappa+gamma^-1));
+  // Gamma function
+  target += ((x_col_n+alpha)/2-1)*log(tau)-tau*(kappa+gamma^-1);
 }

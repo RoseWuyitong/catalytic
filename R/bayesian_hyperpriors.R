@@ -20,7 +20,7 @@ bayesian_hyperpriors <- function(data_,
   rstan_model <- rstan::stan(
     file = paste0(
       "~/catalytic/R/rstan_script/",
-      data_$reg_type,
+      data_$fit_fam,
       if (joint) "_joint",
       "_bayesian.stan"
     ),
@@ -33,12 +33,13 @@ bayesian_hyperpriors <- function(data_,
       syn_x = data_$syn_x,
       syn_y = data_$syn_y,
       tau = tau,
-      kappa = log_density(data_$reg_type)(data_$syn_x,
-                                          data_$syn_y,
-                                          fit(data_$syn_x,
-                                              data_$syn_y,
-                                              family=data_$fit_fam)$coefficients,
-                                          weights=1/data_$syn_n),
+      kappa = log_density(data_$fit_fam)(data_$syn_x,
+        data_$syn_y,
+        fit(data_$syn_x,
+          data_$syn_y,
+          family = data_$fit_fam
+        )$coefficients,
+        weights = 1 / data_$syn_n),
       alpha = joint_alpha,
       gamma = joint_gamma
     ),

@@ -1,115 +1,127 @@
-source("~/catalytic/R/.warning_functions.R")
+initialization <- function(formula,
+                           family = gaussian(),
+                           data,
+                           weights = NULL,
+                           subset = NULL,
+                           na.action = NULL,
+                           offset = NULL,
+                           ...,
+                           syn_size = NULL,
+                           x_degree = NULL) {
+  validate_glm_formula(formula)
+  family <- validate_family(family)
+  fam <- family$family
+  data <- standardize_data(data)
+  syn_size <- as.integer(if (is.null(syn_size)) ncol(data) * 5 else syn_size)
 
-initialization <- function(observed_covariate,
-                           observed_response,
-                           observed_covariate_degree = NULL,
-                           synthetic_data_size = 100,
-                           synthetic_response_generation_model = NULL,
-                           synthetic_response_generation_family = "gaussian",
-                           regression_type = "linear") {
-  data_ <- rlang::env(
-    obs_x = as.data.frame(observed_covariate),
-    obs_y = as.double(observed_response),
-    syn_n = as.integer(synthetic_data_size),
-    syn_x = NA,
-    syn_y = NA,
-    recd_x = data.frame(
-      Type = character(),
-      Process = character(),
-      stringsAsFactors = FALSE
-    ),
-    reg_type = regression_type,
-    fit_fam = synthetic_response_generation_family
+  syn_x_inform <- initial.auto_resampling(
+    obs_x = data[, !names(data) %in% c(lhs(formula))],
+    syn_size = syn_size,
+    x_degree = if (is.null(x_degree)) rep(1, ncol(data)) else x_degree
   )
 
-  .not_same_stop(
-    nrow(data_$obs_x),
-    length(data_$obs_y),
-    "Row number of observed_covariate and observed_response not same."
+  syn_model <- do.call(stats::glm, as.list(match.call()[-1]))
+
+  syn_y <- data.frame(y_value(fam)(generate_df_from_formula(
+    formula,
+    syn_x_inform$syn_x
+  ),
+  syn_model))
+  colnames(syn_y) <- c(lhs(formula))
+
+  syn_data <- cbind(syn_x_inform$syn_x, syn_y)
+
+  initial_data <- list(
+    syn_y_generation_formula = formula,
+    family = family,
+    obs_data = data,
+    syn_size = syn_size,
+    syn_data = syn_data,
+    combined_data = rbind(data, syn_data),
+    syn_model = syn_model,
+    syn_x_generation_steps = syn_x_inform$recd_syn_x
   )
 
-  data_$obs_x <- adjust_data_type(data_$obs_x)
-  data_$obs_n <- nrow(data_$obs_x)
-  data_$x_col_n <- ncol(data_$obs_x)
+  class(initial_data) <- c(initial_data$class, "initialization")
 
-  if (is.null(observed_covariate_degree)) {
-    observed_covariate_degree <- rep(1, data_$x_col_n)
-  } else if (is.double(observed_covariate_degree)) {
-    .not_same_stop(
-      data_$x_col_n,
-      length(observed_covariate_degree),
-      "length of degree of matrix is not same as the column number of matrix."
-    )
-  } else {
-    stop("Please enter degree in right format, e.g. c(1,2,1,0,...)")
-  }
-
-  data_$x_deg <- observed_covariate_degree
-
-  # Generate synthetic covariate
-  message("generating synthetic covariate")
-  data_ <- do.call("initial.auto_resampling", list(data_))
-
-  # Generate synthetic response
-  message("generating synthetic response")
-  x <- if (is.null(synthetic_response_generation_model)) {
-    1
-  } else {
-    data_$obs_x[synthetic_response_generation_model]
-  }
-  data_$syn_y_gen_model <- fit(x, data_$obs_y, family = data_$fit_fam)
-  data_$syn_y <- as.double(y_value(data_$reg_type)(data_$syn_x[synthetic_response_generation_model],
-    data_$syn_y_gen_model$coefficients))
-
-  # Combined synthetic data and observed data
-  data_$comb_x <- rbind(data_$obs_x, data_$syn_x)
-  data_$comb_y <- c(data_$obs_y, data_$syn_y)
-
-  return(data_)
+  return(initial_data)
 }
 
-initial.auto_resampling <- function(data_) {
-  data_$syn_x <- as.data.frame(apply(data_$obs_x,
+initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
+  recd_syn_x <- data.frame(
+    Type = character(),
+    Process = character(),
+    stringsAsFactors = FALSE
+  )
+
+  syn_x <- as.data.frame(apply(obs_x,
     2,
     sample,
-    size = data_$syn_n,
+    size = syn_size,
     replace = TRUE
   ))
 
-  for (n in 1:ncol(data_$syn_x)) {
-    message(paste("Column", n, "is processing"))
+  for (n in 1:ncol(syn_x)) {
     process <- "Coordinate"
     # Check continue or category
-    if (is_continuous(data_$obs_x[, n])) {
+    if (is.continuous(obs_x[, n])) {
       data_type <- "Continuous"
       # Check order and diversity
-      if (data_$x_deg[n] >= length(unique(data_$obs_x[, n])) - 1) {
+      if (x_degree[n] >= length(unique(obs_x[, n])) - 1) {
         process <- c(process, "Smoothing")
-        data_$syn_x[, n] <- do.call("initial.resampling", list(data_$syn_x[, n], data_$obs_x[, n], "smoothing"))
+        syn_x[, n] <- do.call(
+          initial.resampling_methods,
+          list(
+            syn_x[, n],
+            obs_x[, n],
+            "smoothing"
+          )
+        )
       }
       # Check skewness
-      if (abs(e1071::skewness(data_$obs_x[, n])) >= 1) {
+      if (abs(e1071::skewness(obs_x[, n])) >= 1) {
         process <- c(process, "IQR")
-        data_$syn_x[, n] <- do.call("initial.resampling", list(data_$syn_x[, n], data_$obs_x[, n], "IQR"))
+        syn_x[, n] <- do.call(
+          initial.resampling_methods,
+          list(
+            syn_x[, n],
+            obs_x[, n],
+            "IQR"
+          )
+        )
       }
     } else {
       data_type <- "Category"
-      tbl <- table(data_$obs_x[, n])
+      tbl <- table(obs_x[, n])
       # Check data balance
-      if (any(tbl < data_$obs_n / (2 * length(tbl)))) {
+      if (any(tbl < nrow(data) / (2 * length(tbl)))) {
         process <- c(process, "Flattening")
-        data_$syn_x[, n] <- do.call("initial.resampling", list(data_$syn_x[, n], data_$obs_x[, n], "flattening"))
+        syn_x[, n] <- do.call(
+          initial.resampling_methods,
+          list(
+            syn_x[, n],
+            obs_x[, n],
+            "flattening"
+          )
+        )
       }
     }
-    data_$recd_x <- rbind(data_$recd_x, data.frame(Type = data_type, Process = paste(process, collapse = "->")))
+    recd_syn_x <- rbind(recd_syn_x, data.frame(
+      Type = data_type,
+      Process = paste(process,
+        collapse = "->"
+      )
+    ))
   }
-  return(data_)
+  return(list(
+    syn_x = syn_x,
+    recd_syn_x = recd_syn_x
+  ))
 }
 
 
 
-initial.resampling <- function(x, sample_x, method) {
-  message(paste(method, "resampling"))
+initial.resampling_methods <- function(x, sample_x, method) {
   switch(method,
     "symmetrizing" = mean(sample_x) + sample(c(-1, 1), length(x), replace = TRUE) * (x - mean(sample_x)),
     "smoothing" = x + stats::rnorm(length(x), 0, min(diff(sort(unique(sample_x)))) / 10),
@@ -123,4 +135,17 @@ initial.resampling <- function(x, sample_x, method) {
     })(x),
     stop(paste(method, "Resampling Method Not available"))
   )
+}
+
+print.initialization <- function(x, ...) {
+  cat("Formula for generating synthetic response:   ")
+  print(x$formula)
+  cat(
+    "\nFamily: ", x$family$family,
+    "\n\nSynthetic data size: ", x$syn_size,
+    "\n\nSynthetic data generation steps:\n\n"
+  )
+  print(x$syn_x_generation_steps)
+  cat("\n")
+  invisible(x)
 }
