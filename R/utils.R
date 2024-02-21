@@ -214,62 +214,133 @@ effective_sample_size <- function(rstan_model, ess_threhold = 100) {
   return("FAIL")
 }
 
-
-generate_df_from_formula <- function(formula, data) {
-  rhs_vars <- gsub(" ", "", strsplit(deparse(rhs(formula)), "\\+(?![^()]*\\))", perl = TRUE)[[1]])
-
-  if (identical(rhs_vars, "1")) {
-    return(data.frame(rep(1, nrow(data))))
+standardize_data <- function(data, if_missing = NULL) {
+  if (missing(data) || is.null(data)) {
+    warn_data_arg_missing()
+    return(if_missing)
   }
 
-  if (identical(rhs_vars, ".")) {
-    return(as.data.frame(data))
+  if (!is.data.frame(data)) {
+    data <- as.data.frame(data)
   }
 
-  new_df <- data.frame(var = character(nrow(data)))
-  for (var in rhs_vars) {
-    if (grepl("poly\\(.*,\\d+(\\.\\d+)?\\)", var)) {
-      a <- poly(
-        data[[sub("poly\\((.*),\\d+(\\.\\d+)?\\)", "\\1", var)]],
-        as.double(sub("poly\\(.*,(\\d+(\\.\\d+)?)\\)", "\\1", var))
-      )
+  drop_redundant_dims(data)
 
-      new_df <- cbind(new_df, poly(
-        data[[sub("poly\\((.*),\\d+(\\.\\d+)?\\)", "\\1", var)]],
-        as.double(sub("poly\\(.*,(\\d+(\\.\\d+)?)\\)", "\\1", var))
-      ))
+  for (i in 1:ncol(data)) {
+    if (!(NA %in% suppressWarnings(as.numeric(data[, i])))) {
+      data[, i] <- as.numeric(data[, i])
+    } else if (!(NA %in% suppressWarnings(as.logical(data[, i])))) {
+      data[, i] <- as.logical(data[, i])
     } else {
-      new_df <- cbind(new_df, parse_var_with_operator(var, data))
+      data[, i] <- as.factor(data[, i])
     }
   }
-  return(new_df[-1])
+
+  return(data)
 }
 
-parse_var_with_operator <- function(var, data) {
-  # Split the var by '*'
-  parts <- strsplit(var, "\\*")[[1]]
-  parsed_parts <- vector(mode = "list", length = length(parts))
+warn_data_arg_missing <- function() {
+  warning(
+    "Omitting the 'data' argument is not recommended ",
+    "and may not be allowed in future versions of rstanarm. ",
+    "Some post-estimation functions (in particular 'update', 'loo', 'kfold') ",
+    "are not guaranteed to work properly unless 'data' is specified as a data frame.",
+    call. = FALSE
+  )
+}
 
-  for (i in seq_along(parts)) {
-    part <- trimws(parts[i])
-    # Extract variable names from the part
-    vs <- regmatches(part, gregexpr("\\b[A-Za-z0-9_]+\\b", part))[[1]]
-    new_part <- part
 
-    for (v in vs) {
-      # Replace variable names with data[[v]]
-      new_part <- gsub(v, paste0("data[['", v, "']]"), new_part)
-    }
+drop_redundant_dims <- function(data) {
+  drop_dim <- sapply(data, function(v) is.matrix(v) && NCOL(v) == 1)
+  data[, drop_dim] <- lapply(data[, drop_dim, drop = FALSE], drop)
+  return(data)
+}
 
-    # Adjust the exponent notation to remove "data[['" and "']]"
-    new_part <- gsub("data\\[\\['(\\d+)'\\]\\]", "\\1", new_part)
+validate_glm_formula <- function(f) {
+  if (!any(grepl("~", f))) {
+    stop("please enter ~ for formula",
+         call. = FALSE
+    )
+  }
+}
 
-    # Append the transformed part
-    parsed_parts[[i]] <- new_part
+
+
+
+is.binomial <- function(x) x$family == "binomial"
+is.gaussian <- function(x) x$family == "gaussian"
+
+validate_family <- function(f) {
+  if (is.character(f)) {
+    f <- get(f, mode = "function", envir = parent.frame(2))
+  }
+  if (is.function(f)) {
+    f <- f()
+  }
+  if (!is(f, "family")) {
+    stop("'family' must be a family.", call. = FALSE)
   }
 
-  # Combine the transformed parts with '*'
-  parsed_formula <- paste(parsed_parts, collapse = "*")
+  return(f)
+}
 
-  return(eval(parse(text = parsed_formula)))
+.validate_glm_formula <- function(f) {
+  if (any(grepl("\\|", f))) {
+    stop("Using '|' in model formula not allowed. ",
+         "Maybe you meant to use 'stan_(g)lmer'?",
+         call. = FALSE
+    )
+  }
+}
+
+rhs <- function(formula, with_=FALSE) {
+  # Split the formula string by "~" and extract the first element
+  if (with_) return(as.formula(paste("~", rlang::f_rhs(formula))))
+  return(rlang::f_rhs(formula))
+}
+
+lhs <- function(formula) {
+  return(rlang::f_lhs(formula))
+}
+
+.validate_regression <- function(family) {
+  if (.is.binomial(family)) {
+    return("logistic")
+  }
+  return("linear")
+}
+
+.large_number_warning <- function(num, threshold, suggestion) {
+  if (num > threshold) warning(suggestion)
+}
+
+.small_number_warning <- function(num, threshold, suggestion) {
+  if (num < threshold) warning(paste(suggestion))
+}
+
+.not_same_stop <- function(num1, num2, suggestion) {
+  if (num1 != num2) stop(suggestion)
+}
+
+.not_in_stop <- function(obj, expected_objs, suggestion) {
+  if (!all(obj %in% expected_objs)) stop(suggestion)
+}
+
+.not_single_str_stop <- function(obj, suggestion) {
+  if (!is.character(obj) | length(obj) != 1) stop(suggestion)
+}
+
+.large_number_ask <- function(num1, threshold, question, stop_ans) {
+  if (num1 > threshold) {
+    user_input <- readline(prompt = question)
+    if (identical(user_input, stop_ans)) stop("program stop")
+  }
+}
+
+
+is.continuous <- function(lst) {
+  if (is.numeric(lst) & length(unique(lst)) > 2) {
+    return(TRUE)
+  }
+  return(FALSE)
 }

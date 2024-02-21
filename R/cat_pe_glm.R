@@ -7,8 +7,7 @@ cat_pe_glm <-
            subset = NULL,
            na.action = NULL,
            offset = NULL,
-           ...,
-           discrepancy_function = "square_error"
+           ...
            ) {
     validate_glm_formula(formula)
     family <- validate_family(family)
@@ -16,24 +15,26 @@ cat_pe_glm <-
 
     if (is.null(tau)) tau <- ncol(data)/ 4
 
-    call <- match.call(expand.dots = TRUE)
     mf <- match.call(expand.dots = FALSE)
-    m <- match(c("formula", "subset", "na.action", "offset"),
+    m <- match(c("formula", "family", "data", "subset", "na.action", "offset"),
                table = names(mf), nomatch = 0L)
     mf <- mf[c(1L, m)]
     mf$weight <- c(rep(1, nrow(data)-syn_size), rep(tau / syn_size, syn_size))
-    mf$drop.unused.levels <- TRUE
-    mf[[1L]] <- as.name("model.frame")
-    mf <- eval(mf, parent.frame())
-    mf <- check_constant_vars(mf)
-    mt <- attr(mf, "terms")
-    return(mt)
 
-    modl <- do.call(stats::glm, as.list(match.call()[-1]))
+    model <- do.call(stats::glm, as.list(mf[-1]))
 
-    return(list(
+    cat_pe <- list(
+      formula = formula,
+      family = family,
+      data = data,
+      syn_size = syn_size,
+      tau = tau,
+      model = model,
+      est_beta = model$coefficient
+    )
 
-    ))
+    class(cat_pe) <- c(cat_pe$class, "cat_pe_glm")
+    return(cat_pe)
   }
 
 print.cat_pe_glm <- function(x, ...) {
@@ -46,5 +47,4 @@ print.cat_pe_glm <- function(x, ...) {
     "\n"
   )
   invisible(x)
-
 }

@@ -20,13 +20,16 @@ initialization <- function(formula,
     x_degree = if (is.null(x_degree)) rep(1, ncol(data)) else x_degree
   )
 
-  syn_model <- do.call(stats::glm, as.list(match.call()[-1]))
+  mf <- match.call(expand.dots = FALSE)
+  m <- match(c("formula", "family", "subset", "weights", "na.action", "offset"),
+             table = names(mf), nomatch = 0L)
+  mf <- mf[c(1L, m)]
+  mf$data <- data
 
-  syn_y <- data.frame(y_value(fam)(generate_df_from_formula(
-    formula,
-    syn_x_inform$syn_x
-  ),
-  syn_model))
+  syn_model <- do.call(stats::glm, as.list(mf[-1]))
+
+  syn_y <- data.frame(y_value(fam)(model.frame(rhs(formula, TRUE), syn_x_inform$syn_x),
+                                   syn_model))
   colnames(syn_y) <- c(lhs(formula))
 
   syn_data <- cbind(syn_x_inform$syn_x, syn_y)
