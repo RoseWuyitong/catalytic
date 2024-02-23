@@ -51,7 +51,10 @@ lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
     "square_error" = function(X, beta, family, ...) 2 * fam_mean(family)(X, beta),
     "classification_error" = function(X, beta, family, ...) 2 * fam_mean(family)(X, beta),
-    "logistic_deviance" = function(X, beta, family = "binomial", ...) matrix_multiply(X, beta)
+    "logistic_deviance" = function(X, beta, family = "binomial", ...) {
+      if (!is.binomial(family)) {
+        stop("only binomial family can use logistic_deviance", call.=FALSE)}
+      else {matrix_multiply(X, beta)}}
   )
 }
 
@@ -143,11 +146,11 @@ get_iqr <- function(x) {
   return(iqr_value)
 }
 
-generate_data_from_dist <- function(generate_dist = "gaussian",
+generate_data_from_dist <- function(family = "gaussian",
                                     sample_size = 10,
                                     mean_ = 0,
                                     sd = 1) {
-  switch(generate_dist,
+  switch(family,
     "binomial" = rbinom(
       sample_size,
       1,
@@ -264,11 +267,17 @@ validate_glm_formula <- function(f) {
   }
 }
 
+validate_tau <- function(t) {
+  if (!all(t>=0)) {
+    stop("please enter positive tau value",
+         call. = FALSE)
+  }
+}
 
 
 
-is.binomial <- function(x) x$family == "binomial"
-is.gaussian <- function(x) x$family == "gaussian"
+is.binomial <- function(x) x == "binomial"
+is.gaussian <- function(x) x == "gaussian"
 
 validate_family <- function(f) {
   if (is.character(f)) {
@@ -295,7 +304,7 @@ validate_family <- function(f) {
 
 rhs <- function(formula, with_=FALSE) {
   # Split the formula string by "~" and extract the first element
-  if (with_) return(as.formula(paste("~", rlang::f_rhs(formula))))
+  if (with_) return(as.formula(paste("~", deparse(rlang::f_rhs(formula)), collapse = " ")))
   return(rlang::f_rhs(formula))
 }
 
@@ -311,29 +320,29 @@ lhs <- function(formula) {
 }
 
 .large_number_warning <- function(num, threshold, suggestion) {
-  if (num > threshold) warning(suggestion)
+  if (num > threshold) warning(suggestion, call.=FALSE)
 }
 
 .small_number_warning <- function(num, threshold, suggestion) {
-  if (num < threshold) warning(paste(suggestion))
+  if (num < threshold) warning(suggestion, call.=FALSE)
 }
 
 .not_same_stop <- function(num1, num2, suggestion) {
-  if (num1 != num2) stop(suggestion)
+  if (num1 != num2) stop(suggestion, call.=FALSE)
 }
 
 .not_in_stop <- function(obj, expected_objs, suggestion) {
-  if (!all(obj %in% expected_objs)) stop(suggestion)
+  if (!all(obj %in% expected_objs)) stop(suggestion, call.=FALSE)
 }
 
 .not_single_str_stop <- function(obj, suggestion) {
-  if (!is.character(obj) | length(obj) != 1) stop(suggestion)
+  if (!is.character(obj) | length(obj) != 1) stop(suggestion, call.=FALSE)
 }
 
 .large_number_ask <- function(num1, threshold, question, stop_ans) {
   if (num1 > threshold) {
     user_input <- readline(prompt = question)
-    if (identical(user_input, stop_ans)) stop("program stop")
+    if (identical(user_input, stop_ans)) stop("program stop", call.=FALSE)
   }
 }
 

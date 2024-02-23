@@ -14,11 +14,6 @@ initialization <- function(formula,
   data <- standardize_data(data)
   syn_size <- as.integer(if (is.null(syn_size)) ncol(data) * 5 else syn_size)
 
-  syn_x_inform <- initial.auto_resampling(
-    obs_x = data[, !names(data) %in% c(lhs(formula))],
-    syn_size = syn_size,
-    x_degree = if (is.null(x_degree)) rep(1, ncol(data)) else x_degree
-  )
 
   mf <- match.call(expand.dots = FALSE)
   m <- match(c("formula", "family", "subset", "weights", "na.action", "offset"),
@@ -28,26 +23,40 @@ initialization <- function(formula,
 
   syn_model <- do.call(stats::glm, as.list(mf[-1]))
 
+  syn_x_inform <- initial.auto_resampling(
+    obs_x = data[, -which(names(data_$data) == lhs(formula))],
+    syn_size = syn_size,
+    x_degree = if (is.null(x_degree)) rep(1, ncol(data)) else x_degree
+  )
+
   syn_y <- data.frame(y_value(fam)(model.frame(rhs(formula, TRUE), syn_x_inform$syn_x),
                                    syn_model))
   colnames(syn_y) <- c(lhs(formula))
 
-  syn_data <- cbind(syn_x_inform$syn_x, syn_y)
-
-  initial_data <- list(
-    syn_y_generation_formula = formula,
+  data_ <- list(
+    formula = formula,
     family = family,
+    obs_size = nrow(data),
     obs_data = data,
+    obs_x = data[,-which(names(data) == lhs(formula))],
+    obs_y = data[,which(names(data) == lhs(formula))],
     syn_size = syn_size,
-    syn_data = syn_data,
-    combined_data = rbind(data, syn_data),
+    syn_data = cbind(syn_x_inform$syn_x, syn_y),
+    syn_x = syn_x_inform$syn_x,
+    syn_y = syn_y,
     syn_model = syn_model,
     syn_x_generation_steps = syn_x_inform$recd_syn_x
   )
+  data_$data <- rbind(data_$obs_data, data_$syn_data)
 
-  class(initial_data) <- c(initial_data$class, "initialization")
+  data_ <- c(data_,
+                    list(size = data_$obs_size+data_$syn_size,
+                      x= data_$data[,-which(names(data_$data) == lhs(formula))],
+                         y = data_$data[,which(names(data_$data) == lhs(formula))]))
 
-  return(initial_data)
+  class(data_) <- c(data_$class, "initialization")
+
+  return(data_)
 }
 
 initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
@@ -109,6 +118,8 @@ initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
         )
       }
     }
+
+
     recd_syn_x <- rbind(recd_syn_x, data.frame(
       Type = data_type,
       Process = paste(process,
@@ -141,7 +152,7 @@ initial.resampling_methods <- function(x, sample_x, method) {
 }
 
 print.initialization <- function(x, ...) {
-  cat("Formula for generating synthetic response:   ")
+  cat("Formula for generating synthetic response:\n")
   print(x$formula)
   cat(
     "\nFamily: ", x$family$family,
