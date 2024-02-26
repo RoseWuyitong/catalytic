@@ -9,11 +9,10 @@ log_density <- function(family) {
       }
     },
     "gaussian" = function(X, Y, model, weights = FALSE, ...) {
-      theta <- matrix_multiply(X, model$coefficients)
       if (isFALSE(weights)) {
-        return(- 0.5 * (1+log(2*pi*var(model$residuals))))
+        return(-0.5 * (1 + log(2 * pi * var(model$residuals))))
       } else {
-        return(- 0.5 * weights * (1+log(2*pi*var(model$residuals)))) # TODO: check
+        return(-0.5 * weights * (1 + log(2 * pi * var(model$residuals)))) # TODO: check
       }
     }
   )
@@ -53,8 +52,11 @@ lambda_function <- function(discrepancy_function) {
     "classification_error" = function(X, beta, family, ...) 2 * fam_mean(family)(X, beta),
     "logistic_deviance" = function(X, beta, family = "binomial", ...) {
       if (!is.binomial(family)) {
-        stop("only binomial family can use logistic_deviance", call.=FALSE)}
-      else {matrix_multiply(X, beta)}}
+        stop("only binomial family can use logistic_deviance", call. = FALSE)
+      } else {
+        matrix_multiply(X, beta)
+      }
+    }
   )
 }
 
@@ -262,15 +264,16 @@ drop_redundant_dims <- function(data) {
 validate_glm_formula <- function(f) {
   if (!any(grepl("~", f))) {
     stop("please enter ~ for formula",
-         call. = FALSE
+      call. = FALSE
     )
   }
 }
 
 validate_tau <- function(t) {
-  if (!all(t>=0)) {
+  if (!all(t >= 0)) {
     stop("please enter positive tau value",
-         call. = FALSE)
+      call. = FALSE
+    )
   }
 }
 
@@ -296,15 +299,17 @@ validate_family <- function(f) {
 .validate_glm_formula <- function(f) {
   if (any(grepl("\\|", f))) {
     stop("Using '|' in model formula not allowed. ",
-         "Maybe you meant to use 'stan_(g)lmer'?",
-         call. = FALSE
+      "Maybe you meant to use 'stan_(g)lmer'?",
+      call. = FALSE
     )
   }
 }
 
-rhs <- function(formula, with_=FALSE) {
+rhs <- function(formula, with_ = FALSE) {
   # Split the formula string by "~" and extract the first element
-  if (with_) return(as.formula(paste("~", deparse(rlang::f_rhs(formula)), collapse = " ")))
+  if (with_) {
+    return(as.formula(paste("~", deparse(rlang::f_rhs(formula)), collapse = " ")))
+  }
   return(rlang::f_rhs(formula))
 }
 
@@ -320,29 +325,29 @@ lhs <- function(formula) {
 }
 
 .large_number_warning <- function(num, threshold, suggestion) {
-  if (num > threshold) warning(suggestion, call.=FALSE)
+  if (num > threshold) warning(suggestion, call. = FALSE)
 }
 
 .small_number_warning <- function(num, threshold, suggestion) {
-  if (num < threshold) warning(suggestion, call.=FALSE)
+  if (num < threshold) warning(suggestion, call. = FALSE)
 }
 
 .not_same_stop <- function(num1, num2, suggestion) {
-  if (num1 != num2) stop(suggestion, call.=FALSE)
+  if (num1 != num2) stop(suggestion, call. = FALSE)
 }
 
 .not_in_stop <- function(obj, expected_objs, suggestion) {
-  if (!all(obj %in% expected_objs)) stop(suggestion, call.=FALSE)
+  if (!all(obj %in% expected_objs)) stop(suggestion, call. = FALSE)
 }
 
 .not_single_str_stop <- function(obj, suggestion) {
-  if (!is.character(obj) | length(obj) != 1) stop(suggestion, call.=FALSE)
+  if (!is.character(obj) | length(obj) != 1) stop(suggestion, call. = FALSE)
 }
 
 .large_number_ask <- function(num1, threshold, question, stop_ans) {
   if (num1 > threshold) {
     user_input <- readline(prompt = question)
-    if (identical(user_input, stop_ans)) stop("program stop", call.=FALSE)
+    if (identical(user_input, stop_ans)) stop("program stop", call. = FALSE)
   }
 }
 

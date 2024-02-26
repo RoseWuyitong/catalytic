@@ -29,13 +29,15 @@ coef(summary(swim_glm_1))
 # Step 1: Initialization
 
 ```{r initilization }
-data_ <- initialization(formula = emp1y ~ FEMALE, 
-                             data = swim_data, 
-                             syn_size = 5000)
+data_ <- initialization(
+  formula = emp1y ~ FEMALE,
+  data = swim_data,
+  syn_size = 5000
+)
 
 data_
 ```
-`data_` cantains all the information about data, especially about syntehtic and observation data, so you don't need to re-enter the syntehtic data information in following steps.
+`data_` cantains all the information about data, especially about synthetic and observation data, so you don't need to re-enter the synthetic data information in following steps.
 
 ```{r show data_}
 names(data_)
@@ -47,20 +49,29 @@ As mentioned before, the object `data_` is from function `initialization` in Ste
 
 ```{r point estimate }
 # Get point estimate from defined single tau
-pe_result <- cat_pe_glm(formula=emp1y ~ FEMALE + AGEGE35 + NUMCHILD,
-           data_=data_,
-           tau = ncol(data_$data)/4)
+point_estimate_result <- cat_tau_glm(
+  formula = emp1y ~ FEMALE + AGEGE35 + NUMCHILD,
+  data_ = data_,
+  tau = ncol(data_$data) / 4
+)
 
-pe_result
+point_estimate_result
 ```
 
 # Step 2.2: Fit - freqentist priors
 
-```{r point estimate }
-freq_result <- cat_freq_glm(formula=emp1y ~ FEMALE + AGEGE35 + NUMCHILD,
-           data_=data_,
-           risk_estimate_method = "parametric_bootstrap",
-           discrepancy_function = "square_error")
+```{r freqentist }
+freq_result <- cat_freq_glm(
+  formula = emp1y ~ FEMALE + AGEGE35 + NUMCHILD,
+  data_ = data_,
+  risk_estimate_method = "parametric_bootstrap",
+  discrepancy_function = "square_error"
+)
+
+freq_result
+```
+# Step 2.2: Fit - bayesian method
+
+```{r bayesian}
 
 ```
-

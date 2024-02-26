@@ -2,48 +2,24 @@
 % Please edit documentation in R/initialization.R
 \name{initialization}
 \alias{initialization}
-\title{Initialize catalytic related data}
+\title{Title}
 \usage{
 initialization(
-  observed_covariate,
-  observed_response,
-  observed_covariate_degree = NULL,
-  synthetic_data_size = 100,
-  synthetic_response_generation_model = NULL,
-  synthetic_response_generation_family = "gaussian",
-  regression_type = "linear"
+  formula,
+  family = gaussian(),
+  data,
+  weights = NULL,
+  subset = NULL,
+  na.action = NULL,
+  offset = NULL,
+  ...,
+  syn_size = NULL,
+  x_degree = NULL
 )
 }
 \arguments{
-\item{observed_covariate}{Observed data, x.}
-
-\item{observed_response}{Observed response, y.}
-
-\item{observed_covariate_degree}{Degree of the observed data, default NULL.}
-
-\item{synthetic_data_size}{Number of synthetic data to be generated, default 100.}
-
-\item{synthetic_response_generation_model}{Simple model for generating synthetic response, default NULL(intercept).}
-
-\item{synthetic_response_generation_family}{Family for generating synthetic response, default gaussian.}
-
-\item{regression_type}{Regression type, default linear. Choose from ("linear", "logistic").}
-}
-\value{
-Object contains all the information for further process.
+\item{x_degree}{}
 }
 \description{
-Initialize catalytic related data
-}
-\examples{
-initialization(
-  matrix(1:9, nrow = 3),
-  c(1, 2, 3)
-)
-
-initialization(matrix(1:9, nrow = 3),
-  c(1, 0, 1),
-  synthetic_response_generation_family = "binomial",
-  regression_type = "logistic"
-)
+Title
 }

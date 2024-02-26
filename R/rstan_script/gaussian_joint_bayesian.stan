@@ -12,9 +12,9 @@ data {
 }
 
 parameters {
-  real<lower=0> sigma
   real<lower=0> tau;
   vector[x_col_n+1] beta;
+  real<lower=0> sigma;
 }
 
 model {

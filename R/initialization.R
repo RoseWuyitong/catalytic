@@ -1,3 +1,20 @@
+#' Title
+#'
+#' @param formula
+#' @param family
+#' @param data
+#' @param weights
+#' @param subset
+#' @param na.action
+#' @param offset
+#' @param ...
+#' @param syn_size
+#' @param x_degree
+#'
+#' @return
+#' @export
+#'
+#' @examples
 initialization <- function(formula,
                            family = gaussian(),
                            data,
@@ -17,20 +34,21 @@ initialization <- function(formula,
 
   mf <- match.call(expand.dots = FALSE)
   m <- match(c("formula", "family", "subset", "weights", "na.action", "offset"),
-             table = names(mf), nomatch = 0L)
+    table = names(mf), nomatch = 0L
+  )
   mf <- mf[c(1L, m)]
   mf$data <- data
 
   syn_model <- do.call(stats::glm, as.list(mf[-1]))
 
   syn_x_inform <- initial.auto_resampling(
-    obs_x = data[, -which(names(data_$data) == lhs(formula))],
+    obs_x = data[, -which(names(data) == lhs(formula))],
     syn_size = syn_size,
     x_degree = if (is.null(x_degree)) rep(1, ncol(data)) else x_degree
   )
 
   syn_y <- data.frame(y_value(fam)(model.frame(rhs(formula, TRUE), syn_x_inform$syn_x),
-                                   syn_model))
+    syn_model))
   colnames(syn_y) <- c(lhs(formula))
 
   data_ <- list(
@@ -38,8 +56,8 @@ initialization <- function(formula,
     family = family,
     obs_size = nrow(data),
     obs_data = data,
-    obs_x = data[,-which(names(data) == lhs(formula))],
-    obs_y = data[,which(names(data) == lhs(formula))],
+    obs_x = data[, -which(names(data) == lhs(formula))],
+    obs_y = as.data.frame(data[, which(names(data) == lhs(formula))]),
     syn_size = syn_size,
     syn_data = cbind(syn_x_inform$syn_x, syn_y),
     syn_x = syn_x_inform$syn_x,
@@ -48,11 +66,16 @@ initialization <- function(formula,
     syn_x_generation_steps = syn_x_inform$recd_syn_x
   )
   data_$data <- rbind(data_$obs_data, data_$syn_data)
+  names(data_$obs_y) <- as.character(lhs(formula))
 
-  data_ <- c(data_,
-                    list(size = data_$obs_size+data_$syn_size,
-                      x= data_$data[,-which(names(data_$data) == lhs(formula))],
-                         y = data_$data[,which(names(data_$data) == lhs(formula))]))
+  data_ <- c(
+    data_,
+    list(
+      size = data_$obs_size + data_$syn_size,
+      x = rbind(data_$obs_x, data_$syn_x),
+      y = rbind(data_$obs_y, data_$syn_y)
+    )
+  )
 
   class(data_) <- c(data_$class, "initialization")
 
@@ -151,8 +174,17 @@ initial.resampling_methods <- function(x, sample_x, method) {
   )
 }
 
+#' Title
+#'
+#' @param x
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
 print.initialization <- function(x, ...) {
-  cat("Formula for generating synthetic response:\n")
+  cat("\nFormula for generating synthetic response:\n")
   print(x$formula)
   cat(
     "\nFamily: ", x$family$family,
