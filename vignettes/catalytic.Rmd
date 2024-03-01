@@ -73,5 +73,4 @@ freq_result
 # Step 2.2: Fit - bayesian method
 
 ```{r bayesian}
-
 ```

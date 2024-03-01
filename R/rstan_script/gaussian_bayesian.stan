@@ -11,19 +11,18 @@ data {
 
 parameters {
   vector[x_col_n+1] beta;
+  real<lower=0> sigma;
 }
 
 model {
   vector[obs_n] obs_mu = beta[1] + obs_x * beta[2:(x_col_n+1)];
   vector[syn_n] syn_mu = beta[1] + syn_x * beta[2:(x_col_n+1)];
-  real obs_sigma = pow(sd(obs_mu), 2);
-  real syn_sigma = pow(sd(syn_mu), 2);
   real syn_weight = tau/syn_n;
   // Likelihood
   for (i in 1:obs_n)
-    target += normal_lpdf(obs_y[i] | obs_mu[i], obs_sigma);
+    target += normal_lpdf(obs_y[i] | obs_mu[i], sigma);
 
   // Catalytic prior
   for (i in 1:syn_n)
-      target += syn_weight * normal_lpdf(syn_y[i] | syn_mu[i], syn_sigma);
+      target += syn_weight * normal_lpdf(syn_y[i] | syn_mu[i], sigma);
 }

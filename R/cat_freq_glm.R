@@ -73,15 +73,27 @@ cat_freq_glm <-
 
     .large_number_warning(
       data_$obs_size,
-      if (risk_estimate_method == "parametric_bootstrap") 100 else if (
-        risk_estimate_method == "steinian_estimate") 50 else Inf,
+      if (risk_estimate_method == "parametric_bootstrap") {
+        100
+      } else if (
+        risk_estimate_method == "steinian_estimate") {
+        50
+      } else {
+        Inf
+      },
       "Number of observation data is large, suggest use cross-validation."
     )
 
     .large_number_ask(
       data_$obs_size,
-      if (risk_estimate_method == "parametric_bootstrap") 150 else if (
-        risk_estimate_method == "steinian_estimate") 100 else Inf,
+      if (risk_estimate_method == "parametric_bootstrap") {
+        150
+      } else if (
+        risk_estimate_method == "steinian_estimate") {
+        100
+      } else {
+        Inf
+      },
       "Number of observation data is too large, do you want to continue? y/n",
       "n"
     )
@@ -120,7 +132,8 @@ cat_freq_glm <-
       family = family,
       optimal_tau = optimal_tau,
       optimal_freq_model = freq_model,
-      optimal_beta = freq_model$coefficients
+      optimal_beta = freq_model$coefficients,
+      risk_estimate_collect = risk_estimate_collect
     ), as.list(call[-1]))
 
     class(cat_freq) <- c(cat_freq$class, "cat_freq_glm")
@@ -153,7 +166,7 @@ parametric_bootstrap <- function(formula,
   D <- mean(discrepancy_functions(discrepancy_function)(
     data_$adj_obs_x,
     data_$obs_y,
-    beta_tau_model$coefficients,
+    beta_tau_model,
     fam)[[1]])
 
   mf$weight <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
@@ -222,9 +235,10 @@ steinian_estimate <- function(formula,
 
   beta_tau_model <- do.call(stats::glm, as.list(mf[-1]))
 
-  D <- mean(discrepancy_functions(discrepancy_function)(data_$obs_x,
+  D <- mean(discrepancy_functions(discrepancy_function)(
+    data_$obs_x,
     data_$adj_obs_y,
-    beta_tau_model$coefficients,
+    beta_tau_model,
     fam)[[1]])
 
   mf$weight <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
@@ -280,9 +294,10 @@ mallows_estimate <- function(formula,
 
   beta_tau_model <- do.call(stats::glm, as.list(mf[-1]))
 
-  D <- mean(discrepancy_functions("square_error")(data_$obs_x,
+  D <- mean(discrepancy_functions("square_error")(
+    data_$obs_x,
     data_$adj_obs_y,
-    beta_tau_model$coefficient,
+    beta_tau_model,
     fam)[[1]])
 
   mf$weight <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
@@ -348,7 +363,7 @@ cross_validation <- function(formula,
     error_sum <- error_sum + mean(discrepancy_functions(discrepancy_function)(
       test_x,
       test_y,
-      estimate_beta_model$coefficient,
+      estimate_beta_model,
       fam)[[1]])
   }
 
@@ -365,7 +380,7 @@ cross_validation <- function(formula,
 #'
 #' @examples
 print.cat_freq_glm <- function(x, ...) {
-  cat("\nFormula for tau point estimate:  ")
+  cat("\nFormula for frequntist prior:  ")
   print(x$formula)
   cat(
     "\nRisk estimate method: ", x$risk_estimate_method,

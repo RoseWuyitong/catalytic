@@ -1,3 +1,22 @@
+#' Title
+#'
+#' @param formula
+#' @param family
+#' @param data_
+#' @param tau
+#' @param joint
+#' @param ...
+#' @param chains
+#' @param iter
+#' @param warmup
+#' @param mcmc_algorithm
+#' @param joint_alpha
+#' @param joint_gamma
+#'
+#' @return
+#' @export
+#'
+#' @examples
 cat_bayesian_glm <- function(formula,
                              family = gaussian(),
                              data_,
@@ -48,9 +67,9 @@ cat_bayesian_glm <- function(formula,
       syn_y = as.numeric(data_$syn_y[[1]]),
       tau = tau,
       kappa = log_density(fam)(data_$adj_syn_x,
-                               data_$syn_y,
-                               stats::glm(formula=formula, data=data_$syn_data, family = family),
-                               weights = 1 / data_$syn_size),
+        data_$syn_y,
+        stats::glm(formula = formula, data = data_$syn_data, family = family),
+        weights = 1 / data_$syn_size),
       alpha = joint_alpha,
       gamma = joint_gamma
     ),
@@ -59,29 +78,42 @@ cat_bayesian_glm <- function(formula,
     warmup = warmup,
     algorithm = mcmc_algorithm
   )
-  return(rstan_model)
+
   call["data_"] <- NULL
   call["tau"] <- NULL
   call["family"] <- NULL
   call["joint"] <- NULL
-  cat_bayesian =  c(list(data_ = data_,
-                         tau = tau,
-                         family = family,
-                         joint = joint,
-                         arg_mean = rstan::summary(rstan_model)$summary[,"mean"],
-                         rstan_model = rstan_model), as.list(call[-1]))
+  call["mcmc_algorithm"] <- NULL
+  cat_bayesian <- c(list(
+    data_ = data_,
+    tau = tau,
+    family = family,
+    joint = joint,
+    mcmc_algorithm = mcmc_algorithm,
+    arg_mean = rstan::summary(rstan_model)$summary[, "mean"],
+    rstan_model = rstan_model
+  ), as.list(call[-1]))
 
   class(cat_bayesian) <- c(cat_bayesian$class, "cat_bayesian_glm")
 
   return(cat_bayesian)
 }
 
+#' Title
+#'
+#' @param x
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
 print.cat_bayesian_glm <- function(x, ...) {
   cat("\nFormula for tau point estimate:  ")
   print(x$formula)
   cat(
     "\nMCMC algorithm: ", x$mcmc_algorithm,
-    "\nJoint tau: ", x$joint,
+    "\n\nJoint tau: ", x$joint,
     "\n\nMean of estimated argments: ", x$arg_mean
   )
   invisible(x)

@@ -3,16 +3,16 @@ log_density <- function(family) {
     "binomial" = function(X, Y, model, weights = FALSE, ...) {
       theta <- matrix_multiply(X, model$coefficients)
       if (isFALSE(weights)) {
-        return(-sum(theta * Y - log(1 + exp(theta))))
+        return(sum(theta * Y - log(1 + exp(theta))))
       } else {
-        return(-weights * sum(theta * Y - log(1 + exp(theta))))
+        return(weights * sum(theta * Y - log(1 + exp(theta))))
       }
     },
     "gaussian" = function(X, Y, model, weights = FALSE, ...) {
       if (isFALSE(weights)) {
-        return(-0.5 * (1 + log(2 * pi * var(model$residuals))))
+        return(0.5 * (1 + log(2 * pi * var(model$residuals))))
       } else {
-        return(-0.5 * weights * (1 + log(2 * pi * var(model$residuals)))) # TODO: check
+        return(0.5 * weights * (1 + log(2 * pi * var(model$residuals))))
       }
     }
   )
@@ -40,7 +40,7 @@ y_value <- function(family) {
         "gaussian",
         nrow(X),
         fam_mean("gaussian")(X, model$coefficients),
-        sqrt(sum(model$residuals^2) / model$df.residual) # TODO: check
+        sqrt(sum(model$residuals^2) / model$df.residual)
       )
     }
   )
@@ -169,15 +169,15 @@ generate_data_from_dist <- function(family = "gaussian",
 
 discrepancy_functions <- function(discrepancy_function) {
   switch(discrepancy_function,
-    "logarithmic" = function(x, y, beta, family) {
+    "logarithmic" = function(x, y, model, family) {
       # cap the value between 0.0001 and 0.9999 for better calculation process
-      x_cap <- pmax(0.0001, pmin(0.9999, fam_mean(family)(x, beta)))
+      x_cap <- pmax(0.0001, pmin(0.9999, fam_mean(family)(x, model$coefficients)))
       y_cap <- pmax(0.0001, pmin(0.9999, y))
       x * log(x_cap / y_cap) + (1 - x) * log((1 - x_cap) / (1 - y_cap))
     },
-    "square_error" = function(x, y, beta, family) (y - fam_mean(family)(x, beta))^2,
-    "classification_error" = function(x, y, beta, family) as.numeric(y == fam_mean(family)(x, beta)),
-    "logistic_deviance" = function(x, y, beta, family) log_density(family)(x, y, beta)
+    "square_error" = function(x, y, model, family) (y - fam_mean(family)(x, model$coefficients))^2,
+    "classification_error" = function(x, y, model, family) as.numeric(y == fam_mean(family)(x, model$coefficients)),
+    "logistic_deviance" = function(x, y, model, family) log_density(family)(x, y, model)
   )
 }
 
