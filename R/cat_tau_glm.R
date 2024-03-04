@@ -43,6 +43,7 @@ cat_tau_glm <-
     m <- match(c("formula", "family", "subset", "na.action", "offset"),
       table = names(mf), nomatch = 0L
     )
+
     mt <- mf[c(1L, m)]
     mt$data <- data_$data
     mt$weight <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
@@ -53,6 +54,7 @@ cat_tau_glm <-
     call["tau"] <- NULL
     call["family"] <- NULL
     cat_tau <- c(list(
+      cat_function = "cat_tau_glm",
       model = tau_model,
       tau = tau,
       est_beta = tau_model$coefficient,
@@ -63,23 +65,3 @@ cat_tau_glm <-
     class(cat_tau) <- c(cat_tau$class, "cat_tau_glm")
     return(cat_tau)
   }
-
-#' Title
-#'
-#' @param x
-#' @param ...
-#'
-#' @return
-#' @export
-#'
-#' @examples
-print.cat_tau_glm <- function(x, ...) {
-  cat("\nFormula for tau point estimate:  ")
-  print(x$formula)
-  cat(
-    "\nFamily: ", x$family$family,
-    "\n\ntau: ", x$tau,
-    "\n\nEstimated beta: ", x$est_beta
-  )
-  invisible(x)
-}

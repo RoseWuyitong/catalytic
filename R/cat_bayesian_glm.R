@@ -85,6 +85,7 @@ cat_bayesian_glm <- function(formula,
   call["joint"] <- NULL
   call["mcmc_algorithm"] <- NULL
   cat_bayesian <- c(list(
+    cat_function = "cat_bayesian_glm",
     data_ = data_,
     tau = tau,
     family = family,
@@ -97,24 +98,4 @@ cat_bayesian_glm <- function(formula,
   class(cat_bayesian) <- c(cat_bayesian$class, "cat_bayesian_glm")
 
   return(cat_bayesian)
-}
-
-#' Title
-#'
-#' @param x
-#' @param ...
-#'
-#' @return
-#' @export
-#'
-#' @examples
-print.cat_bayesian_glm <- function(x, ...) {
-  cat("\nFormula for tau point estimate:  ")
-  print(x$formula)
-  cat(
-    "\nMCMC algorithm: ", x$mcmc_algorithm,
-    "\n\nJoint tau: ", x$joint,
-    "\n\nMean of estimated argments: ", x$arg_mean
-  )
-  invisible(x)
 }

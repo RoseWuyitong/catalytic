@@ -127,6 +127,7 @@ cat_freq_glm <-
     call["taus"] <- NULL
     call["family"] <- NULL
     cat_freq <- c(list(
+      cat_function = "cat_freq_glm",
       data_ = data_,
       taus = taus,
       family = family,
@@ -368,24 +369,4 @@ cross_validation <- function(formula,
   }
 
   return(error_sum / cv_fold_num)
-}
-
-#' Title
-#'
-#' @param x
-#' @param ...
-#'
-#' @return
-#' @export
-#'
-#' @examples
-print.cat_freq_glm <- function(x, ...) {
-  cat("\nFormula for frequntist prior:  ")
-  print(x$formula)
-  cat(
-    "\nRisk estimate method: ", x$risk_estimate_method,
-    "\n\nOptimal tau: ", x$optimal_tau,
-    "\n\nOptimal estimated beta: ", x$optimal_beta
-  )
-  invisible(x)
 }
