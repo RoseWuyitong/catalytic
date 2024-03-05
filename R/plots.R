@@ -1,8 +1,5 @@
-plot.cat_tau_glm <- function() {
-
-}
-
 plot.cat_freq_glm <- function(freq_fit) {
+  dev.off()
   plot(freq_fit$taus,
        freq_fit$risk_estimate_collect,
        type="l",
@@ -25,6 +22,7 @@ plot.cat_freq_glm <- function(freq_fit) {
 
 }
 
-plot.cat_bayesian_glm <- function() {
-
+plot.cat_bayesian_glm <- function(baye_fit) {
+  dev.off()
+  rstan::traceplot(baye_fit$rstan_model)
 }

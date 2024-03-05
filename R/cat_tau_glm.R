@@ -1,18 +1,3 @@
-#' Title
-#'
-#' @param formula
-#' @param family
-#' @param data_
-#' @param tau
-#' @param subset
-#' @param na.action
-#' @param offset
-#' @param ...
-#'
-#' @return
-#' @export
-#'
-#' @examples
 cat_tau_glm <-
   function(formula,
            family = gaussian(),

@@ -134,6 +134,7 @@ cat_freq_glm <-
       optimal_tau = optimal_tau,
       optimal_freq_model = freq_model,
       optimal_beta = freq_model$coefficients,
+      min_risk_estimate = min_risk_estimate,
       risk_estimate_collect = risk_estimate_collect
     ), as.list(call[-1]))
 
