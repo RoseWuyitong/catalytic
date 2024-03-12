@@ -1,3 +1,18 @@
+#' Title
+#'
+#' @param formula
+#' @param family
+#' @param data_
+#' @param tau
+#' @param subset
+#' @param na.action
+#' @param offset
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
 cat_tau_glm <-
   function(formula,
            family = gaussian(),
@@ -31,22 +46,21 @@ cat_tau_glm <-
 
     mt <- mf[c(1L, m)]
     mt$data <- data_$data
-    mt$weight <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
+    mt$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
 
     tau_model <- do.call(stats::glm, as.list(mt[-1]))
 
-    call["data_"] <- NULL
-    call["tau"] <- NULL
-    call["family"] <- NULL
-    cat_tau <- c(list(
-      cat_function = "cat_tau_glm",
+    cat_tau <- list(
+      cat_glm = "cat_tau_glm",
       model = tau_model,
       tau = tau,
-      est_beta = tau_model$coefficient,
+      beta = tau_model$coefficients,
       data_ = data_,
       family = family
-    ), as.list(call[-1]))
+    )
 
-    class(cat_tau) <- c(cat_tau$class, "cat_tau_glm")
+    class(cat_tau) <- c(cat_tau$class, "cat_tau_glm", "cat_glm")
+
     return(cat_tau)
   }
+

@@ -107,31 +107,6 @@ adjust_data_type <- function(X) {
   return(X)
 }
 
-
-fit <- function(x,
-                y,
-                weights = NULL,
-                method = "mle",
-                family = "gaussian") {
-  switch(method,
-    "mle" = if (identical(x, 1)) {
-      stats::glm(y ~ 1, family = family, weights = weights)
-    } else {
-      stats::glm(y ~ ., data = as.data.frame(x), family = family, weights = weights)
-    },
-    "pseudo_mle" = if (identical(x, 1)) {
-      stats::glm(y ~ 1, family = family, weights = weights, maxit = 25)
-    } else {
-      stats::glm(y ~ ., data = as.data.frame(x), family = family, weights = weights, maxit = 25)
-    },
-    "cauchy" = if (identical(x, 1)) {
-      arm::bayesglm(y ~ 1, family = family, weights = weights)
-    } else {
-      arm::bayesglm(y ~ ., data = as.data.frame(x), family = family, weights = weights)
-    }
-  )
-}
-
 get_iqr <- function(x) {
   right_quantile <- 0.75
   iqr_value <- 0
@@ -177,7 +152,7 @@ discrepancy_functions <- function(discrepancy_function) {
     },
     "square_error" = function(x, y, model, family) (y - fam_mean(family)(x, model$coefficients))^2,
     "classification_error" = function(x, y, model, family) as.numeric(y == fam_mean(family)(x, model$coefficients)),
-    "logistic_deviance" = function(x, y, model, family) log_density(family)(x, y, model)
+    "logistic_deviance" = function(x, y, model, family) -log_density(family)(x, y, model)
   )
 }
 
@@ -244,16 +219,6 @@ standardize_data <- function(data, if_missing = NULL) {
   return(data)
 }
 
-warn_data_arg_missing <- function() {
-  warning(
-    "Omitting the 'data' argument is not recommended ",
-    "and may not be allowed in future versions of rstanarm. ",
-    "Some post-estimation functions (in particular 'update', 'loo', 'kfold') ",
-    "are not guaranteed to work properly unless 'data' is specified as a data frame.",
-    call. = FALSE
-  )
-}
-
 
 drop_redundant_dims <- function(data) {
   drop_dim <- sapply(data, function(v) is.matrix(v) && NCOL(v) == 1)
@@ -281,6 +246,14 @@ validate_tau <- function(t) {
 
 is.binomial <- function(x) x == "binomial"
 is.gaussian <- function(x) x == "gaussian"
+is.continuous <- function(lst) {
+  if (is.numeric(lst) & length(unique(lst)) > 2) {
+    return(TRUE)
+  }
+  return(FALSE)
+}
+is.cat_obj <- function(x) inherits(x, "cat_obj")
+is.initial_obj <- function(x) inherits(x, "initial_obj")
 
 validate_family <- function(f) {
   if (is.character(f)) {
@@ -296,15 +269,6 @@ validate_family <- function(f) {
   return(f)
 }
 
-.validate_glm_formula <- function(f) {
-  if (any(grepl("\\|", f))) {
-    stop("Using '|' in model formula not allowed. ",
-      "Maybe you meant to use 'stan_(g)lmer'?",
-      call. = FALSE
-    )
-  }
-}
-
 rhs <- function(formula, with_ = FALSE) {
   # Split the formula string by "~" and extract the first element
   if (with_) {
@@ -315,13 +279,6 @@ rhs <- function(formula, with_ = FALSE) {
 
 lhs <- function(formula) {
   return(rlang::f_lhs(formula))
-}
-
-.validate_regression <- function(family) {
-  if (.is.binomial(family)) {
-    return("logistic")
-  }
-  return("linear")
 }
 
 .large_number_warning <- function(num, threshold, suggestion) {
@@ -351,10 +308,3 @@ lhs <- function(formula) {
   }
 }
 
-
-is.continuous <- function(lst) {
-  if (is.numeric(lst) & length(unique(lst)) > 2) {
-    return(TRUE)
-  }
-  return(FALSE)
-}

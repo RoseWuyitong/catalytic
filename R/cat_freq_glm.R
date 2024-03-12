@@ -98,8 +98,6 @@ cat_freq_glm <-
       "n"
     )
 
-
-    min_risk_estimate <- Inf
     risk_estimate_collect <- c()
     optimal_tau <- NULL
 
@@ -119,26 +117,24 @@ cat_freq_glm <-
     optimal_tau <- taus[which.min(risk_estimate_collect)]
 
     mf$data <- data_$data
-    mf$weight <- c(rep(1, data_$obs_size), rep(optimal_tau / data_$syn_size, data_$syn_size))
+    mf$weights <- c(rep(1, data_$obs_size), rep(optimal_tau / data_$syn_size, data_$syn_size))
 
     freq_model <- do.call(stats::glm, as.list(mf[-1]))
-
-    call["data_"] <- NULL
-    call["taus"] <- NULL
-    call["family"] <- NULL
-    cat_freq <- c(list(
+    cat_freq <- list(
       cat_function = "cat_freq_glm",
+      formula = formula,
       data_ = data_,
       taus = taus,
       family = family,
-      optimal_tau = optimal_tau,
-      optimal_freq_model = freq_model,
-      optimal_beta = freq_model$coefficients,
-      min_risk_estimate = min_risk_estimate,
-      risk_estimate_collect = risk_estimate_collect
-    ), as.list(call[-1]))
+      tau = optimal_tau,
+      model = freq_model,
+      beta = freq_model$coefficients,
+      min_risk_estimate = min(risk_estimate_collect),
+      risk_estimate_collect = risk_estimate_collect,
+      risk_estimate_method = risk_estimate_method
+    )
 
-    class(cat_freq) <- c(cat_freq$class, "cat_freq_glm")
+    class(cat_freq) <- c(cat_freq$class, "cat_freq_glm", "cat_glm")
     return(cat_freq)
   }
 
@@ -160,7 +156,7 @@ parametric_bootstrap <- function(formula,
     table = names(mf), nomatch = 0L
   )
   mf <- mf[c(1L, m)]
-  mf$weight <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
+  mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
   mf$data <- data_$data
   beta_tau_model <- do.call(stats::glm, as.list(mf[-1]))
 
@@ -171,7 +167,7 @@ parametric_bootstrap <- function(formula,
     beta_tau_model,
     fam)[[1]])
 
-  mf$weight <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
+  mf$weights <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
   hat_tau_0_beta_model <- do.call(stats::glm, as.list(mf[-1]))
 
   mean_Y <- fam_mean(fam)(
@@ -193,7 +189,7 @@ parametric_bootstrap <- function(formula,
     boot_Y_df <- as.data.frame(boot_Y)
     names(boot_Y_df) <- names(data_$syn_y)
     mf$data <- cbind(data_$x, rbind(boot_Y_df, data_$syn_y))
-    mf$weight <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
+    mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
 
     boot_hat_tau_beta_model <- do.call(stats::glm, as.list(mf[-1]))
     boot_Y_collect[, bootstrap_iter] <- boot_Y
@@ -217,13 +213,13 @@ steinian_estimate <- function(formula,
                               na.action = NULL,
                               offset = NULL,
                               ...,
-                              discrepancy_function = "square_error",
+                              discrepancy_function = "logistic_deviance",
                               tau_0 = 1) {
   fam <- family$family
   .not_same_stop(
     fam,
     "binomial",
-    "Only binomial can use steinian_estimate."
+    "Only logistic can use steinian_estimate."
   )
 
 
@@ -232,18 +228,18 @@ steinian_estimate <- function(formula,
     table = names(mf), nomatch = 0L
   )
   mf <- mf[c(1L, m)]
-  mf$weight <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
+  mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
   mf$data <- data_$data
 
   beta_tau_model <- do.call(stats::glm, as.list(mf[-1]))
 
   D <- mean(discrepancy_functions(discrepancy_function)(
-    data_$obs_x,
-    data_$adj_obs_y,
+    data_$adj_obs_x,
+    data_$obs_y,
     beta_tau_model,
     fam)[[1]])
 
-  mf$weight <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
+  mf$weights <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
   hat_beta_0_model <- do.call(stats::glm, as.list(mf[-1]))
 
   hat_mu_0 <- fam_mean(fam)(data_$adj_obs_x, hat_beta_0_model$coefficients)
@@ -252,22 +248,23 @@ steinian_estimate <- function(formula,
 
   steinian_sum <- 0
   for (obs in 1:data_$obs_size) {
+
     triangle_response <- data_$y
-    triangle_response[obs] <- 1 - data_$y[obs]
+    triangle_response[obs, ] <- 1 - data_$y[obs, ]
 
     mf$data <- cbind(data_$adj_x, triangle_response)
-    mf$weight <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
+    mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
     trigangle_hat_tau_beta_model <- do.call(stats::glm, as.list(mf[-1]))
 
     steinian_sum <- steinian_sum +
-      with_[obs] * (2 * data_$y[obs] - 1) * (tcrossprod(
+      with_[obs] * (2 * data_$y[obs, ] - 1) * (tcrossprod(
         as.matrix(data_$adj_x[obs, ]),
         as.matrix(beta_tau_model$coefficient - trigangle_hat_tau_beta_model$coefficient)[-1]
       ) + (
         beta_tau_model$coefficient - trigangle_hat_tau_beta_model$coefficient)[1])
   }
 
-  return(D + steinian_sum)
+    return(D + steinian_sum)
 }
 
 mallows_estimate <- function(formula,
@@ -291,21 +288,27 @@ mallows_estimate <- function(formula,
     table = names(mf), nomatch = 0L
   )
   mf <- mf[c(1L, m)]
-  mf$weight <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
+  mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
   mf$data <- data_$data
 
   beta_tau_model <- do.call(stats::glm, as.list(mf[-1]))
 
-  D <- mean(discrepancy_functions("square_error")(
-    data_$obs_x,
-    data_$adj_obs_y,
+  D <- sum(discrepancy_functions("square_error")(
+    data_$adj_obs_x,
+    data_$obs_y,
     beta_tau_model,
     fam)[[1]])
+  # D <- sum(discrepancy_functions("square_error")(
+  #   data_$adj_obs_x,
+  #   data_$obs_y,
+  #   beta_tau_model,
+  #   fam)[[1]]) / 2
 
-  mf$weight <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
+  mf$weights <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
   beta_0_model <- do.call(stats::glm, as.list(mf[-1]))
 
-  var_Y <- sum((y_value(fam)(data_$adj_obs_x, beta_0_model$coefficient) - data_$obs_y)^2) / data_$obs_size
+  var_Y <- sum((y_value(fam)(data_$adj_obs_x, beta_0_model) - data_$obs_y)^2) / data_$obs_size
+  # var_Y <- 1
 
   tau_H <- H_matrix(
     X = data_$adj_obs_x,
@@ -314,8 +317,7 @@ mallows_estimate <- function(formula,
     M = data_$syn_size,
     n = data_$obs_size
   )
-
-  return(D + 2 * var_Y * sum(diag(tau_H)) / data_$obs_szie)
+  return(D + 2 * var_Y * sum(diag(tau_H)) / data_$obs_size)
 }
 
 
@@ -339,27 +341,33 @@ cross_validation <- function(formula,
                              ...,
                              discrepancy_function = "square_error",
                              cv_fold_num = 5) {
+
+  .small_number_warning(data_$obs_size,
+                        30,
+                        "Size of obeservation data is too small,
+                        please use other methods for better result.")
   error_sum <- 0
   random_sample <- sample(1:data_$obs_size)
+  fam <- family$family
 
   for (fold in 1:cv_fold_num) {
     test_x <- data_$adj_obs_x[random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
     (data_$obs_size * fold / cv_fold_num)], ]
     test_y <- data_$obs_y[random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
-    (data_$obs_size * fold / cv_fold_num)]]
+    (data_$obs_size * fold / cv_fold_num)], ]
 
     train_x <- data_$adj_obs_x[-random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
     (data_$obs_size * fold / cv_fold_num)], ]
-    train_y <- data_$obs_y[-random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
-    (data_$obs_size * fold / cv_fold_num)]]
+    y <- data_$obs_y[-random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
+    (data_$obs_size * fold / cv_fold_num)], ]
 
     mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "family", "subset", "na.action", "offset"),
       table = names(mf), nomatch = 0L
     )
     mf <- mf[c(1L, m)]
-    mf$weight <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
-    mf$data <- rbind(cbind(train_x, train_y), data_$syn_data)
+    mf$weights <- c(rep(1, nrow(train_x)), rep(tau / data_$syn_size, data_$syn_size))
+    mf$data <- rbind(cbind(train_x, y), data_$syn_data)
     estimate_beta_model <- do.call(stats::glm, as.list(mf[-1]))
 
     error_sum <- error_sum + mean(discrepancy_functions(discrepancy_function)(

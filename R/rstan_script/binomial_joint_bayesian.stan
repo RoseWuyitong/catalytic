@@ -12,7 +12,7 @@ data {
 }
 
 parameters {
-  real<lower=0> tau;
+  real<lower=1> tau;
   vector[x_col_n+1] beta;
 }
 

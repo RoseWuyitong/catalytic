@@ -41,7 +41,7 @@ initialization <- function(formula,
 
   syn_model <- do.call(stats::glm, as.list(mf[-1]))
 
-  syn_x_inform <- initial.auto_resampling(
+  syn_x_inform <- auto_resampling(
     obs_x = data[, -which(names(data) == lhs(formula))],
     syn_size = syn_size,
     x_degree = if (is.null(x_degree)) rep(1, ncol(data)) else x_degree
@@ -77,12 +77,12 @@ initialization <- function(formula,
     )
   )
 
-  class(data_) <- c(data_$class, "initialization")
+  class(data_) <- c(data_$class, "initial_obj")
 
   return(data_)
 }
 
-initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
+auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
   recd_syn_x <- data.frame(
     Type = character(),
     Process = character(),
@@ -105,7 +105,7 @@ initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
       if (x_degree[n] >= length(unique(obs_x[, n])) - 1) {
         process <- c(process, "Smoothing")
         syn_x[, n] <- do.call(
-          initial.resampling_methods,
+          resampling_methods,
           list(
             syn_x[, n],
             obs_x[, n],
@@ -117,7 +117,7 @@ initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
       if (abs(e1071::skewness(obs_x[, n])) >= 1) {
         process <- c(process, "IQR")
         syn_x[, n] <- do.call(
-          initial.resampling_methods,
+          resampling_methods,
           list(
             syn_x[, n],
             obs_x[, n],
@@ -132,7 +132,7 @@ initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
       if (any(tbl < nrow(data) / (2 * length(tbl)))) {
         process <- c(process, "Flattening")
         syn_x[, n] <- do.call(
-          initial.resampling_methods,
+          resampling_methods,
           list(
             syn_x[, n],
             obs_x[, n],
@@ -150,6 +150,7 @@ initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
       )
     ))
   }
+
   return(list(
     syn_x = syn_x,
     recd_syn_x = recd_syn_x
@@ -158,7 +159,7 @@ initial.auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
 
 
 
-initial.resampling_methods <- function(x, sample_x, method) {
+resampling_methods <- function(x, sample_x, method) {
   switch(method,
     "symmetrizing" = mean(sample_x) + sample(c(-1, 1), length(x), replace = TRUE) * (x - mean(sample_x)),
     "smoothing" = x + stats::rnorm(length(x), 0, min(diff(sort(unique(sample_x)))) / 10),
@@ -174,24 +175,4 @@ initial.resampling_methods <- function(x, sample_x, method) {
   )
 }
 
-#' Title
-#'
-#' @param x
-#' @param ...
-#'
-#' @return
-#' @export
-#'
-#' @examples
-print.initialization <- function(x, ...) {
-  cat("\nFormula for generating synthetic response:\n")
-  print(x$formula)
-  cat(
-    "\nFamily: ", x$family$family,
-    "\n\nSynthetic data size: ", x$syn_size,
-    "\n\nSynthetic data generation steps:\n\n"
-  )
-  print(x$syn_x_generation_steps)
-  cat("\n")
-  invisible(x)
-}
+

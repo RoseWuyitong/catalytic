@@ -9,13 +9,13 @@ plot.cat_freq_glm <- function(freq_fit) {
        ylab=paste0("risk estimate (", freq_fit$risk_estimate_method,")"),
        main="Plot of Risk Estimate from Freqentist")
 
-  text(freq_fit$optimal_tau,
+  text(freq_fit$tau,
        freq_fit$min_risk_estimate,
        labels = round(freq_fit$min_risk_estimate, 2),
        pos = 3,
        offset = 0.5)
 
-  points(freq_fit$optimal_tau,
+  points(freq_fit$tau,
          freq_fit$min_risk_estimate,
          pch = 4,
          col = "red")
@@ -26,3 +26,4 @@ plot.cat_bayesian_glm <- function(baye_fit) {
   dev.off()
   rstan::traceplot(baye_fit$rstan_model)
 }
+

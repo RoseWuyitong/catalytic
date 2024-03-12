@@ -66,7 +66,8 @@ cat_bayesian_glm <- function(formula,
       syn_x = data_$adj_syn_x,
       syn_y = as.numeric(data_$syn_y[[1]]),
       tau = tau,
-      kappa = log_density(fam)(data_$adj_syn_x,
+      kappa = log_density(fam)(
+        data_$adj_syn_x,
         data_$syn_y,
         stats::glm(formula = formula, data = data_$syn_data, family = family),
         weights = 1 / data_$syn_size),
@@ -79,23 +80,22 @@ cat_bayesian_glm <- function(formula,
     algorithm = mcmc_algorithm
   )
 
-  call["data_"] <- NULL
-  call["tau"] <- NULL
-  call["family"] <- NULL
-  call["joint"] <- NULL
-  call["mcmc_algorithm"] <- NULL
-  cat_bayesian <- c(list(
+
+  cat_bayesian <- list(
     cat_function = "cat_bayesian_glm",
+    formula = formula,
     data_ = data_,
     tau = tau,
     family = family,
     joint = joint,
     mcmc_algorithm = mcmc_algorithm,
-    arg_mean = rstan::summary(rstan_model)$summary[, "mean"],
+    beta = rstan::summary(rstan_model)$summary[
+      grep("beta", rownames(rstan::summary(rstan_model)$summary)),
+      "mean"],
     rstan_model = rstan_model
-  ), as.list(call[-1]))
+  )
 
-  class(cat_bayesian) <- c(cat_bayesian$class, "cat_bayesian_glm")
+  class(cat_bayesian) <- c(cat_bayesian$class, "cat_bayesian_glm", "cat_glm")
 
   return(cat_bayesian)
 }
