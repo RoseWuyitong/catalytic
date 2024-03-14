@@ -248,7 +248,6 @@ steinian_estimate <- function(formula,
 
   steinian_sum <- 0
   for (obs in 1:data_$obs_size) {
-
     triangle_response <- data_$y
     triangle_response[obs, ] <- 1 - data_$y[obs, ]
 
@@ -264,7 +263,7 @@ steinian_estimate <- function(formula,
         beta_tau_model$coefficient - trigangle_hat_tau_beta_model$coefficient)[1])
   }
 
-    return(D + steinian_sum)
+  return(D + steinian_sum)
 }
 
 mallows_estimate <- function(formula,
@@ -298,17 +297,11 @@ mallows_estimate <- function(formula,
     data_$obs_y,
     beta_tau_model,
     fam)[[1]])
-  # D <- sum(discrepancy_functions("square_error")(
-  #   data_$adj_obs_x,
-  #   data_$obs_y,
-  #   beta_tau_model,
-  #   fam)[[1]]) / 2
 
   mf$weights <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
   beta_0_model <- do.call(stats::glm, as.list(mf[-1]))
 
   var_Y <- sum((y_value(fam)(data_$adj_obs_x, beta_0_model) - data_$obs_y)^2) / data_$obs_size
-  # var_Y <- 1
 
   tau_H <- H_matrix(
     X = data_$adj_obs_x,
@@ -325,7 +318,7 @@ H_matrix <- function(X, X_star, tau, M, n) {
   X <- as.matrix(X)
   X_star <- as.matrix(X_star)
   return(X %*% (
-    (t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))^(-1)) %*% (
+    solve(t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))) %*% (
     t(X) + tau / (M * n) * t(X_star) %*% rep(1, M) %*% t(rep(1, n))
   ))
 }
@@ -341,11 +334,12 @@ cross_validation <- function(formula,
                              ...,
                              discrepancy_function = "square_error",
                              cv_fold_num = 5) {
-
-  .small_number_warning(data_$obs_size,
-                        30,
-                        "Size of obeservation data is too small,
-                        please use other methods for better result.")
+  .small_number_warning(
+    data_$obs_size,
+    30,
+    "Size of obeservation data is too small,
+                        please use other methods for better result."
+  )
   error_sum <- 0
   random_sample <- sample(1:data_$obs_size)
   fam <- family$family

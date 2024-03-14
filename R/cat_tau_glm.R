@@ -63,4 +63,3 @@ cat_tau_glm <-
 
     return(cat_tau)
   }
-

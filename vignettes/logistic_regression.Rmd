@@ -1,0 +1,249 @@
+---
+title: "Logistic Regression Example from Paper"
+author: "Huang Dongming and Wu Yitong"
+date: "2024-03-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+real_beta_vector <- function(dimention,
+                             zeta,
+                             r,
+                             pseudo_size = 1000) {
+  # generate real beta vector shown in paper
+
+  real_beta0 <- c(rep(0, dimention))
+
+  # ζ zeta proportion of the coordinates of β(0) is randomly selected and set to 1
+  real_beta0[sample(dimention, (dimention) * zeta, replace = FALSE)] <- 1
+  real_beta0 <- c(0, rnorm(dimention) * real_beta0)
+  pseudo_covariate <- observed_covariate_vector(dimention, pseudo_size, 0, diag(rep(1, dimention)), 0.5)
+  beta_scale <- 1
+
+  repeat {
+    real_beta <- real_beta0 * beta_scale
+    real_beta[1] <- -mean(pseudo_covariate %*% real_beta[-1])
+    pseudo_response <- fam_mean("binomial")(pseudo_covariate, real_beta)
+    oracle_error <- mean(1 - abs(1 - 2 * pseudo_response)) / 2
+    if (abs(oracle_error - r) < 0.005) {
+      break
+    }
+    beta_scale <- ifelse(oracle_error > r, beta_scale * 1.1, beta_scale * 0.9)
+  }
+  return(real_beta)
+}
+
+observed_covariate_vector <- function(dimention, # number of columns
+                                      sample_size, # number of rows
+                                      Z_mean,
+                                      Z_variance,
+                                      Z_corr) {
+  # generate observed covariate vector from Gaussian random vector Z
+
+  X_i <- Z_i <- MASS::mvrnorm(
+    n = sample_size,
+    mu = rep(Z_mean, dimention),
+    Sigma = correlation_matrix(Z_corr, dimention) %*% Z_variance
+  )
+
+
+  # set Xi,j = 2 · 1Zi,j >0 − 1, 2j < p Zi,j , 2j ≥ p
+  X_i[, 1:floor(dimention / 2)] <- 2 * (Z_i[, 1:floor(dimention / 2)] > 0) - 1
+
+  return(X_i)
+}
+```
+
+# Introduction
+
+This is one other __catalytic__ vignettes go into the particularities of example of logistic regression from paper.
+
+```{r data, eval=TRUE}
+sample_size <- 100 # observed data sample size
+dimention <- 25 # number of covariate
+
+Z_corr <- 0.5
+Z_mean <- 0
+Z_variance <- 1
+
+zeta <- 0.75
+r <- 0.1
+
+observed_covariate <- as.data.frame(observed_covariate_vector(
+  dimention,
+  sample_size,
+  Z_mean,
+  diag(rep(Z_variance, dimention)),
+  Z_corr
+))
+
+real_beta <- real_beta_vector(dimention, zeta, r)
+
+observed_response <- data.frame(y = generate_data_from_dist(
+  "binomial",
+  nrow(observed_covariate),
+  fam_mean("binomial")(observed_covariate, real_beta)
+))
+
+obs_data <- cbind(observed_covariate, observed_response)
+
+head(obs_data)
+
+real_beta
+```
+
+Let's see how is works in glm.
+
+```{r glm}
+stats::glm(y ~ ., family = binomial, data = obs_data)
+```
+
+Let's do a simple test on them.
+
+```{r}
+err <- function(x,
+                beta0,
+                beta1) {
+  return(mean(discrepancy_functions("logarithmic")(fam_mean("binomial")(x, beta0), fam_mean("binomial")(x, beta1))))
+}
+
+
+z <- 0.75 # nonsparsity
+r <- 0.1 # oracle classification error
+init_taus <- c(4.25, 8.50, 12.75, 17.00, 21.25, 25.50, 34.00)
+sampling_times <- 5
+
+glm_results <-
+  freq_boots_results <-
+  freq_stein_results <-
+  freq_cv_results <-
+  baye_mean_results <-
+  baye_median_results <-
+  c()
+
+for (t in (1:sampling_times)) {
+  set.seed(t)
+  cat("\nsampling times:", t)
+
+  # Prepare observed data
+  observed_covariate <- observed_covariate_vector(
+    dimention,
+    sample_size,
+    Z_mean,
+    diag(rep(Z_variance, dimention)),
+    Z_corr
+  )
+
+  real_beta <- real_beta_vector(dimention, z, r)
+
+  observed_response <- data.frame(y = generate_data_from_dist(
+    "binomial",
+    nrow(observed_covariate),
+    fam_mean("binomial")(observed_covariate, real_beta)
+  ))
+
+  obs_data <- cbind(observed_covariate, observed_response)
+
+  glm_beta <- stats::glm(y ~ ., family = binomial(), data = obs_data)$coefficients
+
+  data_ <- initialization(y ~ 1, family = binomial(), data = obs_data)
+
+  freq_boots_beta <- cat_freq_glm(y ~ .,
+    family = binomial(),
+    data_ = data_,
+    risk_estimate_method = "parametric_bootstrap",
+    discrepancy_function = "logistic_deviance",
+    taus = init_taus
+  )$beta
+
+  freq_stein_beta <- cat_freq_glm(y ~ .,
+    family = binomial(),
+    data_ = data_,
+    risk_estimate_method = "steinian_estimate",
+    discrepancy_function = "logistic_deviance",
+    taus = init_taus
+  )$beta
+
+  freq_cv_beta <- cat_freq_glm(y ~ .,
+    family = binomial(),
+    data_ = data_,
+    risk_estimate_method = "cross_validation",
+    discrepancy_function = "logistic_deviance",
+    taus = init_taus,
+    cv_fold_num = 10
+  )$beta
+
+  baye_model <- cat_bayesian_glm(y ~ .,
+    family = binomial(),
+    data_ = data_,
+    joint = TRUE,
+    iter = 7000,
+    warmup = 3000
+  )
+
+  baye_mean_beta <- as.numeric(head(rstan::summary(baye_model$rstan_model)$summary[, "mean"][-1], -1))
+
+  baye_median_beta <- as.numeric(head(rstan::summary(baye_model$rstan_model)$summary[, "50%"][-1], -1))
+
+  test_x <- observed_covariate_vector(
+    dimention,
+    1000,
+    Z_mean,
+    diag(rep(Z_variance, dimention)),
+    Z_corr
+  )
+  glm_results <- append(
+    glm_results,
+    err(test_x, real_beta, glm_beta)
+  )
+  freq_boots_results <- append(
+    freq_boots_results,
+    err(test_x, real_beta, freq_boots_beta)
+  )
+  freq_stein_results <- append(
+    freq_stein_results,
+    err(test_x, real_beta, freq_stein_beta)
+  )
+  freq_cv_results <- append(
+    freq_cv_results,
+    err(test_x, real_beta, freq_cv_beta)
+  )
+  baye_mean_results <- append(
+    baye_mean_results,
+    err(test_x, real_beta, baye_mean_beta)
+  )
+  baye_median_results <- append(
+    baye_median_results,
+    err(test_x, real_beta, baye_median_beta)
+  )
+}
+```
+
+
+
+```{r result}
+results <- data.frame(
+  Method = c("glm", "freq_boots", "freq_stein", "freq_cv", "baye_mean", "baye_median"),
+  Mean = c(
+    mean(glm_results), 
+    mean(freq_boots_results), 
+    mean(freq_stein_results),
+    mean(freq_cv_results), 
+    mean(baye_mean_results), 
+    mean(baye_median_results)
+  ),
+  SE = c(
+    sd(glm_results) / sqrt(length(glm_results)), 
+    sd(freq_boots_results) / sqrt(length(freq_boots_results)),
+    sd(freq_stein_results) / sqrt(length(freq_stein_results)), 
+    sd(freq_cv_results) / sqrt(length(freq_cv_results)),
+    sd(baye_mean_results) / sqrt(length(baye_mean_results)), 
+    sd(baye_median_results) / sqrt(length(baye_median_results))
+  )
+)
+```
+
+
+

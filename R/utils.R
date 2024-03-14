@@ -144,9 +144,9 @@ generate_data_from_dist <- function(family = "gaussian",
 
 discrepancy_functions <- function(discrepancy_function) {
   switch(discrepancy_function,
-    "logarithmic" = function(x, y, model, family) {
+    "logarithmic" = function(x, y, ...) {
       # cap the value between 0.0001 and 0.9999 for better calculation process
-      x_cap <- pmax(0.0001, pmin(0.9999, fam_mean(family)(x, model$coefficients)))
+      x_cap <- pmax(0.0001, pmin(0.9999, x))
       y_cap <- pmax(0.0001, pmin(0.9999, y))
       x * log(x_cap / y_cap) + (1 - x) * log((1 - x_cap) / (1 - y_cap))
     },
@@ -307,4 +307,3 @@ lhs <- function(formula) {
     if (identical(user_input, stop_ans)) stop("program stop", call. = FALSE)
   }
 }
-

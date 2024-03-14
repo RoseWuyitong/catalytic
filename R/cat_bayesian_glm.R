@@ -91,7 +91,8 @@ cat_bayesian_glm <- function(formula,
     mcmc_algorithm = mcmc_algorithm,
     beta = rstan::summary(rstan_model)$summary[
       grep("beta", rownames(rstan::summary(rstan_model)$summary)),
-      "mean"],
+      "mean"
+    ],
     rstan_model = rstan_model
   )
 

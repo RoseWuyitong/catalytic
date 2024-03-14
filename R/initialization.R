@@ -174,5 +174,3 @@ resampling_methods <- function(x, sample_x, method) {
     stop(paste(method, "Resampling Method Not available"))
   )
 }
-
-

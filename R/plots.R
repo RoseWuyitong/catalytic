@@ -1,29 +1,44 @@
+#' Title
+#'
+#' @param freq_fit
+#'
+#' @return
+#' @export
+#'
+#' @examples
 plot.cat_freq_glm <- function(freq_fit) {
-  dev.off()
   plot(freq_fit$taus,
-       freq_fit$risk_estimate_collect,
-       type="l",
-       col="black",
-       lwd=2,
-       xlab="taus",
-       ylab=paste0("risk estimate (", freq_fit$risk_estimate_method,")"),
-       main="Plot of Risk Estimate from Freqentist")
+    freq_fit$risk_estimate_collect,
+    type = "l",
+    col = "black",
+    lwd = 2,
+    xlab = "taus",
+    ylab = paste0("risk estimate (", freq_fit$risk_estimate_method, ")"),
+    main = "Plot of Risk Estimate from Freqentist"
+  )
 
   text(freq_fit$tau,
-       freq_fit$min_risk_estimate,
-       labels = round(freq_fit$min_risk_estimate, 2),
-       pos = 3,
-       offset = 0.5)
+    freq_fit$min_risk_estimate,
+    labels = round(freq_fit$min_risk_estimate, 2),
+    pos = 3,
+    offset = 0.5
+  )
 
   points(freq_fit$tau,
-         freq_fit$min_risk_estimate,
-         pch = 4,
-         col = "red")
-
+    freq_fit$min_risk_estimate,
+    pch = 4,
+    col = "red"
+  )
 }
 
+#' Title
+#'
+#' @param baye_fit
+#'
+#' @return
+#' @export
+#'
+#' @examples
 plot.cat_bayesian_glm <- function(baye_fit) {
-  dev.off()
   rstan::traceplot(baye_fit$rstan_model)
 }
-
