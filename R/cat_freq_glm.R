@@ -150,7 +150,7 @@ parametric_bootstrap <- function(formula,
                                  discrepancy_function = "square_error",
                                  tau_0 = 1,
                                  bootstrap_iteration_times = 100) {
-  fam <- family$family
+  fam <- get_family(family)
   mf <- match.call(expand.dots = FALSE)
   m <- match(c("formula", "family", "subset", "na.action", "offset"),
     table = names(mf), nomatch = 0L
@@ -215,7 +215,7 @@ steinian_estimate <- function(formula,
                               ...,
                               discrepancy_function = "logistic_deviance",
                               tau_0 = 1) {
-  fam <- family$family
+  fam <- get_family(family)
   .not_same_stop(
     fam,
     "binomial",
@@ -275,7 +275,7 @@ mallows_estimate <- function(formula,
                              offset = NULL,
                              ...,
                              tau_0 = 1) {
-  fam <- family$family
+  fam <- get_family(family)
   .not_same_stop(
     fam,
     "gaussian",
@@ -318,7 +318,7 @@ H_matrix <- function(X, X_star, tau, M, n) {
   X <- as.matrix(X)
   X_star <- as.matrix(X_star)
   return(X %*% (
-    solve(t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))) %*% (
+    chol2inv(chol((t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))))) %*% (
     t(X) + tau / (M * n) * t(X_star) %*% rep(1, M) %*% t(rep(1, n))
   ))
 }
@@ -342,7 +342,7 @@ cross_validation <- function(formula,
   )
   error_sum <- 0
   random_sample <- sample(1:data_$obs_size)
-  fam <- family$family
+  fam <- get_family(family)
 
   for (fold in 1:cv_fold_num) {
     test_x <- data_$adj_obs_x[random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):

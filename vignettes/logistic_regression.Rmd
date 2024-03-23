@@ -61,8 +61,9 @@ observed_covariate_vector <- function(dimention, # number of columns
 This is one other __catalytic__ vignettes go into the particularities of example of logistic regression from paper.
 
 ```{r data, eval=TRUE}
-sample_size <- 100 # observed data sample size
-dimention <- 25 # number of covariate
+library(catalytic)
+sample_size <- 20 # observed data sample size
+dimention <- 5 # number of covariate
 
 Z_corr <- 0.5
 Z_mean <- 0
@@ -109,18 +110,29 @@ err <- function(x,
   return(mean(discrepancy_functions("logarithmic")(fam_mean("binomial")(x, beta0), fam_mean("binomial")(x, beta1))))
 }
 
+sample_size <- 40 # observed data sample size CHANGE
+dimention <- 10 # number of covariate CHNAGE
+
+Z_corr <- 0.5
+Z_mean <- 0
+Z_variance <- 1
 
 z <- 0.75 # nonsparsity
 r <- 0.1 # oracle classification error
-init_taus <- c(4.25, 8.50, 12.75, 17.00, 21.25, 25.50, 34.00)
-sampling_times <- 5
+init_taus <- seq(1, 100, 10) # CHANGE
+sampling_times <- 3 # CHANGE
 
 glm_results <-
   freq_boots_results <-
   freq_stein_results <-
   freq_cv_results <-
-  baye_mean_results <-
-  baye_median_results <-
+  bayes_tau_mean_results <-
+  bayes_tau_median_results <-
+  bayes_theta1_mean_results <-
+  bayes_theta1_median_results <-
+  bayes_theta2_mean_results <-
+  bayes_theta2_median_results <-
+  bayes_gibbs_results <-
   c()
 
 for (t in (1:sampling_times)) {
@@ -175,17 +187,70 @@ for (t in (1:sampling_times)) {
     cv_fold_num = 10
   )$beta
 
-  baye_model <- cat_bayesian_glm(y ~ .,
-    family = binomial(),
-    data_ = data_,
-    joint = TRUE,
-    iter = 7000,
-    warmup = 3000
+
+  data <- list(
+    obs_n = data_$obs_size,
+    syn_n = data_$syn_size,
+    x_col_n = ncol(data_$x),
+    obs_x = data_$obs_x,
+    obs_y = as.numeric(data_$obs_y[[1]]),
+    syn_x = data_$syn_x,
+    syn_y = as.numeric(data_$syn_y[[1]]),
+    kappa = log_density("binomial")(
+      data_$syn_x,
+      data_$syn_y,
+      stats::glm(formula = y ~ ., data = data_$syn_data, family = binomial()),
+      weights = 1 / data_$syn_size),
+    alpha = 2,
+    gamma = 1
   )
 
-  baye_mean_beta <- as.numeric(head(rstan::summary(baye_model$rstan_model)$summary[, "mean"][-1], -1))
+  bayes_tau_model <- rstan::stan(
+    file = "~/catalytic/R/rstan_script/binomial_joint_bayesian_tau.stan",
+    data = data,
+    chains = 4,
+    iter = 2000,
+    warmup = 1000,
+    algorithm = "HMC"
+  )
 
-  baye_median_beta <- as.numeric(head(rstan::summary(baye_model$rstan_model)$summary[, "50%"][-1], -1))
+  bayes_tau_mean_beta <- as.numeric(head(rstan::summary(bayes_tau_model)$summary[, "mean"][-1], -1))
+
+  bayes_tau_median_beta <- as.numeric(head(rstan::summary(bayes_tau_model)$summary[, "50%"][-1], -1))
+
+
+  bayes_theta1_model <- rstan::stan(
+    file = "~/catalytic/R/rstan_script/binomial_joint_bayesian_theta1.stan",
+    data = data,
+    chains = 4,
+    iter = 2000,
+    warmup = 1000,
+    algorithm = "HMC"
+  )
+
+  bayes_theta1_mean_beta <- as.numeric(head(rstan::summary(bayes_theta1_model)$summary[, "mean"][-1], -1))
+
+  bayes_theta1_median_beta <- as.numeric(head(rstan::summary(bayes_theta1_model)$summary[, "50%"][-1], -1))
+
+
+  bayes_theta2_model <- rstan::stan(
+    file = "~/catalytic/R/rstan_script/binomial_joint_bayesian_theta2.stan",
+    data = data,
+    chains = 4,
+    iter = 2000,
+    warmup = 1000,
+    algorithm = "HMC"
+  )
+
+  bayes_theta2_mean_beta <- as.numeric(head(rstan::summary(bayes_theta2_model)$summary[, "mean"][-1], -1))
+
+  bayes_theta2_median_beta <- as.numeric(head(rstan::summary(bayes_theta2_model)$summary[, "50%"][-1], -1))
+
+  bayes_gibbs_model <- cat_bayesian_glm(y ~ ., binomial, data_, joint = TRUE, gibbs = TRUE, gibbs_iter = 100, chains = 1, warmup = 5, iter = 6) # CHANGE
+
+  bayes_gibbs_beta <- bayes_gibbs_model$beta
+
+
 
   test_x <- observed_covariate_vector(
     dimention,
@@ -210,13 +275,35 @@ for (t in (1:sampling_times)) {
     freq_cv_results,
     err(test_x, real_beta, freq_cv_beta)
   )
-  baye_mean_results <- append(
-    baye_mean_results,
-    err(test_x, real_beta, baye_mean_beta)
+
+
+  bayes_tau_mean_results <- append(
+    bayes_tau_mean_results,
+    err(test_x, real_beta, bayes_tau_mean_beta)
   )
-  baye_median_results <- append(
-    baye_median_results,
-    err(test_x, real_beta, baye_median_beta)
+  bayes_tau_median_results <- append(
+    bayes_tau_median_results,
+    err(test_x, real_beta, bayes_tau_median_beta)
+  )
+  bayes_theta1_mean_results <- append(
+    bayes_theta1_mean_results,
+    err(test_x, real_beta, bayes_theta1_mean_beta)
+  )
+  bayes_theta1_median_results <- append(
+    bayes_theta1_median_results,
+    err(test_x, real_beta, bayes_theta1_median_beta)
+  )
+  bayes_theta2_mean_results <- append(
+    bayes_theta2_mean_results,
+    err(test_x, real_beta, bayes_theta2_mean_beta)
+  )
+  bayes_theta2_median_results <- append(
+    bayes_theta2_median_results,
+    err(test_x, real_beta, bayes_theta2_median_beta)
+  )
+  bayes_gibbs_results <- append(
+    bayes_gibbs_results,
+    err(test_x, real_beta, bayes_gibbs_beta)
   )
 }
 ```
@@ -225,24 +312,42 @@ for (t in (1:sampling_times)) {
 
 ```{r result}
 results <- data.frame(
-  Method = c("glm", "freq_boots", "freq_stein", "freq_cv", "baye_mean", "baye_median"),
+  Method = c(
+    "glm", "freq_boots", "freq_stein", "freq_cv",
+    "bayes_tau_mean", "bayes_tau_median",
+    "bayes_theta1_mean", "bayes_theta1_median",
+    "bayes_theta2_mean", "bayes_theta2_median",
+    "bayes_gibbs"
+  ),
   Mean = c(
-    mean(glm_results), 
-    mean(freq_boots_results), 
+    mean(glm_results),
+    mean(freq_boots_results),
     mean(freq_stein_results),
-    mean(freq_cv_results), 
-    mean(baye_mean_results), 
-    mean(baye_median_results)
+    mean(freq_cv_results),
+    mean(bayes_tau_mean_results),
+    mean(bayes_tau_median_results),
+    mean(bayes_theta1_mean_results),
+    mean(bayes_theta1_median_results),
+    mean(bayes_theta2_mean_results),
+    mean(bayes_theta2_median_results),
+    mean(bayes_gibbs_results)
   ),
   SE = c(
-    sd(glm_results) / sqrt(length(glm_results)), 
+    sd(glm_results) / sqrt(length(glm_results)),
     sd(freq_boots_results) / sqrt(length(freq_boots_results)),
-    sd(freq_stein_results) / sqrt(length(freq_stein_results)), 
+    sd(freq_stein_results) / sqrt(length(freq_stein_results)),
     sd(freq_cv_results) / sqrt(length(freq_cv_results)),
-    sd(baye_mean_results) / sqrt(length(baye_mean_results)), 
-    sd(baye_median_results) / sqrt(length(baye_median_results))
+    sd(bayes_tau_mean_results) / sqrt(length(bayes_tau_mean_results)),
+    sd(bayes_tau_median_results) / sqrt(length(bayes_tau_median_results)),
+    sd(bayes_theta1_mean_results) / sqrt(length(bayes_theta1_mean_results)),
+    sd(bayes_theta1_median_results) / sqrt(length(bayes_theta1_median_results)),
+    sd(bayes_theta2_mean_results) / sqrt(length(bayes_theta2_mean_results)),
+    sd(bayes_theta2_median_results) / sqrt(length(bayes_theta2_median_results)),
+    sd(bayes_gibbs_results) / sqrt(length(bayes_gibbs_results))
   )
 )
+
+results
 ```
 
 

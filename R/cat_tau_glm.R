@@ -34,7 +34,9 @@ cat_tau_glm <-
     validate_glm_formula(formula)
     family <- validate_family(family)
 
-    if (is.null(tau)) tau <- ncol(data_$data) / 4
+    data_$adj_x <- model.frame(rhs(formula, TRUE), data_$x)
+
+    if (is.null(tau)) tau <- ncol(data_$adj_x) / 4
 
     validate_tau(tau)
 
@@ -51,6 +53,7 @@ cat_tau_glm <-
     tau_model <- do.call(stats::glm, as.list(mt[-1]))
 
     cat_tau <- list(
+      formula = formula,
       cat_glm = "cat_tau_glm",
       model = tau_model,
       tau = tau,

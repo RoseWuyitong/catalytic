@@ -10,13 +10,15 @@ cat_bayesian_glm(
   data_,
   tau = NULL,
   joint = FALSE,
+  gibbs = FALSE,
   ...,
   chains = 4,
   iter = 2000,
   warmup = 1000,
-  mcmc_algorithm = "HMC",
+  algorithm = "HMC",
   joint_alpha = 2,
-  joint_gamma = 1
+  joint_gamma = 1,
+  gibbs_iter = 1000
 )
 }
 \arguments{

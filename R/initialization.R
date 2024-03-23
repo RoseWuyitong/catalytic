@@ -27,7 +27,7 @@ initialization <- function(formula,
                            x_degree = NULL) {
   validate_glm_formula(formula)
   family <- validate_family(family)
-  fam <- family$family
+  fam <- get_family(family)
   data <- standardize_data(data)
   syn_size <- as.integer(if (is.null(syn_size)) ncol(data) * 5 else syn_size)
 
@@ -77,7 +77,7 @@ initialization <- function(formula,
     )
   )
 
-  class(data_) <- c(data_$class, "initial_obj")
+  class(data_) <- c(data_$class, "initialization")
 
   return(data_)
 }

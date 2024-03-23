@@ -1,14 +1,14 @@
 log_density <- function(family) {
   switch(family,
-    "binomial" = function(X, Y, model, weights = FALSE, ...) {
-      theta <- matrix_multiply(X, model$coefficients)
+    "binomial" = function(X, Y, model = NULL, beta = NULL, weights = FALSE, ...) {
+      theta <- if (is.null(model)) matrix_multiply(X, beta) else matrix_multiply(X, model$coefficients)
       if (isFALSE(weights)) {
         return(sum(theta * Y - log(1 + exp(theta))))
       } else {
         return(weights * sum(theta * Y - log(1 + exp(theta))))
       }
     },
-    "gaussian" = function(X, Y, model, weights = FALSE, ...) {
+    "gaussian" = function(X, Y, model, beta = NULL, weights = FALSE, ...) {
       if (isFALSE(weights)) {
         return(0.5 * (1 + log(2 * pi * var(model$residuals))))
       } else {
@@ -267,6 +267,37 @@ validate_family <- function(f) {
   }
 
   return(f)
+}
+
+get_family <- function(family) {
+  fam <- try(family$family, silent = TRUE)
+  if (inherits(fam, "try-error")) {
+    fam <- family()$family
+  }
+  return(fam)
+}
+
+family_plus_link <- function(fam) {
+  if (is.character(fam)) {
+    stopifnot(identical(fam, x$method))
+    fam <- paste0("ordered [", fam, "]")
+  } else {
+    fam <- paste0(fam$family, " [", fam$link, "]")
+  }
+  return(fam)
+}
+
+formula_string <- function(formula, break_and_indent = TRUE) {
+  coll <- if (break_and_indent) {
+    "--MARK--"
+  } else {
+    " "
+  }
+  char <- gsub("\\s+", " ", paste(deparse(formula), collapse = coll))
+  if (!break_and_indent) {
+    return(char)
+  }
+  gsub("--MARK--", "\n\t  ", char, fixed = TRUE)
 }
 
 rhs <- function(formula, with_ = FALSE) {
