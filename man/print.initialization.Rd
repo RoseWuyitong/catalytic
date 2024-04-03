@@ -4,7 +4,7 @@
 \alias{print.initialization}
 \title{Title}
 \usage{
-\method{print}{initialization}(data_, show_data_head = FALSE, detail = TRUE, ...)
+\method{print}{initialization}(data_, data_head = FALSE, detail = TRUE, ...)
 }
 \arguments{
 \item{...}{}

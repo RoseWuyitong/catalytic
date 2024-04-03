@@ -180,6 +180,22 @@ gelman_rubin_statistic <- function(rstan_model, rhat_threhold = 0.01) {
   return("FAIL")
 }
 
+stan_model_selection <- memoise::memoise(function(fam,
+                                                  joint,
+                                                  gibbs,
+                                                  use_theta) {
+  return(rstan::stan_model(
+    file = paste0(
+      "~/catalytic/R/rstan_script/",
+      fam,
+      if (joint & isFALSE(gibbs)) "_joint",
+      "_bayesian",
+      if (fam == "binomial" & joint & use_theta & isFALSE(gibbs)) "_theta",
+      if (fam == "binomial" & joint & isFALSE(use_theta) & isFALSE(gibbs)) "_tau",
+      ".stan"
+    )
+  ))
+})
 
 effective_sample_size <- function(rstan_model, ess_threhold = 100) {
   if (all(

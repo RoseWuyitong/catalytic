@@ -4,7 +4,7 @@
 \alias{print.cat_tau_glm}
 \title{Title}
 \usage{
-\method{print}{cat_tau_glm}(x, ...)
+\method{print}{cat_tau_glm}(cat_glm, digit = 3, detail = TRUE, ...)
 }
 \arguments{
 \item{...}{}

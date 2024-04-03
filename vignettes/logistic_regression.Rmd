@@ -509,8 +509,6 @@ ses <- sapply(results_list, function(x) sd(x) / sqrt(length(x)))
 
 # Create the dataframe
 results <- data.frame(Method = methods, Mean = means, SE = ses)
-
-
 ```
 
 
