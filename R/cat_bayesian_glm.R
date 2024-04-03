@@ -23,9 +23,11 @@ cat_bayesian_glm <- function(formula,
                              tau = NULL,
                              joint = FALSE,
                              gibbs = FALSE,
+                             use_theta = FALSE,
                              ...,
                              chains = 4,
                              iter = 2000,
+                             joint_lower = 0.05,
                              warmup = 1000,
                              algorithm = "HMC",
                              joint_alpha = 2,
@@ -51,7 +53,6 @@ cat_bayesian_glm <- function(formula,
 
   if (is.null(tau)) tau <- ncol(data_$adj_x) / 4
 
-
   kappa_ <- log_density(fam)(
     data_$adj_syn_x,
     data_$syn_y,
@@ -67,52 +68,52 @@ cat_bayesian_glm <- function(formula,
     obs_y = as.numeric(data_$obs_y[[1]]),
     syn_x = data_$adj_syn_x,
     syn_y = as.numeric(data_$syn_y[[1]]),
+    lower_ = joint_lower,
     kappa = kappa_,
     alpha = joint_alpha,
     gamma = joint_gamma
   )
 
+
+  stan_model <- stan_model_selection(fam = fam,
+                                     joint = joint,
+                                     gibbs = gibbs,
+                                     use_theta = use_theta)
+
   if (fam == "binomial" & joint & gibbs) {
-    rstan_model <- rstan::stan(
-      file = paste0(
-        "~/catalytic/R/rstan_script/binomial_bayesian.stan"
-      ),
+    sample_model <- rstan::sampling(
+      object = stan_model,
       data = data,
       chains = chains,
       iter = iter,
       warmup = warmup,
-      algorithm = algorithm
+      algorithm = algorithm,
     )
 
-    last_beta <- rstan::extract(rstan_model)$beta[
-      nrow(rstan::extract(rstan_model)$beta),
+    last_beta <- rstan::extract(sample_model)$beta[
+      nrow(rstan::extract(sample_model)$beta),
     ]
 
     beta_collect <- c(last_beta)
     tau_collect <- c(tau)
 
     for (gibb in 1:gibbs_iter) {
-      cat("\n\ngibbs: ", gibb)
+      cat("\ngibbs: ", gibb)
 
-      rstan_model <- rstan::stan(
-        file = paste0(
-          "~/catalytic/R/rstan_script/binomial_bayesian.stan"
-        ),
+      sample_model <- rstan::sampling(
+        object = stan_model,
         data = data,
+        init = function(...) list(beta = last_beta),
         chains = chains,
         iter = iter,
         warmup = warmup,
-        algorithm = algorithm,
-        init = function(...) {
-          list(beta = last_beta)
-        }
+        algorithm = algorithm
       )
 
-
-      last_beta <- rstan::extract(rstan_model)$beta[
-        nrow(rstan::extract(rstan_model)$beta),
+      last_beta <- rstan::extract(sample_model)$beta[
+        nrow(rstan::extract(sample_model)$beta),
       ]
-      cat("last_beta:", last_beta)
+
       beta_collect <- append(beta_collect, last_beta)
 
       data$tau <- rgamma(
@@ -130,13 +131,8 @@ cat_bayesian_glm <- function(formula,
       tau_collect <- append(tau_collect, data$tau)
     }
   } else {
-    rstan_model <- rstan::stan(
-      file = paste0(
-        "~/catalytic/R/rstan_script/",
-        fam,
-        if (joint) "_joint",
-        "_bayesian.stan"
-      ),
+    sample_model <- rstan::sampling(
+      object = stan_model,
       data = data,
       chains = chains,
       iter = iter,
@@ -153,8 +149,9 @@ cat_bayesian_glm <- function(formula,
     family = family,
     joint = joint,
     algorithm = algorithm,
-    rstan_model = rstan_model
+    sample_model = sample_model
   )
+
   if (fam == "binomial" & joint & gibbs) {
     cat_bayesian <- append(
       list(
@@ -169,13 +166,33 @@ cat_bayesian_glm <- function(formula,
     )
   } else {
     append(list(
-      beta = rstan::summary(rstan_model)$summary[
-        grep("beta", rownames(rstan::summary(rstan_model)$summary)),
+      beta = rstan::summary(sample_model)$summary[
+        grep("beta", rownames(rstan::summary(sample_model)$summary)),
         "mean"
       ]
     ), cat_bayesian)
   }
+
   class(cat_bayesian) <- c(cat_bayesian$class, "cat_bayesian_glm", "cat_glm")
 
   return(cat_bayesian)
 }
+
+
+
+stan_model_selection <- memoise::memoise(function(fam,
+                        joint,
+                        gibbs,
+                        use_theta) {
+
+  return(rstan::stan_model(
+    file = paste0(
+      "~/catalytic/R/rstan_script/",
+      fam,
+      if (joint & isFALSE(gibbs)) "_joint",
+      "_bayesian",
+      if (fam == "binomial" & joint & use_theta & isFALSE(gibbs)) "_theta",
+      if (fam == "binomial" & joint & isFALSE(use_theta) & isFALSE(gibbs)) "_tau",
+      ".stan"
+    )))
+})

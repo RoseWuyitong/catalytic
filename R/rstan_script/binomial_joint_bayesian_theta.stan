@@ -13,7 +13,6 @@ data {
 
 parameters {
   real<lower=0> theta;
-  // real<lower=0> tau;
   vector[x_col_n+1] beta;
 }
 
@@ -21,7 +20,6 @@ model {
   vector[obs_n] obs_mu = beta[1] + obs_x * beta[2:(x_col_n+1)];
   vector[syn_n] syn_mu = beta[1] + syn_x * beta[2:(x_col_n+1)];
   real syn_weight = (theta*syn_n)^(-1);
-  // real syn_weight = tau/syn_n;
 
   // Likelihood
   for (i in 1:obs_n)
@@ -31,10 +29,7 @@ model {
   for (i in 1:syn_n)
       target += syn_weight * bernoulli_logit_lpmf(syn_y[i] | syn_mu[i]);
 
-  // Gamma function
-  // target += (x_col_n+alpha-1)*log(tau)-(tau)*(kappa+gamma^-1);
-
   // Inverse-Gamma function
-  target += (x_col_n+alpha+1)*log(theta)-(theta)*(kappa+gamma^-1);
+  target += (x_col_n+alpha+1)*log(1/theta)-(1/theta)*(kappa+gamma^-1);
 }
 

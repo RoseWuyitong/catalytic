@@ -6,21 +6,20 @@ data {
   matrix[syn_n, x_col_n] syn_x;
   int<lower=0,upper=1> obs_y[obs_n];
   int<lower=0,upper=1> syn_y[syn_n];
+  real lower_;
   real kappa;
   real alpha;
   real gamma;
 }
 
 parameters {
-  // real<lower=0> theta;
-  real<lower=0> tau;
+  real<lower=x_col_n*lower_> tau;
   vector[x_col_n+1] beta;
 }
 
 model {
   vector[obs_n] obs_mu = beta[1] + obs_x * beta[2:(x_col_n+1)];
   vector[syn_n] syn_mu = beta[1] + syn_x * beta[2:(x_col_n+1)];
-  // real syn_weight = (theta*syn_n)^(-1);
   real syn_weight = tau/syn_n;
 
   // Likelihood
@@ -34,7 +33,5 @@ model {
   // Gamma function
   target += (x_col_n+alpha-1)*log(tau)-(tau)*(kappa+gamma^-1);
 
-  // Inverse-Gamma function
-  // target += (x_col_n+alpha+1)*log(1/theta)-(1/theta)*(kappa+gamma^-1);
 }
 

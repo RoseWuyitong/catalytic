@@ -54,7 +54,7 @@ print.initialization <- function(data_, data_head = FALSE, detail = TRUE, ...) {
 #' @export
 #'
 #' @examples
-print.cat_tau_glm <- function(cat_glm, digit = 3, detail = TRUE,...) {
+print.cat_tau_glm <- function(cat_glm, digit = 3, detail = TRUE, ...) {
   cat("cat_tau_glm")
   cat("\n family:            ", family_plus_link(cat_glm$family))
   cat("\n formula:           ", formula_string(cat_glm$formula))
@@ -62,9 +62,12 @@ print.cat_tau_glm <- function(cat_glm, digit = 3, detail = TRUE,...) {
   cat("\n tau:               ", cat_glm$tau)
 
   cat("\n------\n")
-  print(format(round(summary(cat_glm$model)$coefficients, digit),
-               justify = "left"),
-        quote = FALSE)
+  print(
+    format(round(summary(cat_glm$model)$coefficients, digit),
+      justify = "left"
+    ),
+    quote = FALSE
+  )
   if (detail) {
     cat("\n------\n")
     cat("* For help interpreting the printed output see ?print.cat_tau_glm\n")
