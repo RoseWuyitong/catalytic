@@ -19,20 +19,15 @@
 #' @export
 #'
 #' @examples
-cat_bayesian_glm <- function(formula,
-                             family = gaussian(),
-                             data_,
-                             tau = NULL,
-                             joint = FALSE,
-                             use_theta = FALSE,
-                             ...,
-                             chains = 4,
-                             iter = 2000,
-                             warmup = 1000,
-                             algorithm = "HMC",
-                             alpha = 2,
-                             gamma = 1,
-                             tau_lower = 0.05) {
+cat_unjoint_bayesian_glm <- function(formula,
+                                     family = gaussian(),
+                                     data_,
+                                     tau = NULL,
+                                     ...,
+                                     chains = 4,
+                                     iter = 2000,
+                                     warmup = 1000,
+                                     algorithm = "HMC") {
   .not_in_stop(
     c(
       "obs_size", "obs_data", "obs_x", "obs_y", "syn_size", "syn_data", "syn_x",
@@ -64,47 +59,42 @@ cat_bayesian_glm <- function(formula,
     obs_x = data_$adj_obs_x,
     obs_y = as.numeric(data_$obs_y[[1]]),
     syn_x = data_$adj_syn_x,
-    syn_y = as.numeric(data_$syn_y[[1]]),
-    lower_ = tau_lower,
-    kappa = kappa_,
-    alpha = alpha,
-    gamma = gamma
+    syn_y = as.numeric(data_$syn_y[[1]])
   )
 
 
   stan_model <- stan_model_selection(
     fam = fam,
-    joint = joint,
+    joint = FALSE,
     gibbs = FALSE,
-    use_theta = use_theta
+    use_theta = FALSE
   )
 
   sample_model <- rstan::sampling(
-      object = stan_model,
-      data = data,
-      chains = chains,
-      iter = iter,
-      warmup = warmup,
-      algorithm = algorithm
-    )
+    object = stan_model,
+    data = data,
+    chains = chains,
+    iter = iter,
+    warmup = warmup,
+    algorithm = algorithm
+  )
 
-  cat_bayesian <- list(
-    cat_function = "cat_bayesian_glm",
+  # TODO: add analysis and suggestion
+
+  cat_nojoint_bayesian <- list(
+    cat_function = "cat_nojoint_bayesian_glm",
     formula = formula,
     data_ = data_,
-    tau = if (joint) 1 else data$tau,
+    tau = data$tau,
     family = family,
-    joint = joint,
     algorithm = algorithm,
-    alpha=alpha,
-    gamma=gamma,
     sample_model = sample_model,
     beta = rstan::summary(sample_model)$summary[
       grep("beta", rownames(rstan::summary(sample_model)$summary)),
       "mean"
     ]
   )
-  class(cat_bayesian) <- c(cat_bayesian$class, "cat_bayesian_glm", "cat_glm")
+  class(cat_nojoint_bayesian) <- c(cat_nojoint_bayesian$class, "cat_nojoint_bayesian_glm", "cat_glm")
 
-  return(cat_bayesian)
+  return(cat_nojoint_bayesian)
 }

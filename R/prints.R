@@ -115,3 +115,48 @@ print.cat_bayesian_glm <- function(x, ...) {
   )
   invisible(x)
 }
+
+
+#' Title
+#'
+#' @param cat_gibbs
+#' @param digit
+#' @param detail
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
+print.cat_gibbs_glm <- function(cat_gibbs, digit = 2, detail = TRUE, ...) {
+  cat(paste0(
+    "Inference for Gibb's sampling.\n",
+    "gibbs_iter=", cat_gibbs$gibbs_iter,
+    "; gibbs_warmup=", cat_gibbs$gibbs_warmup, "; ",
+    "gibb's sampling post-warmup draws=",
+    cat_gibbs$gibbs_iter - cat_gibbs$gibbs_warmup,
+    ".\n",
+    "For each gibb's sampling iterration: ",
+    "Inference for Stan model: anon_model.\n",
+    "1 chains, each with stan_iter=", cat_gibbs$stan_iter,
+    "; stan_warmup=", cat_gibbs$stan_warmup, "; ",
+    "stan sampling post-warmup draws=",
+    cat_gibbs$stan_iter - cat_gibbs$stan_warmup,
+    ".\n\n"
+  ))
+
+  print(round(cat_gibbs$inform_df, digit))
+
+  cat(paste0(
+    "\nSamples were drawn using Gibb's Sampling at ",
+    formatted_time <- format(Sys.time(), "%a %b %d %H:%M:%S %Y"),
+    ".\nFor each parameter, n_eff is a crude measure of effective sample size."
+  ))
+
+  if (detail) {
+    cat("\n------\n")
+    cat("* For help interpreting the printed output see ?print.cat_gibbs_glm\n")
+  }
+
+  invisible(cat_gibbs)
+}

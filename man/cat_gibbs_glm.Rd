@@ -10,14 +10,16 @@ cat_gibbs_glm(
   data_,
   init_tau = NULL,
   init_beta = NULL,
+  gibbs_iter = 2000,
+  gibbs_warmup = 1000,
   ...,
-  iter = 5,
-  warmup = 4,
-  gibbs_iter = 100,
+  stan_iter = 3,
+  stan_warmup = 2,
   algorithm = "HMC",
   alpha = 2,
   gamma = 1,
-  stan_refresh = 0
+  stan_refresh = 0,
+  gibbs_print = TRUE
 )
 }
 \arguments{

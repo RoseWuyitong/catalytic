@@ -197,6 +197,8 @@ stan_model_selection <- memoise::memoise(function(fam,
   ))
 })
 
+
+
 effective_sample_size <- function(rstan_model, ess_threhold = 100) {
   if (all(
     head(
@@ -334,6 +336,10 @@ lhs <- function(formula) {
 
 .small_number_warning <- function(num, threshold, suggestion) {
   if (num < threshold) warning(suggestion, call. = FALSE)
+}
+
+.small_number_stop <- function(num, threshold, suggestion) {
+  if (num < threshold) stop(suggestion, call. = FALSE)
 }
 
 .not_same_stop <- function(num1, num2, suggestion) {

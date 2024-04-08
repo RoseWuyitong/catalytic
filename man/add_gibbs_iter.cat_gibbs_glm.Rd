@@ -4,7 +4,7 @@
 \alias{add_gibbs_iter.cat_gibbs_glm}
 \title{Title}
 \usage{
-\method{add_gibbs_iter}{cat_gibbs_glm}(cat_gibbs, gibbs_iter)
+\method{add_gibbs_iter}{cat_gibbs_glm}(cat_gibbs, gibbs_iter = 100)
 }
 \arguments{
 \item{gibbs_iter}{}
