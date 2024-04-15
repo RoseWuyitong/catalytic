@@ -17,7 +17,8 @@ cat_joint_bayesian_glm(
   alpha = 2,
   gamma = 1,
   use_theta = FALSE,
-  tau_lower = 0.05
+  tau_lower = 0.05,
+  stan_refresh = 0
 )
 }
 \arguments{

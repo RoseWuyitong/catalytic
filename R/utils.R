@@ -5,7 +5,7 @@ log_density <- function(family) {
       if (isFALSE(weights)) {
         return(sum(theta * Y - log(1 + exp(theta))))
       } else {
-        return(weights * sum(theta * Y - log(1 + exp(theta))))
+        return(sum(weights * (theta * Y - log(1 + exp(theta)))))
       }
     },
     "gaussian" = function(X, Y, model, beta = NULL, weights = FALSE, ...) {
@@ -15,6 +15,34 @@ log_density <- function(family) {
         return(0.5 * weights * (1 + log(2 * pi * var(model$residuals))))
       }
     }
+  )
+}
+
+second_derivative <- function(X, model, ...) {
+  X <- as.matrix(X)
+  return((t(cbind(1, X))) %*%
+    diag(model$fitted.values * (
+      1 - model$fitted.values) * model$prior.weights) %*%
+    cbind(1, X))
+}
+
+diag_approx_cov <- function(X, model, ...) {
+  M <- second_derivative(X, model)
+
+  return(diag(chol2inv(chol(M))))
+}
+
+
+log_density_grad <- function(family) {
+  switch(family,
+    "binomial" = function(X, Y, weights, model = NULL, beta = NULL, ...) {
+      X <- as.matrix(X)
+      Y <- as.matrix(Y)
+      return(c(t(as.matrix(
+        weights * (Y - fam_mean("binomial")(X, if (is.null(model)) beta else model$coefficients))
+      )) %*% cbind(1, X)))
+    },
+    "gaussian" = NA
   )
 }
 
@@ -107,8 +135,8 @@ adjust_data_type <- function(X) {
   return(X)
 }
 
-get_iqr <- function(x) {
-  right_quantile <- 0.75
+get_iqr <- function(x, invl = 0.5) {
+  right_quantile <- (2 - invl) / 2
   iqr_value <- 0
   while (iqr_value == 0 & right_quantile < 1) {
     iqr_value <- diff(quantile(as.numeric(x),
@@ -156,14 +184,6 @@ discrepancy_functions <- function(discrepancy_function) {
   )
 }
 
-
-lambda_function <- function(discrepancy_function) {
-  switch(discrepancy_function,
-    "square_error" = function(X, beta, family) 2 * fam_mean(family)(X, beta),
-    "classification_error" = function(X, beta, family) 2 * fam_mean(family)(X, beta),
-    "logistic_deviance" = function(X, beta, family) matrix_multiply(X, beta)
-  )
-}
 
 gelman_rubin_statistic <- function(rstan_model, rhat_threhold = 0.01) {
   if (all(
@@ -271,7 +291,6 @@ is.continuous <- function(lst) {
   return(FALSE)
 }
 is.cat_obj <- function(x) inherits(x, "cat_obj")
-is.initial_obj <- function(x) inherits(x, "initial_obj")
 
 validate_family <- function(f) {
   if (is.character(f)) {

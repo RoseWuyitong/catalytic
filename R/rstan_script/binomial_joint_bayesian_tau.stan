@@ -31,7 +31,7 @@ model {
       target += syn_weight * bernoulli_logit_lpmf(syn_y[i] | syn_mu[i]);
 
   // Gamma function
-  target += (x_col_n+alpha-1)*log(tau)-(tau)*(kappa+gamma^-1);
+  target += (x_col_n+alpha-1)*log(tau)-(tau)*(kappa+1/gamma);
 
 }
 

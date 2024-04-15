@@ -4,7 +4,7 @@
 \alias{print.cat_gibbs_glm}
 \title{Title}
 \usage{
-\method{print}{cat_gibbs_glm}(cat_gibbs, digit = 3, detail = TRUE, ...)
+\method{print}{cat_gibbs_glm}(cat_gibbs, digit = 2, detail = TRUE, ...)
 }
 \arguments{
 \item{...}{}

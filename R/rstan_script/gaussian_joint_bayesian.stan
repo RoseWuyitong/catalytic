@@ -31,5 +31,5 @@ model {
       target += syn_weight * normal_lpdf(syn_y[i] | syn_mu[i], sigma);
 
   // Gamma function
-  target += ((x_col_n+alpha)/2-1)*log(tau)-tau*(kappa+gamma^-1);
+  target += ((x_col_n+alpha)/2-1)*log(tau)-tau*(kappa+1/gamma);
 }

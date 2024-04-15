@@ -22,7 +22,7 @@
 cat_joint_bayesian_glm <- function(formula,
                                    family = gaussian(),
                                    data_,
-                                   tau = NULL,
+                                   tau = NULL,# TODO delete
                                    ...,
                                    chains = 4,
                                    iter = 2000,
@@ -32,7 +32,7 @@ cat_joint_bayesian_glm <- function(formula,
                                    gamma = 1,
                                    use_theta = FALSE,
                                    tau_lower = 0.05,
-                                   stan_refresh = 0) {
+                                   stan_refresh = 1) {
   .not_in_stop(
     c(
       "obs_size", "obs_data", "obs_x", "obs_y", "syn_size", "syn_data", "syn_x",
@@ -88,7 +88,79 @@ cat_joint_bayesian_glm <- function(formula,
     refresh = stan_refresh
   )
 
-  # TODO: add analysis and suggestion
+  # Suggestions
+  if (fam == "binomial") {
+    if (use_theta) {
+      theta_inform <- rstan::summary(sample_model)$summary["theta", ]
+
+      est_params <- stats::optim(
+        par = c(1, 1),
+        fn = function(params, percentiles, mean_) {
+          alpha <- exp(params[1])
+          beta <- exp(params[2])
+          calc_percentiles <- invgamma::qinvgamma(c(0.25, 0.5, 0.75),
+            shape = exp(params[1]),
+            scale = exp(params[2])# change code TODO: repeat, adn add lower limit for alpha
+          )
+
+          error <- sum((percentiles - calc_percentiles)^2) +
+            (mean_ - (beta / (alpha - 1)))^2
+          return(error)
+        },
+        percentiles = c(
+          theta_inform["25%"],
+          theta_inform["50%"],
+          theta_inform["75%"]
+        ),
+        mean_ = theta_inform["mean"]
+      )
+
+      if (invgamma::qinvgamma(c(0.975),
+        shape = exp(est_params$par[1]),
+        scale = exp(est_params$par[2])
+      ) < theta_inform["97.5%"]) { # TODO use ess or rhat as condition, insead of small iter
+        if (iter < (data_$size * 50)) cat("SUGGESTION: Please use more iteration (e.g.", iter + 1000, ")")
+    else if (alpha < 3) cat("SUGGESTION: use larger alpha (e.g.", min(alpha + 0.1, 3), ")") }
+    } else {
+      tau_inform <- rstan::summary(sample_model)$summary["tau", ]
+
+      est_params <- stats::optim(
+        par = c(1, 1),
+        fn = function(params, percentiles, mean_) {
+          alpha <- exp(params[1])
+          beta <- exp(params[2])
+          calc_percentiles <- stats::qgamma(c(0.25, 0.5, 0.75),
+            shape = exp(params[1]),
+            scale = exp(params[2])
+          )
+
+          error <- sum((percentiles - calc_percentiles)^2) +
+            (mean_ - (alpha / beta))^2
+          return(error)
+        },
+        percentiles = c(
+          tau_inform["25%"],
+          tau_inform["50%"],
+          tau_inform["75%"]
+        ),
+        mean_ = tau_inform["mean"]
+      )
+
+      if (stats::qgamma(c(0.975),
+        shape = exp(est_params$par[1]),
+        scale = exp(est_params$par[2])
+      ) < tau_inform["97.5%"]) { # TODO: comapre 2.5% insdead of 97.5
+        if (iter < (data_$size * 50)) {
+          cat("SUGGESTION: Please use more iteration (e.g.", iter + 1000, ")")
+        } else if (tau_lower < 1) {
+          cat("SUGGESTION: use larger tau_lower (e.g.", min(tau_lower + 0.05, 1), ")")
+        } else {
+          cat("SUGGESTION: Please try to use theta method.")
+        }
+      }
+    }
+  }
+
 
   cat_joint_bayesian <- list(
     cat_function = "cat_joint_bayesian_glm",
