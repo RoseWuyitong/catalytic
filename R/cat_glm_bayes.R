@@ -4,37 +4,32 @@
 #' @param family
 #' @param data_
 #' @param tau
-#' @param joint
 #' @param ...
 #' @param chains
 #' @param iter
-#' @param use_theta
 #' @param algorithm
-#' @param alpha
-#' @param gamma
-#' @param tau_lower
 #' @param warmup
 #'
 #' @return
 #' @export
 #'
 #' @examples
-cat_unjoint_bayesian_glm <- function(formula,
-                                     family = gaussian(),
-                                     data_,
-                                     tau = NULL,
-                                     ...,
-                                     chains = 4,
-                                     iter = 2000,
-                                     warmup = 1000,
-                                     algorithm = "HMC") {
-  .not_in_stop(
-    c(
-      "obs_size", "obs_data", "obs_x", "obs_y", "syn_size", "syn_data", "syn_x",
-      "syn_y", "syn_model", "data", "size", "x", "y"
-    ),
-    names(data_),
-    "Not all necessary variables are present in data_."
+cat_glm_bayes <- function(formula,
+                          family = gaussian(),
+                          data_,
+                          tau = NULL,
+                          ...,
+                          chains = 4,
+                          iter = 2000,
+                          warmup = 1000,
+                          algorithm = "HMC",
+                          stan_refresh = 0) {
+  .not_true_stop(
+    is.data_(data_),
+    paste(
+      "Please enter `data_` that generated from",
+      "catalytic::data_initialization."
+    )
   )
 
   data_$adj_x <- model.frame(rhs(formula, TRUE), data_$x)
@@ -46,9 +41,9 @@ cat_unjoint_bayesian_glm <- function(formula,
   fam <- get_family(family)
 
   kappa_ <- log_density(fam)(
-    data_$adj_syn_x,
-    data_$syn_y,
-    stats::glm(formula = formula, data = data_$syn_data, family = family),
+    X = data_$adj_syn_x,
+    Y = data_$syn_y,
+    model = stats::glm(formula = formula, data = data_$syn_data, family = family),
     weights = 1 / data_$syn_size)
 
   data <- list(
@@ -62,6 +57,7 @@ cat_unjoint_bayesian_glm <- function(formula,
     syn_y = as.numeric(data_$syn_y[[1]])
   )
 
+  .small_number_stop(data$tau, 0, "Please enter non-negative `tau` value.")
 
   stan_model <- stan_model_selection(
     fam = fam,
@@ -76,25 +72,25 @@ cat_unjoint_bayesian_glm <- function(formula,
     chains = chains,
     iter = iter,
     warmup = warmup,
-    algorithm = algorithm
+    algorithm = algorithm,
+    refresh = stan_refresh
   )
 
-  # TODO: add analysis and suggestion
-
-  cat_nojoint_bayesian <- list(
-    cat_function = "cat_nojoint_bayesian_glm",
+  cat_glm_obj <- list(
+    function_name = "cat_glm_bayes",
     formula = formula,
     data_ = data_,
     tau = data$tau,
     family = family,
     algorithm = algorithm,
     sample_model = sample_model,
-    beta = rstan::summary(sample_model)$summary[
+    coefficients = rstan::summary(sample_model)$summary[
       grep("beta", rownames(rstan::summary(sample_model)$summary)),
       "mean"
     ]
   )
-  class(cat_nojoint_bayesian) <- c(cat_nojoint_bayesian$class, "cat_nojoint_bayesian_glm", "cat_glm")
 
-  return(cat_nojoint_bayesian)
+  class(cat_glm_obj) <- c(cat_glm_obj$class, "bayes", "cat_glm_bayes")
+
+  return(cat_glm_obj)
 }

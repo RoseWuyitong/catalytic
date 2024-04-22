@@ -3,10 +3,6 @@
 #' @param formula
 #' @param family
 #' @param data
-#' @param weights
-#' @param subset
-#' @param na.action
-#' @param offset
 #' @param ...
 #' @param syn_size
 #' @param x_degree
@@ -15,40 +11,51 @@
 #' @export
 #'
 #' @examples
-initialization <- function(formula,
-                           family = gaussian(),
-                           data,
-                           weights = NULL,
-                           subset = NULL,
-                           na.action = NULL,
-                           offset = NULL,
-                           ...,
-                           syn_size = NULL,
-                           x_degree = NULL) {
+data_initialization <- function(formula,
+                                family = gaussian(),
+                                data,
+                                ...,
+                                syn_size = NULL,
+                                x_degree = NULL) {
   validate_glm_formula(formula)
   family <- validate_family(family)
   fam <- get_family(family)
   data <- standardize_data(data)
   syn_size <- as.integer(if (is.null(syn_size)) ncol(data) * 5 else syn_size)
 
-
-  mf <- match.call(expand.dots = FALSE)
-  m <- match(c("formula", "family", "subset", "weights", "na.action", "offset"),
-    table = names(mf), nomatch = 0L
-  )
-  mf <- mf[c(1L, m)]
-  mf$data <- data
-
-  syn_model <- do.call(stats::glm, as.list(mf[-1]))
+  obs_x <- as.data.frame(data[, -which(names(data) == lhs(formula))])
+  obs_y <- as.data.frame(data[, which(names(data) == lhs(formula))])
 
   syn_x_inform <- auto_resampling(
-    obs_x = data[, -which(names(data) == lhs(formula))],
+    obs_x = obs_x,
     syn_size = syn_size,
     x_degree = if (is.null(x_degree)) rep(1, ncol(data)) else x_degree
   )
 
-  syn_y <- data.frame(y_value(fam)(model.frame(rhs(formula, TRUE), syn_x_inform$syn_x),
-    syn_model))
+  syn_y <- data.frame(do.call(
+    get_sim_y(fam),
+    c(
+      list(
+        X = model.frame(
+          rhs(formula, TRUE),
+          syn_x_inform$syn_x
+        )
+      ),
+      if (rhs(formula) == 1) {
+        list(
+          mean = sum(obs_y$`data[, which(names(data) == lhs(formula))]`) / nrow(obs_y),
+          sd = sd(obs_y$`data[, which(names(data) == lhs(formula))]`)
+        )
+      } else {
+        list(model = do.call(stats::glm, list(
+          formula = formula,
+          family = family,
+          data = data
+        )))
+      }
+    )
+  ))
+
   colnames(syn_y) <- c(lhs(formula))
 
   data_ <- list(
@@ -56,13 +63,12 @@ initialization <- function(formula,
     family = family,
     obs_size = nrow(data),
     obs_data = data,
-    obs_x = data[, -which(names(data) == lhs(formula))],
-    obs_y = as.data.frame(data[, which(names(data) == lhs(formula))]),
+    obs_x = obs_x,
+    obs_y = obs_y,
     syn_size = syn_size,
     syn_data = cbind(syn_x_inform$syn_x, syn_y),
     syn_x = syn_x_inform$syn_x,
     syn_y = syn_y,
-    syn_model = syn_model,
     syn_x_generation_steps = syn_x_inform$recd_syn_x
   )
   data_$data <- rbind(data_$obs_data, data_$syn_data)
@@ -77,7 +83,7 @@ initialization <- function(formula,
     )
   )
 
-  class(data_) <- c(data_$class, "initialization")
+  class(data_) <- c(data_$class, "data_initialization")
 
   return(data_)
 }
@@ -161,16 +167,20 @@ auto_resampling <- function(obs_x, syn_size, x_degree, ...) {
 
 resampling_methods <- function(x, sample_x, method) {
   switch(method,
-    "symmetrizing" = mean(sample_x) + sample(c(-1, 1), length(x), replace = TRUE) * (x - mean(sample_x)),
+    "symmetrizing" = mean(sample_x) + sample(c(-1, 1),
+                                             length(x),
+                                             replace = TRUE) * (x - mean(sample_x)),
     "smoothing" = x + stats::rnorm(length(x), 0, min(diff(sort(unique(sample_x)))) / 10),
     "flattening" = (function(x) {
-      x[sample(length(x), length(x) / 2)] <- sample(unique(sample_x), length(x) / 2, replace = TRUE)
+      x[sample(length(x), length(x) / 2)] <- sample(unique(sample_x),
+                                                    length(x) / 2,
+                                                    replace = TRUE)
       return(x)
     })(x),
     "IQR" = (function(x) {
-      x[sample(length(x), length(x) / 2)] <- rnorm(length(x) / 2, median(sample_x), -get_iqr(sample_x) / (2 * qnorm(1 / 4)))
+      x[sample(length(x), length(x) / 2)] <- rnorm(length(x) / 2,
+                                                   median(sample_x),
+                                                   -get_iqr_diff(sample_x) / (2 * qnorm(1 / 4)))
       return(x)
-    })(x),
-    stop(paste(method, "Resampling Method Not available"))
-  )
+    })(x))
 }

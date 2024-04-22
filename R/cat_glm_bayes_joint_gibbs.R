@@ -19,41 +19,41 @@
 #' @export
 #'
 #' @examples
-cat_joint_bayesian_gibbs_glm <- function(formula,
-                                         family = binomial(),
-                                         data_,
-                                         init_tau = NULL,
-                                         init_beta = NULL,
-                                         gibbs_iter = 1000,
-                                         gibbs_warmup = 500,
-                                         ...,
-                                         beta_iter = 5,
-                                         algorithm = "HMC",
-                                         alpha = 2,
-                                         gamma = 1,
-                                         stan_refresh = 0,
-                                         gibbs_print = TRUE) {
-  .not_in_stop(
-    c(
-      "obs_size", "obs_data", "obs_x", "obs_y", "syn_size", "syn_data", "syn_x",
-      "syn_y", "syn_model", "data", "size", "x", "y"
-    ),
-    names(data_),
-    "Not all necessary variables are present in data_."
+cat_glm_bayes_joint_gibbs <- function(formula,
+                                      family = binomial(),
+                                      data_,
+                                      init_tau = NULL,
+                                      init_coefficients = NULL,
+                                      gibbs_iter = 1000,
+                                      gibbs_warmup = 500,
+                                      ...,
+                                      coefficients_iter = 5,
+                                      algorithm = "HMC",
+                                      alpha = 2,
+                                      gamma = 1,
+                                      stan_refresh = max(10/iter, 1),
+                                      gibbs_print = TRUE) {
+  .not_true_stop(
+    is.data_(data_),
+    paste(
+      "Please enter `data_` that generated from",
+      "catalytic::data_initialization."
+    )
   )
 
   .small_number_stop(
     gibbs_iter,
     gibbs_warmup + 1,
-    "gibbs_iter should be larger than gibbs_warmup."
+    "Please note that gibbs_iter should be larger than gibbs_warmup."
   )
 
-
   .large_number_ask(
-    beta_iter,
+    coefficients_iter,
     10,
-    "large stan iteration times can slow down gibb's sampling process,
-  are you sure? y/n",
+    paste(
+      "Please note that large stan iteration times can",
+      "slow down gibb's sampling process, are you sure?\ny/n"
+    ),
     "n"
   )
 
@@ -68,25 +68,39 @@ cat_joint_bayesian_gibbs_glm <- function(formula,
   .not_same_stop(
     fam,
     "binomial",
-    "Only binomial family can use gibbs sampling."
+    paste(
+      "Please note that only logistic regression can use,",
+      "`cat_glm_bayes_joint_gibbs`."
+    )
   )
 
-  print_boundary <- if (gibbs_iter >= 10) c(1, round(seq(0.1, 1, 0.1) * gibbs_iter)) else seq(1, gibbs_iter)
+  print_boundary <- if (gibbs_iter >= 10) {
+    c(
+      1,
+      round(seq(0.1, 1, 0.1) *
+        gibbs_iter)
+    )
+  } else {
+    seq(1, gibbs_iter)
+  }
 
-  kappa_ <- log_density(fam)(
-    data_$adj_syn_x,
-    data_$syn_y,
-    stats::glm(formula = formula, data = data_$syn_data, family = family),
+  kappa_ <- get_log_density(fam)(
+    X = data_$adj_syn_x,
+    Y = data_$syn_y,
+    model = do.call(stats::glm, list(formula = formula, data = data_$syn_data, family = family)),
     weights = 1 / data_$syn_size)
 
   tau <- if (is.null(init_tau)) ncol(data_$adj_x) / 4 else init_tau
 
-  gamma_function <- (ncol(data_$adj_x) + alpha - 1) * log(tau) - (tau) * (kappa_ + gamma^-1)
+  .small_number_stop(tau, 0, "Please enter non-negative `init_tau` value.")
+
+  gamma_function <- (ncol(data_$adj_x) + alpha - 1) * log(tau) -
+    (tau) * (kappa_ + gamma^-1)
 
   sampling_start_time_flag <- TRUE
   warmup_start_time <- Sys.time()
   tau <- tau
-  sample_model <- stats::glm(
+  sample_model <- do.call(stats::glm, list(
     formula = formula,
     family = family,
     data = data_$data,
@@ -94,14 +108,14 @@ cat_joint_bayesian_gibbs_glm <- function(formula,
       rep(1, data_$obs_size),
       rep(tau / data_$syn_size, data_$syn_size)
     )
-  )
+  ))
 
-  hmc_scale <- sqrt(diag_approx_cov(data_$adj_x, sample_model))
+  hmc_scale <- sqrt(get_diag_approx_cov(data_$adj_x, sample_model))
 
-  beta <- if (is.null(init_beta)) sample_model$coefficients else init_beta
+  coefficients <- if (is.null(init_coefficients)) sample_model$coefficients else init_coefficients
 
-  gibbs_collect <- matrix(ncol = (1 + length(beta)))
-  colnames(gibbs_collect) <- c("tau", paste0("beta[", 1:length(beta), "]"))
+  gibbs_collect <- matrix(ncol = (1 + length(coefficients)))
+  colnames(gibbs_collect) <- c("tau", paste0("beta[", 1:length(coefficients), "]"))
 
   if (gibbs_print) {
     cat(
@@ -118,15 +132,15 @@ cat_joint_bayesian_gibbs_glm <- function(formula,
       shape = ncol(data_$adj_x) + alpha,
       scale = kappa_ +
         1 / gamma -
-        log_density(fam)(
+        get_log_density(fam)(
           data_$adj_syn_x,
           data_$syn_y,
-          beta = beta,
+          coefficients = coefficients,
           weights = 1 / data_$syn_size)
     )
 
-    # Update beta
-    sample_model <- stats::glm(
+    # Update coefficients
+    sample_model <- do.call(stats::glm, list(
       formula = formula,
       family = family,
       data = data_$data,
@@ -134,34 +148,34 @@ cat_joint_bayesian_gibbs_glm <- function(formula,
         rep(1, data_$obs_size),
         rep(tau / data_$syn_size, data_$syn_size)
       )
-    )
+    ))
 
-    hmc_scale <- sqrt(diag_approx_cov(data_$adj_x, sample_model))
+    hmc_scale <- sqrt(get_diag_approx_cov(data_$adj_x, sample_model))
 
     weights <- c(
       rep(1, data_$obs_size),
       rep(tau / data_$syn_size, data_$syn_size)
     )
 
-    beta <- hmc_mcmc(
-      neg_log_den_func = function(beta) {
-        return(-log_density(fam)(
+    coefficients <- hmc_mcmc(
+      neg_log_den_func = function(coefficients) {
+        return(-get_log_density(fam)(
           X = data_$adj_x,
           Y = data_$y,
-          beta = beta,
+          coefficients = coefficients,
           weights = weights
         ))
       },
-      neg_log_den_grad_func = function(beta) {
-        return(-log_density_grad(fam)(
+      neg_log_den_grad_func = function(coefficients) {
+        return(-get_log_density_grad(fam)(
           X = data_$adj_x,
           Y = data_$y,
-          beta = beta,
+          coefficients = coefficients,
           weights = weights
         ))
       },
-      init_beta = beta,
-      iter = beta_iter,
+      init_coefficients = coefficients,
+      iter = coefficients_iter,
       hmc_scale = hmc_scale
     )
 
@@ -169,7 +183,7 @@ cat_joint_bayesian_gibbs_glm <- function(formula,
 
 
     if (gibbs > gibbs_warmup) {
-      gibbs_collect <- rbind(gibbs_collect, c(tau, beta))
+      gibbs_collect <- rbind(gibbs_collect, c(tau, coefficients))
 
       if (sampling_start_time_flag) {
         sampling_start_time <- Sys.time()
@@ -206,7 +220,7 @@ cat_joint_bayesian_gibbs_glm <- function(formula,
   gibbs_collect <- gibbs_collect[-1, ]
 
   cat_gibbs <- list(
-    cat_function = "cat_gibbs_glm",
+    cat_function = "cat_glm_bayes_joint_gibbs",
     formula = formula,
     data_ = data_,
     family = family,
@@ -217,7 +231,7 @@ cat_joint_bayesian_gibbs_glm <- function(formula,
     gibbs_warmup = gibbs_warmup,
     alpha = alpha,
     gamma = gamma,
-    beta_iter = beta_iter,
+    coefficients_iter = coefficients_iter,
     inform_df = tryCatch(
       {
         t(apply(
@@ -249,15 +263,34 @@ cat_joint_bayesian_gibbs_glm <- function(formula,
   )
 
   cat_gibbs$tau <- cat_gibbs$inform_df[1, "mean"]
-  cat_gibbs$beta <- cat_gibbs$inform_df[-1, "mean"]
+  cat_gibbs$coefficients <- cat_gibbs$inform_df[-1, "mean"]
 
-  class(cat_gibbs) <- c(cat_gibbs$class, "cat_gibbs_glm", "cat_glm")
+  class(cat_gibbs) <- c(cat_gibbs$class, "bayes_gibbs", "cat_glm_bayes_joint_gibbs")
 
   cat(paste0(
     "Gibb's sampling: \n",
-    "Gibb's sampling:", "  Elapsed Time: ", round(sampling_start_time - warmup_start_time, 3), " seconds ", "(Warm-up)\n",
-    "Gibb's sampling:                ", round(sampling_end_time - sampling_start_time, 3), " seconds ", "(Sampling)\n",
-    "Gibb's sampling:                ", round(sampling_end_time - warmup_start_time, 3), " seconds ", "(Total)\n",
+    "Gibb's sampling:",
+    "  Elapsed Time: ",
+    round(difftime(sampling_start_time,
+      warmup_start_time,
+      units = "secs"
+    ), 3),
+    " seconds ",
+    "(Warm-up)\n",
+    "Gibb's sampling:                ",
+    round(difftime(sampling_end_time,
+      sampling_start_time,
+      units = "secs"
+    ), 3),
+    " seconds ",
+    "(Sampling)\n",
+    "Gibb's sampling:                ",
+    round(difftime(sampling_end_time,
+      warmup_start_time,
+      units = "secs"
+    ), 3),
+    " seconds ",
+    "(Total)\n",
     "Gibb's sampling: \n"
   ))
 
@@ -280,7 +313,7 @@ add_gibbs_iter.cat_gibbs_glm <- function(cat_gibbs, gibbs_iter = 100) {
     family = cat_gibbs$family,
     data_ = cat_gibbs$data_,
     init_tau = cat_gibbs$gibbs_collect[nrow(cat_gibbs$gibbs_collect), "tau"],
-    init_beta = cat_gibbs$gibbs_collect[
+    init_coefficients = cat_gibbs$gibbs_collect[
       nrow(cat_gibbs$gibbs_collect),
       grep("beta", colnames(cat_gibbs$gibbs_collect))
     ],
@@ -289,7 +322,7 @@ add_gibbs_iter.cat_gibbs_glm <- function(cat_gibbs, gibbs_iter = 100) {
     algorithm = cat_gibbs$algorithm,
     alpha = cat_gibbs$alpha,
     gamma = cat_gibbs$gamma,
-    beta_iter = cat_gibbs$beta_iter
+    coefficients_iter = cat_gibbs$coefficients_iter
   )
 
   updated_cat_gibbs$gibbs_iter <- cat_gibbs$gibbs_iter + gibbs_iter
@@ -309,7 +342,7 @@ add_gibbs_iter.cat_gibbs_glm <- function(cat_gibbs, gibbs_iter = 100) {
     }
   ))
   updated_cat_gibbs$tau <- updated_cat_gibbs$inform_df[1, "mean"]
-  updated_cat_gibbs$beta <- updated_cat_gibbs$inform_df[-1, "mean"]
+  updated_cat_gibbs$coefficients <- updated_cat_gibbs$inform_df[-1, "mean"]
   return(updated_cat_gibbs)
 }
 
@@ -320,14 +353,14 @@ add_gibbs_iter <- function(cat_gibbs, gibbs_iter) {
 
 hmc_mcmc <- function(neg_log_den_func,
                      neg_log_den_grad_func,
-                     init_beta,
+                     init_coefficients,
                      iter = 5,
                      hmc_scale = 0.01,
                      hmc_steps = 5,
                      ...,
                      return_only_last = TRUE) {
-  mc_collect <- matrix(0, iter + 1, length(init_beta))
-  mc_collect[1, ] <- init_beta
+  mc_collect <- matrix(0, iter + 1, length(init_coefficients))
+  mc_collect[1, ] <- init_coefficients
 
   for (i in 1:iter) {
     mc_collect[i + 1, ] <- HMC(

@@ -6,9 +6,6 @@
 #' @param risk_estimate_method
 #' @param discrepancy_function
 #' @param taus
-#' @param subset
-#' @param na.action
-#' @param offset
 #' @param ...
 #' @param tau_0
 #' @param bootstrap_iteration_times
@@ -18,7 +15,7 @@
 #' @export
 #'
 #' @examples
-cat_freq_glm <-
+cat_glm_tune <-
   function(formula,
            family = gaussian(),
            data_,
@@ -34,57 +31,46 @@ cat_freq_glm <-
              "logistic_deviance"
            ),
            taus = NULL,
-           subset = NULL,
-           na.action = NULL,
-           offset = NULL,
            ...,
-           tau_0 = 1,
+           tau_0 = NULL,
            bootstrap_iteration_times = 100,
            cv_fold_num = 5) {
-    .not_in_stop(
-      c(
-        "obs_size", "obs_data", "obs_x", "obs_y", "syn_size", "syn_data", "syn_x",
-        "syn_y", "syn_model", "data", "size", "x", "y"
-      ),
-      names(data_),
-      "Not all necessary variables are present in data_."
+    .not_true_stop(
+      is.data_(data_),
+      paste(
+        "Please enter `data_` that generated from",
+        "catalytic::data_initialization."
+      )
     )
+
+    validate_glm_formula(formula)
+    family <- validate_family(family)
+    fam <- get_family(family)
+
+    if (missing(risk_estimate_method)) {
+      risk_estimate_method <-  if (
+        data_$obs_size > 200) "cross_validation" else "parametric_bootstrap"
+    }
+
+    if (missing(discrepancy_function)) {
+      discrepancy_function <- if (
+        fam=="binomial")"logistic_deviance" else "square_error"
+    }
 
     risk_estimate_method <- match.arg(risk_estimate_method)
     discrepancy_function <- match.arg(discrepancy_function)
-    validate_glm_formula(formula)
-    family <- validate_family(family)
 
     data_$adj_x <- model.frame(rhs(formula, TRUE), data_$x)
     data_$adj_obs_x <- data_$adj_x[1:data_$obs_size, ]
     data_$adj_syn_x <- data_$adj_x[(data_$obs_size + 1):data_$size, ]
 
     if (is.null(taus)) taus <- seq(max(0, ncol(data_$data) / 4 - 2), ncol(data_$data) / 4 + 2, 0.5)
+    if (is.null(tau_0)) tau_0 <- if (fam=="gaussian") 1 else ncol(data_$adj_x)/4
 
-    validate_tau(taus)
-
-    call <- match.call(expand.dots = TRUE)
-    mf <- match.call(expand.dots = FALSE)
-    m <- match(c("formula", "family", "subset", "na.action", "offset"),
-      table = names(mf), nomatch = 0L
-    )
-    mf <- mf[c(1L, m)]
-
+    .small_number_stop(taus, 0, "Please enter non-negative `taus` value.")
+    .small_number_stop(tau_0, 0, "Please enter non-negative `tau_0` value.")
 
     .large_number_warning(
-      data_$obs_size,
-      if (risk_estimate_method == "parametric_bootstrap") {
-        100
-      } else if (
-        risk_estimate_method == "steinian_estimate") {
-        50
-      } else {
-        Inf
-      },
-      "Number of observation data is large, suggest use cross-validation."
-    )
-
-    .large_number_ask(
       data_$obs_size,
       if (risk_estimate_method == "parametric_bootstrap") {
         150
@@ -94,8 +80,42 @@ cat_freq_glm <-
       } else {
         Inf
       },
-      "Number of observation data is too large, do you want to continue? y/n",
+      paste(
+        "Due to the considerable size of the dataset,",
+        "Please consider utilizing `risk_estimate_method = cross_validation`",
+        "for quicker estimate process."
+      )
+    )
+
+    .large_number_ask(
+      data_$obs_size,
+      if (risk_estimate_method == "parametric_bootstrap") {
+        200
+      } else if (
+        risk_estimate_method == "steinian_estimate") {
+        150
+      } else {
+        Inf
+      },
+      paste0(
+        "The large size of the dataset ",
+        "could make estimate time longer than expected.",
+        "\nDo you want to continue?",
+        "\ny/n"
+      ),
       "n"
+    )
+
+    .small_number_warning(
+      data_$obs_size,
+      if (risk_estimate_method == "cross_validation") 30 else 0,
+      paste0(
+        "The size of the observational dataset is insufficient ",
+        "for cross vlidation to yield optimal results.",
+        "\nSUGGESTION: Please consider utilizing alternative methods",
+        "(e.g. risk_estimate_method = parametric_bootstrap) ",
+        "for better estimate."
+      )
     )
 
     risk_estimate_collect <- c()
@@ -106,9 +126,15 @@ cat_freq_glm <-
         risk_estimate_collect,
         do.call(
           risk_estimate_method,
-          c(
+          list(
+            formula = formula,
+            family = family,
+            data_ = data_,
             tau = tau,
-            as.list(call[-1])
+            discrepancy_function = discrepancy_function,
+            tau_0 = tau_0,
+            bootstrap_iteration_times = bootstrap_iteration_times,
+            cv_fold_num = cv_fold_num
           )
         )
       )
@@ -116,26 +142,55 @@ cat_freq_glm <-
 
     optimal_tau <- taus[which.min(risk_estimate_collect)]
 
-    mf$data <- data_$data
-    mf$weights <- c(rep(1, data_$obs_size), rep(optimal_tau / data_$syn_size, data_$syn_size))
-
-    freq_model <- do.call(stats::glm, as.list(mf[-1]))
-    cat_freq <- list(
-      cat_function = "cat_freq_glm",
+    glm_model <- do.call(stats::glm, list(
       formula = formula,
-      data_ = data_,
-      taus = taus,
       family = family,
-      tau = optimal_tau,
-      model = freq_model,
-      beta = freq_model$coefficients,
-      min_risk_estimate = min(risk_estimate_collect),
-      risk_estimate_collect = risk_estimate_collect,
-      risk_estimate_method = risk_estimate_method
+      data = data_$data,
+      weights = c(
+        rep(1, data_$obs_size),
+        rep(optimal_tau / data_$syn_size, data_$syn_size)
+      )
+    ))
+
+    .large_number_warning(
+      summary(glm_model)$coefficients[, grepl(
+        "Pr.*",
+        colnames(summary(glm_model)$coefficients)
+      )],
+      0.05,
+      paste0(
+        "Some(one) of the coefficient estimates in the model are(is) ",
+        "not statistically significant at the ",
+        "conventional significance level of 0.05.\n",
+        "This suggests that there may not be sufficient evidence ",
+        "to conclude that the variable(s) has a significant effect ",
+        "on the response variables.\n",
+        "SUGGESTION: Please consider utilizing althernative `risk_estimate_method` ",
+        "or `catalytic::cat_glm_bayesian_joint` for better estimate."
+      )
     )
 
-    class(cat_freq) <- c(cat_freq$class, "cat_freq_glm", "cat_glm")
-    return(cat_freq)
+    cat_glm_obj <- list(
+      function_name = "cat_glm_tune",
+      formula = formula,
+      family = family,
+      data_ = data_,
+      tau = optimal_tau,
+      coefficients = glm_model$coefficients,
+      model = glm_model,
+      min_risk_estimate = min(risk_estimate_collect),
+      taus = taus,
+      risk_estimate_collect = risk_estimate_collect,
+      discrepancy_function = discrepancy_function,
+      risk_estimate_method = risk_estimate_method,
+      tau_0 = tau_0,
+      bootstrap_iteration_times = bootstrap_iteration_times,
+      cv_fold_num = cv_fold_num
+    )
+
+    class(cat_glm_obj) <- c(cat_glm_obj$class, "none_bayes", "cat_glm_tune")
+
+    return(cat_glm_obj)
   }
 
 
@@ -143,36 +198,47 @@ parametric_bootstrap <- function(formula,
                                  family = gaussian(),
                                  data_,
                                  tau,
-                                 subset = NULL,
-                                 na.action = NULL,
-                                 offset = NULL,
                                  ...,
                                  discrepancy_function = "square_error",
                                  tau_0 = 1,
                                  bootstrap_iteration_times = 100) {
   fam <- get_family(family)
-  mf <- match.call(expand.dots = FALSE)
-  m <- match(c("formula", "family", "subset", "na.action", "offset"),
-    table = names(mf), nomatch = 0L
+
+  beta_tau_model <- do.call(stats::glm, list(
+    formula = formula,
+    family = family,
+    data = data_$data,
+    weights = c(
+      rep(1, data_$obs_size),
+      rep(tau / data_$syn_size, data_$syn_size)
+    )
+  ))
+
+
+  D <- mean(get_discrepancy(discrepancy_function)(
+    X=data_$adj_obs_x,
+    Y=data_$obs_y,
+    model=beta_tau_model,
+    fam=fam)[[1]])
+
+  hat_tau_0_beta_model <- do.call(
+    stats::glm,
+    list(
+      formula = formula,
+      family = family,
+      data = data_$data,
+      weights = c(
+        rep(1, data_$obs_size),
+        rep(tau_0 / data_$syn_size, data_$syn_size)
+      )
+    )
   )
-  mf <- mf[c(1L, m)]
-  mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
-  mf$data <- data_$data
-  beta_tau_model <- do.call(stats::glm, as.list(mf[-1]))
 
+  mean_Y <- get_mean(fam)(
+    X = data_$adj_obs_x,
+    model = hat_tau_0_beta_model)
 
-  D <- mean(discrepancy_functions(discrepancy_function)(
-    data_$adj_obs_x,
-    data_$obs_y,
-    beta_tau_model,
-    fam)[[1]])
-
-  mf$weights <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
-  hat_tau_0_beta_model <- do.call(stats::glm, as.list(mf[-1]))
-
-  mean_Y <- fam_mean(fam)(
-    data_$adj_obs_x,
-    hat_tau_0_beta_model$coefficients)
+  sd_Y <- sd(mean_Y)
 
   boot_Y_collect <-
     lambda_boot_hat_mu_collect <- matrix(NA,
@@ -181,24 +247,36 @@ parametric_bootstrap <- function(formula,
     )
 
   for (bootstrap_iter in 1:bootstrap_iteration_times) {
-    boot_Y <- generate_data_from_dist(
-      fam,
-      data_$obs_size,
-      mean_Y
+    boot_Y <- get_data(
+      fam
+    )(n = data_$obs_size,
+      mean = mean_Y,
+      sd = sd_Y
     )
     boot_Y_df <- as.data.frame(boot_Y)
     names(boot_Y_df) <- names(data_$syn_y)
-    mf$data <- cbind(data_$x, rbind(boot_Y_df, data_$syn_y))
-    mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
 
-    boot_hat_tau_beta_model <- do.call(stats::glm, as.list(mf[-1]))
+    boot_hat_tau_beta_model <- do.call(stats::glm, list(
+      formula = formula,
+      family = family,
+      data = cbind(
+        data_$x,
+        rbind(boot_Y_df, data_$syn_y)
+      ),
+      weights = c(
+        rep(1, data_$obs_size),
+        rep(tau / data_$syn_size, data_$syn_size)
+      )
+    ))
+
     boot_Y_collect[, bootstrap_iter] <- boot_Y
 
     lambda_boot_hat_mu_collect[, bootstrap_iter] <- lambda_function(
       discrepancy_function
-    )(data_$adj_obs_x,
-      boot_hat_tau_beta_model$coefficients,
-      fam)
+    )(
+      X = data_$adj_obs_x,
+      coefficients = boot_hat_tau_beta_model$coefficients,
+      fam = fam)
   }
 
   return(D + sum(sweep(boot_Y_collect, 1, rowMeans(boot_Y_collect)) *
@@ -209,40 +287,50 @@ steinian_estimate <- function(formula,
                               family = gaussian(),
                               data_,
                               tau,
-                              subset = NULL,
-                              na.action = NULL,
-                              offset = NULL,
                               ...,
-                              discrepancy_function = "logistic_deviance",
                               tau_0 = 1) {
   fam <- get_family(family)
+
   .not_same_stop(
     fam,
     "binomial",
-    "Only logistic can use steinian_estimate."
+    paste(
+      "Please note that only logistic regression can use,",
+      "`risk_estimate_method = steinian_estimate`."
+    )
   )
 
 
-  mf <- match.call(expand.dots = FALSE)
-  m <- match(c("formula", "family", "subset", "na.action", "offset"),
-    table = names(mf), nomatch = 0L
-  )
-  mf <- mf[c(1L, m)]
-  mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
-  mf$data <- data_$data
+  beta_tau_model <- do.call(stats::glm, list(
+    formula = formula,
+    family = family,
+    data = data_$data,
+    weights = c(
+      rep(1, data_$obs_size),
+      rep(tau / data_$syn_size, data_$syn_size)
+    )
+  ))
 
-  beta_tau_model <- do.call(stats::glm, as.list(mf[-1]))
-
-  D <- mean(discrepancy_functions(discrepancy_function)(
-    data_$adj_obs_x,
-    data_$obs_y,
-    beta_tau_model,
+  D <- mean(get_discrepancy(
+    "logistic_deviance"
+  )(
+    X = data_$adj_obs_x,
+    Y = data_$obs_y,
+    model = beta_tau_model,
     fam)[[1]])
 
-  mf$weights <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
-  hat_beta_0_model <- do.call(stats::glm, as.list(mf[-1]))
+  hat_beta_0_model <- do.call(stats::glm, list(
+    formula = formula,
+    family = family,
+    data = data_$data,
+    weights = c(
+      rep(1, data_$obs_size),
+      rep(tau_0 / data_$syn_size, data_$syn_size)
+    )
+  ))
 
-  hat_mu_0 <- fam_mean(fam)(data_$adj_obs_x, hat_beta_0_model$coefficients)
+  hat_mu_0 <- get_mean(fam)(X = data_$adj_obs_x,
+                            coefficients = hat_beta_0_model$coefficients)
 
   with_ <- with(hat_beta_0_model, fitted.values * (1 - fitted.values))
 
@@ -251,9 +339,18 @@ steinian_estimate <- function(formula,
     triangle_response <- data_$y
     triangle_response[obs, ] <- 1 - data_$y[obs, ]
 
-    mf$data <- cbind(data_$adj_x, triangle_response)
-    mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
-    trigangle_hat_tau_beta_model <- do.call(stats::glm, as.list(mf[-1]))
+    trigangle_hat_tau_beta_model <- do.call(stats::glm, list(
+      formula = formula,
+      family = family,
+      data = cbind(
+        data_$adj_x,
+        triangle_response
+      ),
+      weights = c(
+        rep(1, data_$obs_size),
+        rep(tau / data_$syn_size, data_$syn_size)
+      )
+    ))
 
     steinian_sum <- steinian_sum +
       with_[obs] * (2 * data_$y[obs, ] - 1) * (tcrossprod(
@@ -270,38 +367,49 @@ mallows_estimate <- function(formula,
                              family = gaussian(),
                              data_,
                              tau,
-                             subset = NULL,
-                             na.action = NULL,
-                             offset = NULL,
                              ...,
                              tau_0 = 1) {
   fam <- get_family(family)
+
   .not_same_stop(
     fam,
     "gaussian",
-    "Only gaussian can use mallows_estimate"
+    paste(
+      "Please note that only linear regression can use",
+      "`risk_estimate_method = mallows_estimate`"
+    )
   )
 
-  mf <- match.call(expand.dots = FALSE)
-  m <- match(c("formula", "family", "subset", "na.action", "offset"),
-    table = names(mf), nomatch = 0L
-  )
-  mf <- mf[c(1L, m)]
-  mf$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
-  mf$data <- data_$data
+  beta_tau_model <- do.call(stats::glm, list(
+    formula = formula,
+    family = family,
+    data = data_$data,
+    weights = c(
+      rep(1, data_$obs_size),
+      rep(tau / data_$syn_size, data_$syn_size)
+    )
+  ))
 
-  beta_tau_model <- do.call(stats::glm, as.list(mf[-1]))
-
-  D <- sum(discrepancy_functions("square_error")(
+  D <- sum(get_discrepancy("square_error")(
     data_$adj_obs_x,
     data_$obs_y,
     beta_tau_model,
     fam)[[1]])
 
-  mf$weights <- c(rep(1, data_$obs_size), rep(tau_0 / data_$syn_size, data_$syn_size))
-  beta_0_model <- do.call(stats::glm, as.list(mf[-1]))
+  beta_0_model <- do.call(stats::glm, list(
+    formula = formula,
+    family = family,
+    data = data_$data,
+    weights = c(
+      rep(1, data_$obs_size),
+      rep(tau_0 / data_$syn_size, data_$syn_size)
+    )
+  ))
 
-  var_Y <- sum((y_value(fam)(data_$adj_obs_x, beta_0_model) - data_$obs_y)^2) / data_$obs_size
+
+  var_Y <- sum((get_sim_y(fam)(X = data_$adj_obs_x,
+    model = beta_0_model) -
+    data_$obs_y)^2) / data_$obs_size
 
   tau_H <- H_matrix(
     X = data_$adj_obs_x,
@@ -310,36 +418,17 @@ mallows_estimate <- function(formula,
     M = data_$syn_size,
     n = data_$obs_size
   )
+
   return(D + 2 * var_Y * sum(diag(tau_H)) / data_$obs_size)
 }
-
-
-H_matrix <- function(X, X_star, tau, M, n) {
-  X <- as.matrix(X)
-  X_star <- as.matrix(X_star)
-  return(X %*% (
-    chol2inv(chol((t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))))) %*% (
-    t(X) + tau / (M * n) * t(X_star) %*% rep(1, M) %*% t(rep(1, n))
-  ))
-}
-
 
 cross_validation <- function(formula,
                              family = gaussian(),
                              data_,
                              tau,
-                             subset = NULL,
-                             na.action = NULL,
-                             offset = NULL,
                              ...,
                              discrepancy_function = "square_error",
                              cv_fold_num = 5) {
-  .small_number_warning(
-    data_$obs_size,
-    30,
-    "Size of obeservation data is too small,
-                        please use other methods for better result."
-  )
   error_sum <- 0
   random_sample <- sample(1:data_$obs_size)
   fam <- get_family(family)
@@ -355,20 +444,21 @@ cross_validation <- function(formula,
     y <- data_$obs_y[-random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
     (data_$obs_size * fold / cv_fold_num)], ]
 
-    mf <- match.call(expand.dots = FALSE)
-    m <- match(c("formula", "family", "subset", "na.action", "offset"),
-      table = names(mf), nomatch = 0L
-    )
-    mf <- mf[c(1L, m)]
-    mf$weights <- c(rep(1, nrow(train_x)), rep(tau / data_$syn_size, data_$syn_size))
-    mf$data <- rbind(cbind(train_x, y), data_$syn_data)
-    estimate_beta_model <- do.call(stats::glm, as.list(mf[-1]))
+    estimate_beta_model <- do.call(stats::glm, list(
+      formula = formula,
+      family = family,
+      data = rbind(cbind(train_x, y), data_$syn_data),
+      weights = c(
+        rep(1, nrow(train_x)),
+        rep(tau / data_$syn_size, data_$syn_size)
+      )
+    ))
 
-    error_sum <- error_sum + mean(discrepancy_functions(discrepancy_function)(
-      test_x,
-      test_y,
-      estimate_beta_model,
-      fam)[[1]])
+    error_sum <- error_sum + mean(get_discrepancy(discrepancy_function)(
+      X = test_x,
+      Y = test_y,
+      model = estimate_beta_model,
+      fam = fam)[[1]])
   }
 
   return(error_sum / cv_fold_num)

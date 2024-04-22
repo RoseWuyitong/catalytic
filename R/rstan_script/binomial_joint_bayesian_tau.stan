@@ -32,6 +32,5 @@ model {
 
   // Gamma function
   target += (x_col_n+alpha-1)*log(tau)-(tau)*(kappa+1/gamma);
-
 }
 

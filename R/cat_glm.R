@@ -4,65 +4,81 @@
 #' @param family
 #' @param data_
 #' @param tau
-#' @param subset
-#' @param na.action
-#' @param offset
 #' @param ...
 #'
 #' @return
 #' @export
 #'
 #' @examples
-cat_tau_glm <-
+cat_glm <-
   function(formula,
            family = gaussian(),
            data_,
            tau = NULL,
-           subset = NULL,
-           na.action = NULL,
-           offset = NULL,
            ...) {
-    .not_in_stop(
-      c(
-        "obs_size", "obs_data", "obs_x", "obs_y", "syn_size", "syn_data", "syn_x",
-        "syn_y", "syn_model", "data", "size", "x", "y"
-      ),
-      names(data_),
-      "Not all necessary variables are present in data_."
+    .not_true_stop(
+      is.data_(data_),
+      paste(
+        "Please enter `data_` that generated from",
+        "catalytic::data_initialization."
+      )
     )
 
     validate_glm_formula(formula)
     family <- validate_family(family)
 
-    data_$adj_x <- model.frame(rhs(formula, TRUE), data_$x)
+    if (is.null(tau)) {
+      tau <- ncol(model.frame(
+        rhs(formula, TRUE),
+        data_$x
+      )) / 4
+    }
 
-    if (is.null(tau)) tau <- ncol(data_$adj_x) / 4
+    .small_number_stop(tau, 0, "Please enter non-negative `tau` value.")
 
-    validate_tau(tau)
-
-    call <- match.call(expand.dots = TRUE)
-    mf <- match.call(expand.dots = FALSE)
-    m <- match(c("formula", "family", "subset", "na.action", "offset"),
-      table = names(mf), nomatch = 0L
-    )
-
-    mt <- mf[c(1L, m)]
-    mt$data <- data_$data
-    mt$weights <- c(rep(1, data_$obs_size), rep(tau / data_$syn_size, data_$syn_size))
-
-    tau_model <- do.call(stats::glm, as.list(mt[-1]))
-
-    cat_tau <- list(
+    glm_model <- do.call(stats::glm, list(
       formula = formula,
-      cat_glm = "cat_tau_glm",
-      model = tau_model,
-      tau = tau,
-      beta = tau_model$coefficients,
-      data_ = data_,
-      family = family
+      family = family,
+      data = data_$data,
+      weights = c(
+        rep(1, data_$obs_size),
+        rep(
+          tau / data_$syn_size,
+          data_$syn_size
+        )
+      )
+    ))
+
+    .large_number_warning(
+      summary(glm_model)$coefficients[, grepl(
+        "Pr.*",
+        colnames(summary(glm_model)$coefficients)
+      )],
+      0.05,
+      paste0(
+        "Some(one) of the coefficient estimates in the model are(is) ",
+        "not statistically significant at the ",
+        "conventional significance level of 0.05.\n",
+        "This suggests that there may not be sufficient evidence ",
+        "to conclude that the variable(s) has a significant effect ",
+        "on the response variables.\n",
+        "SUGGESTION: Please consider utilizing `catalytic::cat_glm_tune` ",
+        "or `catalytic::cat_glm_bayesian_joint` for better estimate."
+      )
     )
 
-    class(cat_tau) <- c(cat_tau$class, "cat_tau_glm", "cat_glm")
+    cat_glm_obj <- list(
+      function_name = "cat_glm",
+      formula = formula,
+      family = family,
+      data_ = data_,
+      model = glm_model,
+      tau = tau,
+      coefficients = glm_model$coefficients
+    )
 
-    return(cat_tau)
+
+    class(cat_glm_obj) <- c(cat_glm_obj$class, "none_bayes", "cat_glm")
+
+    return(cat_glm_obj)
   }
