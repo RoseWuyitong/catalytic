@@ -9,9 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 real_coefficients_vector <- function(dimention,
-                             zeta,
-                             r,
-                             pseudo_size = 1000) {
+                                     zeta,
+                                     r,
+                                     pseudo_size = 1000) {
   # generate real beta vector shown in paper
 
   real_coefficients0 <- c(rep(0, dimention))
@@ -25,7 +25,7 @@ real_coefficients_vector <- function(dimention,
   repeat {
     real_coefficients <- real_coefficients0 * coefficients_scale
     real_coefficients[1] <- -mean(pseudo_covariate %*% real_coefficients[-1])
-    pseudo_response <- get_mean("binomial")(pseudo_covariate, coefficients=real_coefficients)
+    pseudo_response <- get_mean("binomial")(pseudo_covariate, coefficients = real_coefficients)
     oracle_error <- mean(1 - abs(1 - 2 * pseudo_response)) / 2
     if (abs(oracle_error - r) < 0.005) {
       break
@@ -86,7 +86,7 @@ observed_response <- data.frame(y = get_data(
   "binomial"
 )(
   n = nrow(observed_covariate),
-  mean=get_mean("binomial")(observed_covariate, coefficients=real_coefficients)
+  mean = get_mean("binomial")(observed_covariate, coefficients = real_coefficients)
 ))
 
 obs_data <- cbind(observed_covariate, observed_response)
@@ -109,7 +109,7 @@ Let's do a simple test on them.
 err <- function(x,
                 coefficients0,
                 coefficients1) {
-  return(mean(get_discrepancy("logarithmic_error")(Y=get_mean("binomial")(x, coefficients=coefficients0), est_Y=get_mean("binomial")(x, coefficients=coefficients1))))
+  return(mean(get_discrepancy("logarithmic_error")(Y = get_mean("binomial")(x, coefficients = coefficients0), est_Y = get_mean("binomial")(x, coefficients = coefficients1))))
 }
 
 Z_corr <- 0.5
@@ -119,45 +119,43 @@ z <- 0.75 # nonsparsity
 r <- 0.1 # oracle classification error
 
 
-sample_size <- 100 # observed data sample size CHANGE
-dimention <- 30 # number of covariate CHNAGE
-M <- 500
+sample_size <- 3 # observed data sample size CHANGE
+dimention <- 2 # number of covariate CHNAGE
+M <- 20
 
-init_taus <- seq(1, 100, 2) # CHANGE
-simulation_times <- 1 # CHANGE
+init_taus <- seq(1, 100, 20) # CHANGE
+simulation_times <- 2 # CHANGE
 
-iter <- 7000
-warmup <- 3000
+iter <- 7
+warmup <- 3
+
+log_stan_model_file <- "~/catalytic/R/rstan_script/binomial_joint_bayesian_theta_lognorm.stan"
+
+beta_stan_model_file <- "~/catalytic/R/rstan_script/binomial_joint_bayesian_theta_beta.stan"
+
+exp_stan_model_file <- "~/catalytic/R/rstan_script/binomial_joint_bayesian_theta_exp.stan"
 
 
 glm_results <-
   freq_boots_results <-
   freq_stein_results <-
   freq_cv_results <-
-  bayes_tau_01_mean_results <-
-  bayes_theta_2pn_mean_results <-
   bayes_tau_01_nuts_mean_results <-
   bayes_theta_2pn_nuts_mean_results <-
-  bayes_tau_ppn_mean_results <-
-  bayes_theta_ppn_mean_results <-
-  bayes_tau_ppn_nuts_mean_results <-
-  bayes_theta_ppn_nuts_mean_results <-
+  bayes_theta_joint_alpha_lognorm_nuts_mean_results <-
+  bayes_theta_joint_alpha_beta_nuts_mean_results <-
+  bayes_theta_joint_alpha_exp_mean_results <-
   bayes_gibbs_5_mean_results <-
-  # bayes_theta_joint_alpha_results<- 
   glm_times <-
   freq_boots_times <-
   freq_stein_times <-
   freq_cv_times <-
-  bayes_tau_01_times <-
-  bayes_theta_2pn_times <-
   bayes_tau_01_nuts_times <-
-bayes_theta_2pn_nuts_times <-
-  bayes_tau_ppn_times <-
-  bayes_theta_ppn_times <-
-  bayes_tau_ppn_nuts_times <-
-bayes_theta_ppn_nuts_times <-
+  bayes_theta_2pn_nuts_times <-
+  bayes_theta_joint_alpha_lognorm_nuts_times <-
+  bayes_theta_joint_alpha_bets_nuts_times <-
+  bayes_theta_joint_alpha_exp_nuts_times <-
   bayes_gibbs_5_times <-
-  # bayes_theta_joint_alpha_times <- 
   c()
 
 suppressWarnings(
@@ -172,24 +170,24 @@ suppressWarnings(
       diag(rep(Z_variance, dimention)),
       Z_corr
     )
-
+    print("observed_covariate")
+    print(observed_covariate)
     real_coefficients <- real_coefficients_vector(dimention, z, r)
 
-    observed_response <- data.frame(y = get_data(
-      "binomial"
-    )(
-      n = nrow(observed_covariate),
-      mean = get_mean("binomial")(observed_covariate, coefficients=real_coefficients)
+    observed_response <- data.frame(y = get_data("binomial")(
+      n = sample_size,
+      mean = get_mean("binomial")(X = observed_covariate,
+        coefficients = real_coefficients)
     ))
-
     obs_data <- cbind(observed_covariate, observed_response)
 
-    data_ <- data_initialization(y ~ 1, family = binomial(), data = obs_data, syn_size=M)
-    
+    data_ <- data_initialization(y ~ 1, family = binomial(), data = obs_data, syn_size = M)
+
+
     cat("\nglm")
     start_time <- Sys.time()
     glm_coefficients <- stats::glm(y ~ ., family = binomial(), data = obs_data)$coefficients
-    glm_time <- difftime(Sys.time(), start_time, units="secs")
+    glm_time <- difftime(Sys.time(), start_time, units = "secs")
 
     cat("\nfreq_boots")
     start_time <- Sys.time()
@@ -201,7 +199,7 @@ suppressWarnings(
       taus = init_taus
     )
     freq_boots_coefficients <- freq_boots$coefficients
-    freq_boots_time <- difftime(Sys.time(), start_time, units="secs")
+    freq_boots_time <- difftime(Sys.time(), start_time, units = "secs")
 
     cat("\nfreq_stein_coefficients")
     start_time <- Sys.time()
@@ -213,9 +211,9 @@ suppressWarnings(
       taus = init_taus
     )
     freq_stein_coefficients <- freq_stein$coefficients
-    freq_stein_time <- difftime(Sys.time(), start_time, units="secs")
+    freq_stein_time <- difftime(Sys.time(), start_time, units = "secs")
 
-    cat("\nfreq_cv_coefficients")
+    cat("\nfreq_cv")
     start_time <- Sys.time()
     freq_cv <- cat_glm_tune(y ~ .,
       family = binomial(),
@@ -225,45 +223,9 @@ suppressWarnings(
       taus = init_taus
     )
     freq_cv_coefficients <- freq_cv$coefficients
-    freq_cv_time <- difftime(Sys.time(), start_time, units="secs")
+    freq_cv_time <- difftime(Sys.time(), start_time, units = "secs")
 
-    cat("\nbayes_tau_01_model")
-    start_time <- Sys.time()
-    bayes_tau_01_model <- cat_glm_bayes_joint(
-      y ~ .,
-      family = binomial,
-      data_ = data_,
-      iter = iter,
-      warmup = warmup,
-      tau_lower = 0.1,
-      algorithm = "HMC"
-    )
-    bayes_tau_01_time <- difftime(Sys.time(), start_time, units="secs")
 
-    bayes_tau_01_mean_coefficients <- rstan::summary(bayes_tau_01_model$sample_model)$summary[
-      grep("beta", rownames(rstan::summary(bayes_tau_01_model$sample_model)$summary)),
-      "mean"
-    ]
-    
-    cat("\nbayes_tau_01_ppn_model")
-    start_time <- Sys.time()
-    bayes_tau_ppn_model <- cat_glm_bayes_joint(
-      y ~ .,
-      family = binomial,
-      data_ = data_,
-      iter = iter,
-      warmup = warmup,
-      tau_lower = dimention/sample_size,
-      algorithm = "HMC"
-    )
-    bayes_tau_ppn_time <- difftime(Sys.time(), start_time, units="secs")
-
-    bayes_tau_ppn_mean_coefficients <- rstan::summary(bayes_tau_ppn_model$sample_model)$summary[
-      grep("beta", rownames(rstan::summary(bayes_tau_ppn_model$sample_model)$summary)),
-      "mean"
-    ]
-    
-    
     cat("\nbayes_tau_01_NUTS_model")
     start_time <- Sys.time()
     bayes_tau_01_nuts_model <- cat_glm_bayes_joint(
@@ -275,69 +237,13 @@ suppressWarnings(
       tau_lower = 0.1,
       algorithm = "NUTS"
     )
-    bayes_tau_01_nuts_time <- difftime(Sys.time(), start_time, units="secs")
+    bayes_tau_01_nuts_time <- difftime(Sys.time(), start_time, units = "secs")
 
     bayes_tau_01_nuts_mean_coefficients <- rstan::summary(bayes_tau_01_nuts_model$sample_model)$summary[
       grep("beta", rownames(rstan::summary(bayes_tau_01_nuts_model$sample_model)$summary)),
       "mean"
     ]
-    
-    cat("\nbayes_tau_ppn_NUTS_model")
-    start_time <- Sys.time()
-    bayes_tau_ppn_nuts_model <- cat_glm_bayes_joint(
-      y ~ .,
-      family = binomial,
-      data_ = data_,
-      iter = iter,
-      warmup = warmup,
-      tau_lower = dimention/sample_size,
-      algorithm = "NUTS"
-    )
-    bayes_tau_ppn_nuts_time <- difftime(Sys.time(), start_time, units="secs")
 
-    bayes_tau_ppn_nuts_mean_coefficients <- rstan::summary(bayes_tau_ppn_nuts_model$sample_model)$summary[
-      grep("beta", rownames(rstan::summary(bayes_tau_ppn_nuts_model$sample_model)$summary)),
-      "mean"
-    ]
-    
-
-
-    cat("\nbayes_theta_2pn_model")
-    start_time <- Sys.time()
-    bayes_theta_2pn_model <- cat_glm_bayes_joint(
-      y ~ .,
-      family = binomial,
-      data_ = data_,
-      use_theta = TRUE,
-      iter = iter,
-      warmup = warmup,
-      alpha=2+2*dimention/sample_size,
-      algorithm = "HMC"
-    )
-    bayes_theta_2pn_time <- difftime(Sys.time(), start_time, units="secs")
-    bayes_theta_2pn_mean_coefficients <- rstan::summary(bayes_theta_2pn_model$sample_model)$summary[
-      grep("beta", rownames(rstan::summary(bayes_theta_2pn_model$sample_model)$summary)),
-      "mean"
-    ]
-    
-        cat("\nbayes_theta_ppn_model")
-    start_time <- Sys.time()
-    bayes_theta_ppn_model <- cat_glm_bayes_joint(
-      y ~ .,
-      family = binomial,
-      data_ = data_,
-      use_theta = TRUE,
-      iter = iter,
-      warmup = warmup,
-      alpha=2+dimention*dimention/sample_size,
-      algorithm = "HMC"
-    )
-    bayes_theta_ppn_time <- difftime(Sys.time(), start_time, units="secs")
-    bayes_theta_ppn_mean_coefficients <- rstan::summary(bayes_theta_ppn_model$sample_model)$summary[
-      grep("beta", rownames(rstan::summary(bayes_theta_ppn_model$sample_model)$summary)),
-      "mean"
-    ]
-    
     cat("\nbayes_theta_2pn_nuts_model")
     start_time <- Sys.time()
     bayes_theta_2pn_nuts_model <- cat_glm_bayes_joint(
@@ -347,51 +253,71 @@ suppressWarnings(
       use_theta = TRUE,
       iter = iter,
       warmup = warmup,
-      alpha=2+2*dimention/sample_size,
+      alpha = 2 + 2 * dimention / sample_size,
       algorithm = "NUTS"
     )
-    bayes_theta_2pn_nuts_time <- difftime(Sys.time(), start_time, units="secs")
+    bayes_theta_2pn_nuts_time <- difftime(Sys.time(), start_time, units = "secs")
     bayes_theta_2pn_nuts_mean_coefficients <- rstan::summary(bayes_theta_2pn_nuts_model$sample_model)$summary[
       grep("beta", rownames(rstan::summary(bayes_theta_2pn_nuts_model$sample_model)$summary)),
       "mean"
     ]
-    
-    cat("\nbayes_theta_ppn_nuts_model")
+
+
+
+    cat("\nbayes_theta_joint_alpha_lognorm_nuts_model")
     start_time <- Sys.time()
-    bayes_theta_ppn_nuts_model <- cat_glm_bayes_joint(
+    bayes_theta_joint_alpha_lognorm_nuts_model <- cat_glm_bayes_joint(
       y ~ .,
       family = binomial,
       data_ = data_,
       use_theta = TRUE,
       iter = iter,
       warmup = warmup,
-      alpha=2+dimention*dimention/sample_size,
+      stan_model_file = log_stan_model_file,
       algorithm = "NUTS"
     )
-    bayes_theta_ppn_nuts_time <- difftime(Sys.time(), start_time, units="secs")
-    bayes_theta_ppn_nuts_mean_coefficients <- rstan::summary(bayes_theta_ppn_nuts_model$sample_model)$summary[
-      grep("beta", rownames(rstan::summary(bayes_theta_ppn_nuts_model$sample_model)$summary)),
+    bayes_theta_joint_alpha_lognorm_nuts_time <- difftime(Sys.time(), start_time, units = "secs")
+    bayes_theta_joint_alpha_lognorm_nuts_mean_coefficients <- rstan::summary(bayes_theta_joint_alpha_lognorm_nuts_model$sample_model)$summary[
+      grep("beta", rownames(rstan::summary(bayes_theta_joint_alpha_lognorm_nuts_model$sample_model)$summary)),
       "mean"
     ]
-    
-    # cat("\nbayes_theta_joint_alpha_model")
-    # start_time <- Sys.time()
-    # 
-    # bayes_theta_joint_alpha_model <- cat_glm_bayes_joint(
-    #   y ~ .,
-    #   family = binomial,
-    #   data_ = data_,
-    #   use_theta = TRUE,
-    #   iter = iter,
-    #   warmup = warmup,
-    #   stan_model_file = "~/catalytic/R/rstan_script/binomial_joint_bayesian_theta_joint_alpha.stan",
-    #   chains = 2)
-    #   
-    # bayes_theta_joint_alpha_time <- difftime(Sys.time(), start_time, units="secs")
-    # bayes_theta_joint_alpha_mean_coefficients <- rstan::summary(bayes_theta_joint_alpha_model$sample_model)$summary[
-    #   grep("beta", rownames(rstan::summary(bayes_theta_joint_alpha_model$sample_model)$summary)),
-    #   "mean"
-    # ]
+
+    cat("\nbayes_theta_joint_alpha_beta_nuts_model")
+    start_time <- Sys.time()
+    bayes_theta_joint_alpha_beta_nuts_model <- cat_glm_bayes_joint(
+      y ~ .,
+      family = binomial,
+      data_ = data_,
+      use_theta = TRUE,
+      iter = iter,
+      warmup = warmup,
+      stan_model_file = beta_stan_model_file,
+      algorithm = "NUTS"
+    )
+    bayes_theta_joint_alpha_beta_nuts_time <- difftime(Sys.time(), start_time, units = "secs")
+    bayes_theta_joint_alpha_beta_nuts_mean_coefficients <- rstan::summary(bayes_theta_joint_alpha_beta_nuts_model$sample_model)$summary[
+      grep("beta", rownames(rstan::summary(bayes_theta_joint_alpha_beta_nuts_model$sample_model)$summary)),
+      "mean"
+    ]
+
+    cat("\nbayes_theta_joint_alpha_exp_nuts_model")
+    start_time <- Sys.time()
+    bayes_theta_joint_alpha_exp_nuts_model <- cat_glm_bayes_joint(
+      y ~ .,
+      family = binomial,
+      data_ = data_,
+      use_theta = TRUE,
+      iter = iter,
+      warmup = warmup,
+      stan_model_file = exp_stan_model_file,
+      algorithm = "NUTS"
+    )
+    bayes_theta_joint_alpha_exp_nuts_time <- difftime(Sys.time(), start_time, units = "secs")
+    bayes_theta_joint_alpha_exp_nuts_mean_coefficients <- rstan::summary(bayes_theta_joint_alpha_exp_nuts_model$sample_model)$summary[
+      grep("beta", rownames(rstan::summary(bayes_theta_joint_alpha_exp_nuts_model$sample_model)$summary)),
+      "mean"
+    ]
+
 
     cat("cat_joint_bayesian_gibbs_glm")
     start_time <- Sys.time()
@@ -402,7 +328,7 @@ suppressWarnings(
       gibbs_iter = iter,
       gibbs_warmup = warmup
     )
-    bayes_gibbs_5_time <- difftime(Sys.time(), start_time, units="secs")
+    bayes_gibbs_5_time <- difftime(Sys.time(), start_time, units = "secs")
     bayes_gibbs_5_mean_coefficients <- bayes_gibbs_5_model$inform_df[-1, "mean"]
 
 
@@ -433,47 +359,32 @@ suppressWarnings(
       err(test_x, real_coefficients, freq_cv_coefficients)
     )
 
-    bayes_tau_01_mean_results <- append(
-      bayes_tau_01_mean_results,
-      err(test_x, real_coefficients, bayes_tau_01_mean_coefficients)
-    )
-    bayes_theta_2pn_mean_results <- append(
-      bayes_theta_2pn_mean_results,
-      err(test_x, real_coefficients, bayes_theta_2pn_mean_coefficients)
-    )
-    
     bayes_tau_01_nuts_mean_results <- append(
       bayes_tau_01_nuts_mean_results,
       err(test_x, real_coefficients, bayes_tau_01_nuts_mean_coefficients)
     )
+
     bayes_theta_2pn_nuts_mean_results <- append(
       bayes_theta_2pn_nuts_mean_results,
       err(test_x, real_coefficients, bayes_theta_2pn_nuts_mean_coefficients)
     )
-    
-    bayes_tau_ppn_mean_results <- append(
-      bayes_tau_ppn_mean_results,
-      err(test_x, real_coefficients, bayes_tau_ppn_mean_coefficients)
+
+    bayes_theta_joint_alpha_lognorm_nuts_mean_results <- append(
+      bayes_theta_joint_alpha_lognorm_nuts_mean_results,
+      err(test_x, real_coefficients, bayes_theta_joint_alpha_lognorm_nuts_mean_coefficients)
     )
-    bayes_theta_ppn_mean_results <- append(
-      bayes_theta_ppn_mean_results,
-      err(test_x, real_coefficients, bayes_theta_ppn_mean_coefficients)
+
+    bayes_theta_joint_alpha_beta_nuts_mean_results <- append(
+      bayes_theta_joint_alpha_beta_nuts_mean_results,
+      err(test_x, real_coefficients, bayes_theta_joint_alpha_beta_nuts_mean_coefficients)
     )
-    
-    bayes_tau_ppn_nuts_mean_results <- append(
-      bayes_tau_ppn_nuts_mean_results,
-      err(test_x, real_coefficients, bayes_tau_ppn_nuts_mean_coefficients)
+
+    bayes_theta_joint_alpha_exp_nuts_mean_results <- append(
+      bayes_theta_joint_alpha_exp_nuts_mean_results,
+      err(test_x, real_coefficients, bayes_theta_joint_alpha_exp_nuts_mean_coefficients)
     )
-    bayes_theta_ppn_nuts_mean_results <- append(
-      bayes_theta_ppn_nuts_mean_results,
-      err(test_x, real_coefficients, bayes_theta_ppn_nuts_mean_coefficients)
-    )
-    
-    # bayes_theta_joint_alpha_results <- append(
-    #   bayes_theta_joint_alpha_results,
-    #   err(test_x, real_coefficients, bayes_theta_joint_alpha_mean_coefficients)
-    # )
-    # 
+
+
     bayes_gibbs_5_mean_results <- append(
       bayes_gibbs_5_mean_results,
       err(test_x, real_coefficients, bayes_gibbs_5_mean_coefficients)
@@ -495,43 +406,32 @@ suppressWarnings(
       freq_cv_times,
       freq_cv_time
     )
-    bayes_tau_01_times <- append(
-      bayes_tau_01_times,
-      bayes_tau_01_time
-    )
-    bayes_theta_2pn_times <- append(
-      bayes_theta_2pn_times,
-      bayes_theta_2pn_time
-    )
-   bayes_tau_01_nuts_times <- append(
+
+    bayes_tau_01_nuts_times <- append(
       bayes_tau_01_nuts_times,
       bayes_tau_01_nuts_time
     )
+
     bayes_theta_2pn_nuts_times <- append(
       bayes_theta_2pn_nuts_times,
       bayes_theta_2pn_nuts_time
     )
-    bayes_tau_ppn_times <- append(
-      bayes_tau_ppn_times,
-      bayes_tau_ppn_time
+
+    bayes_theta_joint_alpha_lognorm_nuts_times <- append(
+      bayes_theta_joint_alpha_lognorm_nuts_times,
+      bayes_theta_joint_alpha_lognorm_nuts_time
     )
-    bayes_theta_ppn_times <- append(
-      bayes_theta_ppn_times,
-      bayes_theta_ppn_time
+
+    bayes_theta_joint_alpha_beta_nuts_times <- append(
+      bayes_theta_joint_alpha_beta_nuts_times,
+      bayes_theta_joint_alpha_beta_nuts_time
     )
-   bayes_tau_ppn_nuts_times <- append(
-      bayes_tau_ppn_nuts_times,
-      bayes_tau_ppn_nuts_time
+
+    bayes_theta_joint_alpha_exp_nuts_times <- append(
+      bayes_theta_joint_alpha_exp_nuts_times,
+      bayes_theta_joint_alpha_exp_nuts_time
     )
-    bayes_theta_ppn_nuts_times <- append(
-      bayes_theta_ppn_nuts_times,
-      bayes_theta_ppn_nuts_time
-    )
-    # bayes_theta_joint_alpha_times <- append(
-    #   bayes_theta_joint_alpha_times,
-    #   bayes_theta_joint_alpha_time
-    # )
-    
+
     bayes_gibbs_5_times <- append(
       bayes_gibbs_5_times,
       bayes_gibbs_5_time
@@ -549,13 +449,13 @@ methods <- c(
   "freq_boots",
   "freq_stein",
   "freq_cv",
-  "bayes_tau_01_mean", 
+  "bayes_tau_01_mean",
   "bayes_theta_2pn_mean",
-  "bayes_tau_01_nuts_mean", 
+  "bayes_tau_01_nuts_mean",
   "bayes_theta_2pn_nuts_mean",
-  "bayes_tau_ppn_mean", 
+  "bayes_tau_ppn_mean",
   "bayes_theta_ppn_mean",
-  "bayes_tau_ppn_nuts_mean", 
+  "bayes_tau_ppn_nuts_mean",
   "bayes_theta_ppn_nuts_mean",
   "bayes_gibbs_5_mean"
 )
@@ -578,9 +478,9 @@ times_list <- list(
 
 # Define the list of results
 results_list <- list(
-  glm_results, 
-  freq_boots_results, 
-  freq_stein_results, 
+  glm_results,
+  freq_boots_results,
+  freq_stein_results,
   freq_cv_results,
   bayes_tau_01_mean_results,
   bayes_theta_2pn_mean_results,

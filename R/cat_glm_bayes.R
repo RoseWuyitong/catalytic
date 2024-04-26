@@ -32,9 +32,7 @@ cat_glm_bayes <- function(formula,
     )
   )
 
-  data_$adj_x <- model.frame(rhs(formula, TRUE), data_$x)
-  data_$adj_obs_x <- data_$adj_x[1:data_$obs_size, ]
-  data_$adj_syn_x <- data_$adj_x[(data_$obs_size + 1):data_$size, ]
+  data_ <- get_adj_data(data_ = data_, formula = formula)
 
   validate_glm_formula(formula)
   family <- validate_family(family)

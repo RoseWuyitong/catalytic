@@ -25,4 +25,5 @@ Imports:
     rlang,
     rstan,
     rstanarm,
-    stats
+    stats,
+    survival

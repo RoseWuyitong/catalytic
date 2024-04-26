@@ -26,15 +26,17 @@ multiply_two_matrices <- function(matrix1,
     return(matrix2 %*% matrix1)
   }
 
-  stop(paste("Please note that the two matrices cannot be multiplied:",
-             str(head(matrix1)),
-             str(head(matrix2))))
+  stop(paste(
+    "Please note that the two matrices cannot be multiplied:",
+    str(head(matrix1)),
+    str(head(matrix2))
+  ))
 }
 
 
 log_density_binomial <- function(Y,
                                  mean,
-                                 weights=1) {
+                                 weights = 1) {
   return(
     sum(
       weights * (mean * Y - log(1 + exp(mean)))
@@ -43,9 +45,8 @@ log_density_binomial <- function(Y,
 }
 
 log_density_gaussian <- function(residuals,
-                                 weights=1) {
-  return( 0.5 * weights * (1+log(2*pi*var(residuals)))
-  )
+                                 weights = 1) {
+  return(0.5 * weights * (1 + log(2 * pi * var(residuals))))
 }
 
 log_density_grad_binomial <- function(X,
@@ -54,51 +55,61 @@ log_density_grad_binomial <- function(X,
                                       weights = 1) {
   return(
     c(
-      multiply_two_matrices(matrix1 = t(weights * (Y - mean)),
-                            matrix2 = cbind(1, X),
-                            intl=FALSE)
+      multiply_two_matrices(
+        matrix1 = t(weights * (Y - mean)),
+        matrix2 = cbind(1, X),
+        intl = FALSE
+      )
     )
   )
 }
 
 second_derivative <- function(X,
                               fitted_values,
-                              prior_weights
-                              ) {
+                              prior_weights) {
   return((t(cbind(1, X))) %*%
-           diag(fitted_values * (1 - fitted_values) * prior_weights) %*%
-           cbind(1, X))
+    diag(fitted_values * (1 - fitted_values) * prior_weights) %*%
+    cbind(1, X))
 }
 
 mean_of_binomial <- function(X,
-                              coefficients) {
+                             coefficients) {
   return(
-    1 / (1 + exp(-multiply_two_matrices(matrix1=X,
-                                        matrix2=coefficients)))
+    1 / (1 + exp(-multiply_two_matrices(
+      matrix1 = X,
+      matrix2 = coefficients
+    )))
   )
 }
 
 mean_of_gaussian <- function(X,
-                              coefficients){
+                             coefficients) {
   return(
-    multiply_two_matrices(matrix1=X,
-                          matrix2=coefficients)
+    multiply_two_matrices(
+      matrix1 = X,
+      matrix2 = coefficients
+    )
   )
 }
 
-correlation_matrix <- function(corr, dim) matrix(corr,
-                                                 nrow = dim,
-                                                 ncol = dim) +
-  diag(dim) * (1 - corr)
+correlation_matrix <- function(corr, dim) {
+  matrix(corr,
+    nrow = dim,
+    ncol = dim
+  ) +
+    diag(dim) * (1 - corr)
+}
 
 standard_error <- function(X) sd(X) / sqrt(length(X))
 
-discrepancy_of_logarithmic_error <- function(Y, est_Y) Y * log(Y / est_Y) +
-  (1 - Y) * log((1 - Y) / (1 - est_Y))
+discrepancy_of_logarithmic_error <- function(Y, est_Y) {
+  Y * log(Y / est_Y) +
+    (1 - Y) * log((1 - Y) / (1 - est_Y))
+}
 
-discrepancy_of_square_error <- function(Y, est_Y) (Y-est_Y)^2
+discrepancy_of_square_error <- function(Y, est_Y) (Y - est_Y)^2
 
-discrepancy_of_classification_error <- function(Y, est_Y) as.numeric(Y == est_Y)/length(Y)
+discrepancy_of_classification_error <- function(Y, est_Y) as.numeric(Y == est_Y) / length(Y)
 
 is.binomial <- function(x) x == "binomial"
 
@@ -153,6 +164,3 @@ is.data_ <- function(x) inherits(x, "data_initialization")
 .not_true_stop <- function(statement, suggestion) {
   if (!isTRUE(statement)) stop(suggestion, call. = FALSE)
 }
-
-
-

@@ -9,15 +9,15 @@ cat_glm_bayes_joint_gibbs(
   family = binomial(),
   data_,
   init_tau = NULL,
-  init_beta = NULL,
+  init_coefficients = NULL,
   gibbs_iter = 1000,
   gibbs_warmup = 500,
   ...,
-  beta_iter = 5,
+  coefficients_iter = 5,
   algorithm = "HMC",
   alpha = 2,
   gamma = 1,
-  stan_refresh = 0,
+  stan_refresh = max(10/iter, 1),
   gibbs_print = TRUE
 )
 }

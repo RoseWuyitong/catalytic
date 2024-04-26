@@ -48,24 +48,30 @@ cat_glm_tune <-
     fam <- get_family(family)
 
     if (missing(risk_estimate_method)) {
-      risk_estimate_method <-  if (
-        data_$obs_size > 200) "cross_validation" else "parametric_bootstrap"
+      risk_estimate_method <- if (
+        data_$obs_size > 200) {
+        "cross_validation"
+      } else {
+        "parametric_bootstrap"
+      }
     }
 
     if (missing(discrepancy_function)) {
       discrepancy_function <- if (
-        fam=="binomial")"logistic_deviance" else "square_error"
+        fam == "binomial") {
+        "logistic_deviance"
+      } else {
+        "square_error"
+      }
     }
 
     risk_estimate_method <- match.arg(risk_estimate_method)
     discrepancy_function <- match.arg(discrepancy_function)
 
-    data_$adj_x <- model.frame(rhs(formula, TRUE), data_$x)
-    data_$adj_obs_x <- data_$adj_x[1:data_$obs_size, ]
-    data_$adj_syn_x <- data_$adj_x[(data_$obs_size + 1):data_$size, ]
+    data_ <- get_adj_data(data_ = data_, formula = formula)
 
     if (is.null(taus)) taus <- seq(max(0, ncol(data_$data) / 4 - 2), ncol(data_$data) / 4 + 2, 0.5)
-    if (is.null(tau_0)) tau_0 <- if (fam=="gaussian") 1 else ncol(data_$adj_x)/4
+    if (is.null(tau_0)) tau_0 <- if (fam == "gaussian") 1 else ncol(data_$adj_x) / 4
 
     .small_number_stop(taus, 0, "Please enter non-negative `taus` value.")
     .small_number_stop(tau_0, 0, "Please enter non-negative `tau_0` value.")
@@ -216,10 +222,10 @@ parametric_bootstrap <- function(formula,
 
 
   D <- mean(get_discrepancy(discrepancy_function)(
-    X=data_$adj_obs_x,
-    Y=data_$obs_y,
-    model=beta_tau_model,
-    fam=fam)[[1]])
+    X = data_$adj_obs_x,
+    Y = data_$obs_y,
+    model = beta_tau_model,
+    fam = fam)[[1]])
 
   hat_tau_0_beta_model <- do.call(
     stats::glm,
@@ -330,7 +336,7 @@ steinian_estimate <- function(formula,
   ))
 
   hat_mu_0 <- get_mean(fam)(X = data_$adj_obs_x,
-                            coefficients = hat_beta_0_model$coefficients)
+    coefficients = hat_beta_0_model$coefficients)
 
   with_ <- with(hat_beta_0_model, fitted.values * (1 - fitted.values))
 

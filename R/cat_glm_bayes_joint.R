@@ -24,14 +24,14 @@ cat_glm_bayes_joint <- function(formula,
                                 chains = 4,
                                 iter = 2000,
                                 warmup = 1000,
-                                algorithm = "HMC",
-                                stan_model_file = NULL,
+                                algorithm = "NUTS",
                                 ...,
+                                joint_alpha = FALSE,
                                 alpha = 2,
                                 gamma = 1,
                                 use_theta = FALSE,
                                 tau_lower = 0.05,
-                                stan_refresh = 0) {
+                                stan_refresh = 0.5) {
   .not_true_stop(
     is.data_(data_),
     paste(
@@ -40,9 +40,7 @@ cat_glm_bayes_joint <- function(formula,
     )
   )
 
-  data_$adj_x <- model.frame(rhs(formula, TRUE), data_$x)
-  data_$adj_obs_x <- data_$adj_x[1:data_$obs_size, ]
-  data_$adj_syn_x <- data_$adj_x[(data_$obs_size + 1):data_$size, ]
+  data_ <- get_adj_data(data_ = data_, formula = formula)
 
   validate_glm_formula(formula)
   family <- validate_family(family)
@@ -68,12 +66,13 @@ cat_glm_bayes_joint <- function(formula,
     gamma = gamma
   )
 
-  stan_model <- if (is.null(stan_model_file)) stan_model_selection(
+  stan_model <- stan_model_selection(
     fam = fam,
     joint = TRUE,
     gibbs = FALSE,
-    use_theta = use_theta
-  ) else rstan::stan_model(file = stan_model_file)
+    use_theta = use_theta,
+    joint_alpha = joint_alpha
+  )
 
   sample_model <- rstan::sampling(
     object = stan_model,
@@ -116,9 +115,11 @@ cat_glm_bayes_joint <- function(formula,
         scale = exp(est_params$par[2])
       ) < theta_inform["97.5%"]) {
         if (any(rstan::summary(sample_model)$summary[, "Rhat"] > 1.1)) {
-          warning("SUGGESTION: consider using more iteration (e.g.", iter + 1000, ")")
-        } else if (alpha < 3) {
-          warning("SUGGESTION: consider using larger alpha (e.g.", min(alpha + 0.1, 3), ")")
+          warning("SUGGESTION: Please consider using more iteration (e.g.", iter + 1000, ")")
+        } else if (alpha < 5) {
+          warning("SUGGESTION: Please consider using larger alpha (e.g.", min(alpha + 0.1, 5), ")")
+        } else {
+          warning("SUGGESTION: Please consider using joint_alpha.")
         }
       }
     } else {

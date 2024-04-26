@@ -14,7 +14,7 @@ cat_glm_bayes(
   iter = 2000,
   warmup = 1000,
   algorithm = "HMC",
-  stan_refresh = 1
+  stan_refresh = 0
 )
 }
 \arguments{

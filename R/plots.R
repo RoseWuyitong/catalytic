@@ -26,12 +26,10 @@ risk_estimate_plot.cat_glm_tune <- function(cat_glm, digit = 2) {
   )
 
   points(cat_glm$tau,
-         cat_glm$min_risk_estimate,
-         pch = 4,
-         col = "red"
+    cat_glm$min_risk_estimate,
+    pch = 4,
+    col = "red"
   )
-
-
 }
 
 #' Title
@@ -68,21 +66,23 @@ traceplot.bayes <- function(cat_glm) {
 #' @export
 #'
 #' @examples
-traceplot.bayes_gibbs <- function(cat_glm, cols_to_plot=NULL) {
+traceplot.bayes_gibbs <- function(cat_glm, cols_to_plot = NULL) {
   df <- bayes_gibbs_5_model$gibbs_collect
   if (is.null(cols_to_plot)) {
     cols_to_plot <- colnames(df)[1:min(9, ncol(df))]
   }
 
-  .large_number_stop(length(cols_to_plot),
-                     10,
-                     "Please select less than 10 features to plot.")
+  .large_number_stop(
+    length(cols_to_plot),
+    10,
+    "Please select less than 10 features to plot."
+  )
   par(mfrow = c(3, 3))
 
   for (col_name in cols_to_plot) {
-    plot(df[, col_name], main = col_name, xlab = "iter", ylab = "Value", type="l")
+    plot(df[, col_name], main = col_name, xlab = "iter", ylab = "Value", type = "l")
   }
-  }
+}
 
 
 #' Title
@@ -108,4 +108,3 @@ traceplot <- function(cat_glm_bayes) {
 #     ggplot2::geom_density_2d(bins = bin)
 #
 # }
-
