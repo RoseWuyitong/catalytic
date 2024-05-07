@@ -1,61 +1,63 @@
 source("~/catalytic/R/utils.R")
 
-auto_resampling <- function(obs_x,
-                            syn_size,
-                            x_degree, ...) {
-  recd_syn_x <- data.frame(
+auto_resampling <- function(obs_data,
+                            resample_size,
+                            data_degree = NULL, ...) {
+  recd_resampled_data <- data.frame(
     Type = character(),
     Process = character(),
     stringsAsFactors = FALSE
   )
 
-  syn_x <- as.data.frame(apply(obs_x,
+  data_degree <- if (is.null(data_degree)) rep(1, ncol(obs_data)) else data_degree
+
+  resampled_data <- as.data.frame(apply(obs_data,
     2,
     sample,
-    size = syn_size,
+    size = resample_size,
     replace = TRUE
   ))
 
-  for (n in 1:ncol(syn_x)) {
+  for (n in 1:ncol(resampled_data)) {
     process <- "Coordinate"
     # Check continue or category
-    if (is.continuous(obs_x[, n])) {
+    if (is.continuous(obs_data[, n])) {
       data_type <- "Continuous"
       # Check order and diversity
-      if (x_degree[n] >= length(unique(obs_x[, n])) - 1) {
+      if (data_degree[n] >= length(unique(obs_data[, n])) - 1) {
         process <- c(process, "Smoothing")
-        syn_x[, n] <- do.call(
+        resampled_data[, n] <- do.call(
           resampling_methods,
           list(
-            syn_x[, n],
-            obs_x[, n],
+            resampled_data[, n],
+            obs_data[, n],
             "smoothing"
           )
         )
       }
       # Check skewness
-      if (abs(e1071::skewness(obs_x[, n])) >= 1) {
+      if (abs(e1071::skewness(obs_data[, n])) >= 1) {
         process <- c(process, "IQR")
-        syn_x[, n] <- do.call(
+        resampled_data[, n] <- do.call(
           resampling_methods,
           list(
-            syn_x[, n],
-            obs_x[, n],
+            resampled_data[, n],
+            obs_data[, n],
             "IQR"
           )
         )
       }
     } else {
       data_type <- "Category"
-      tbl <- table(obs_x[, n])
+      tbl <- table(obs_data[, n])
       # Check data balance
       if (any(tbl < nrow(data) / (2 * length(tbl)))) {
         process <- c(process, "Flattening")
-        syn_x[, n] <- do.call(
+        resampled_data[, n] <- do.call(
           resampling_methods,
           list(
-            syn_x[, n],
-            obs_x[, n],
+            resampled_data[, n],
+            obs_data[, n],
             "flattening"
           )
         )
@@ -63,7 +65,7 @@ auto_resampling <- function(obs_x,
     }
 
 
-    recd_syn_x <- rbind(recd_syn_x, data.frame(
+    recd_resampled_data <- rbind(recd_resampled_data, data.frame(
       Type = data_type,
       Process = paste(process,
         collapse = "->"
@@ -72,8 +74,8 @@ auto_resampling <- function(obs_x,
   }
 
   return(list(
-    syn_x = syn_x,
-    recd_syn_x = recd_syn_x
+    resampled_data = resampled_data,
+    recd_resampled_data = recd_resampled_data
   ))
 }
 
@@ -189,11 +191,11 @@ get_mean <- function(fam) {
       return(
         mean_of_binomial(
           X = as.matrix(X),
-          coefficients = if (is.null(model)
+          coefficients = if (is.null(coefficients)
           ) {
             coefficients
           } else {
-            model$coefficients
+            coef(model)
           }
         )
       )
@@ -205,11 +207,11 @@ get_mean <- function(fam) {
       return(
         mean_of_gaussian(
           X = as.matrix(X),
-          coefficients = if (is.null(model)
+          coefficients = if (is.null(coefficients)
           ) {
-            coefficients
+            coef(model)
           } else {
-            model$coefficients
+            coefficients
           }
         )
       )
@@ -224,8 +226,7 @@ get_sim_y <- function(fam) {
                           model = NULL,
                           ...,
                           coefficients = NULL,
-                          mean = NULL,
-                          sd = NULL) {
+                          mean = NULL) {
       get_data(
         "binomial"
       )(
@@ -235,7 +236,8 @@ get_sim_y <- function(fam) {
             "binomial"
           )(
             X = X,
-            model = model
+            model = model,
+            coefficients = coefficients
           )
         } else {
           mean
@@ -243,6 +245,7 @@ get_sim_y <- function(fam) {
     },
     "gaussian" = function(X,
                           model = NULL,
+                          coefficients = NULL,
                           ...,
                           mean = NULL,
                           sd = NULL) {
@@ -255,18 +258,19 @@ get_sim_y <- function(fam) {
             "gaussian"
           )(
             X = X,
-            coefficients = model$coefficients
+            coefficients = coefficients,
+            model = model
           )
         } else {
           mean
         },
-        sd = if (is.null(sd)) sqrt(sum(model$residuals^2) / model$df.residual) else sd
+        sd = if (is.null(sd)) sqrt(sum(residuals(model)^2) / df.residual(model)) else sd
       )
     }
   )
 }
 
-lambda_function <- function(discrepancy_function) {
+get_lambda_function <- function(discrepancy_function) {
   switch(discrepancy_function,
     "square_error" = function(X, coefficients, fam, ...) 2 * get_mean(fam)(X, coefficients),
     "classification_error" = function(X, coefficients, fam, ...) 2 * get_mean(fam)(X, coefficients),
@@ -422,6 +426,31 @@ get_discrepancy <- function(func) {
   )
 }
 
+update_sigma_square <- function(sigma_square,
+                                sigma_u_square,
+                                d_seq,
+                                q) { # minimization program
+  sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square))
+}
+
+
+update_sigma_u_square <- function(sigma_u_square,
+                                  sigma_square,
+                                  d_seq,
+                                  q) { # minimization program
+  sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square))
+}
+
+
+update_sigma_square_cat <- function(sigma_square, sigma_u_square, d_seq, d_seq_star, q, q_star, tau) { # minimization program
+  sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square)) + tau / length(d_seq_star) *
+    sum(log(sigma_u_square * d_seq_star + sigma_square) + q_star^2 / (sigma_u_square * d_seq_star + sigma_square))
+}
+
+update_sigma_u_square_cat <- function(sigma_u_square, sigma_square, d_seq, d_seq_star, q, q_star, tau) { # minimization program
+  sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square)) + tau / length(d_seq_star) *
+    sum(log(sigma_u_square * d_seq_star + sigma_square) + q_star^2 / (sigma_u_square * d_seq_star + sigma_square))
+}
 
 
 stan_model_selection <- memoise::memoise(function(fam,
@@ -450,8 +479,6 @@ stan_model_selection <- memoise::memoise(function(fam,
 standardize_data <- function(data, if_missing = NULL) {
   data <- as.data.frame(data)
 
-  drop_redundant_dims(data)
-
   for (i in 1:ncol(data)) {
     if (!(NA %in% suppressWarnings(as.numeric(data[, i])))) {
       data[, i] <- as.numeric(data[, i])
@@ -465,12 +492,6 @@ standardize_data <- function(data, if_missing = NULL) {
 }
 
 
-drop_redundant_dims <- function(data) {
-  drop_dim <- sapply(data, function(v) is.matrix(v) && NCOL(v) == 1)
-  data[, drop_dim] <- lapply(data[, drop_dim, drop = FALSE], drop)
-  return(data)
-}
-
 validate_glm_formula <- function(f) {
   if (!any(grepl("~", f))) {
     stop("please enter ~ for formula",
@@ -479,6 +500,15 @@ validate_glm_formula <- function(f) {
   }
 }
 
+validate_surv_formula <- function(f) {
+  validate_glm_formula(f)
+
+  if (!any(grepl("Surv", f))) {
+    stop("please use `Surv` for formula",
+      call. = FALSE
+    )
+  }
+}
 
 
 
@@ -555,6 +585,25 @@ get_adj_data <- function(data_, formula) {
   data_$adj_syn_x <- data_$adj_x[(data_$obs_size + 1):data_$size, ]
   return(data_)
 }
+
+
+
+check_incul_wo_overlap <- function(whole_set, ...) {
+  subset <- c(...)
+
+  # Check if there is any overlap
+  if (length(unique(subset)) != sum(lengths(list(...)))) {
+    return(FALSE)
+  }
+
+  # Check if all elements in whole_set are present in the subset
+  if (!all(whole_set %in% subset)) {
+    return(FALSE)
+  }
+
+  return(TRUE)
+}
+
 
 real_coefficients_vector <- function(dimention,
                                      zeta,

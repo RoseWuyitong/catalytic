@@ -9,11 +9,15 @@
 #' @export
 #'
 #' @examples
-print.data_initialization <- function(data_,
-                                      show_data = TRUE,
-                                      detail = TRUE, ...) {
-  cat("initialization")
-  cat("\n family:            ", family_plus_link(data_$family))
+print.data_ <- function(data_,
+                        show_data = TRUE,
+                        detail = TRUE, ...) {
+  cat(data_$function_name)
+  if (data_$function_name == "data_initialization") {
+    cat(
+      "\n family:            ", family_plus_link(data_$family)
+    )
+  }
   cat("\n formula:           ", formula_string(data_$formula))
   cat("\n size:              ", data_$size)
 
@@ -21,29 +25,46 @@ print.data_initialization <- function(data_,
   cat("Observation Data Information:")
   cat("\n size:              ", data_$obs_size)
   if (show_data) {
-    cat("\n head(data):              \n")
-    print(head(data_$obs_data))
+    cat("\n head(data) :              \n")
+    cat(" [only show the head of first 10 columns] \n")
+    if (ncol(data_$obs_data) > 10) {
+      print(head(data_$obs_data)[, 1:10])
+    } else {
+      print(head(data_$obs_data))
+    }
   }
   cat("\n------\n")
   cat("Synthetic Data Information:")
   cat("\n size:              ", data_$syn_size)
   if (show_data) {
     cat("\n head(data):              \n")
-    print(head(data_$syn_data))
+    cat(" [only show the head of first 10 columns] \n")
+    if (ncol(data_$syn_data) > 10) {
+      print(head(data_$syn_data)[, 1:10])
+    } else {
+      print(head(data_$syn_data))
+    }
   }
-  cat("\n synthetic data generation process:\n")
-  print(
-    format(data_$syn_x_generation_steps,
-      justify = "left",
-      width = max(nchar(as.character(unlist(data_$syn_x_generation_steps)))) + 1
-    ),
-    quote = FALSE
-  )
 
-
+  if (data_$function_name == "data_initialization") {
+    cat("\n synthetic data generation process:")
+    cat("\n [only show the first 10 columns] \n")
+    print(
+      format(
+        if (nrow(data_$syn_x_generation_steps) > 10) {
+          data_$syn_x_generation_steps[1:10, ]
+        } else {
+          data_$syn_x_generation_steps
+        },
+        justify = "left",
+        width = max(nchar(as.character(unlist(data_$syn_x_generation_steps)))) + 1
+      ),
+      quote = FALSE
+    )
+  }
   if (detail) {
     cat("\n------\n")
-    cat("* For help interpreting the printed output see ?print.data_initialization\n")
+    cat("* For help interpreting the printed output see ?print.data_\n")
   }
 
   invisible(data_)
@@ -151,3 +172,80 @@ print.bayes_gibbs <- function(cat_gibbs, digit = 2, detail = TRUE, ...) {
 
   invisible(cat_gibbs)
 }
+
+
+#' Title
+#'
+#' @param cat_lmm
+#' @param digit
+#' @param detail
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
+print.cat_lmm <- function(cat_lmm,
+                          digit = 3,
+                          detail = TRUE, ...) {
+  cat(cat_lmm$function_name)
+  cat("\n size:              ", cat_lmm$data_$size)
+  cat("\n tau:               ", cat_lmm$tau)
+  cat("\n maximum iteration: ", cat_lmm$max_iter)
+  cat("\n total iteration:   ", nrow(cat_lmm$iter_collect) - 1)
+  cat("\n tolerance:         ", cat_lmm$tol)
+  cat("\n optimize domain:   ", cat_lmm$optimize_domain)
+  cat("")
+
+  cat("\n------\n")
+  cat("coefficients' information:\n")
+
+  cat("\n initial value:\n")
+  print(round(cat_lmm$iter_collect[1, ], digit))
+
+
+  cat("\n final value:\n")
+  print(round(cat_lmm$iter_collect[nrow(cat_lmm$iter_collect), ], digit))
+
+  if (detail) {
+    cat("\n------\n")
+    cat("* For help interpreting the printed output see ?print.cat_lmm\n")
+  }
+
+  invisible(cat_lmm)
+}
+
+
+#' Title
+#'
+#' @param digit
+#' @param detail
+#' @param ...
+#' @param cat_lmm_
+#'
+#' @return
+#' @export
+#'
+#' @examples
+print.cat_lmm_tune <- function(cat_lmm_, digit = 3, detail = TRUE, ...) {
+  cat(cat_lmm_$function_name)
+  cat("\n size:              ", cat_lmm_$data_$size)
+  cat("\n taus:              ", cat_lmm_$taus)
+  cat("\n optimal tau:       ", cat_lmm_$tau)
+  cat("\n minimun error:     ", cat_lmm_$min_risk_estimate)
+
+  cat("\n------\n")
+  cat("optimal model:\n")
+
+  print(round(cat_lmm_$model$iter_collect[nrow(cat_lmm_$model$iter_collect), ], digit))
+
+
+  if (detail) {
+    cat("\n------\n")
+    cat("* For help interpreting the printed output see ?print.cat_lmm_tune\n")
+  }
+
+  invisible(cat_lmm_)
+}
+
+

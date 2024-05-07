@@ -31,7 +31,7 @@ cat_glm_bayes_joint_gibbs <- function(formula,
                                       algorithm = "HMC",
                                       alpha = 2,
                                       gamma = 1,
-                                      stan_refresh = max(10 / iter, 1),
+                                      stan_refresh = 0,
                                       gibbs_print = TRUE) {
   .not_true_stop(
     is.data_(data_),

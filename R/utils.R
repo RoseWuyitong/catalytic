@@ -84,12 +84,7 @@ mean_of_binomial <- function(X,
 
 mean_of_gaussian <- function(X,
                              coefficients) {
-  return(
-    multiply_two_matrices(
-      matrix1 = X,
-      matrix2 = coefficients
-    )
-  )
+  return(X %*% coefficients)
 }
 
 correlation_matrix <- function(corr, dim) {
@@ -123,7 +118,8 @@ is.continuous <- function(lst) {
 }
 
 
-is.data_ <- function(x) inherits(x, "data_initialization")
+is.data_ <- function(x) inherits(x, "data_")
+is.data_lmm <- function(x) inherits(x, "data_") & x$function_name == "data_initilization_lmm"
 
 
 .large_number_warning <- function(num, threshold, suggestion) {

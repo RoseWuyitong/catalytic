@@ -12,13 +12,13 @@ cat_glm_bayes_joint(
   iter = 2000,
   warmup = 1000,
   algorithm = "NUTS",
-  stan_model_file = NULL,
   ...,
+  joint_alpha = FALSE,
   alpha = 2,
   gamma = 1,
   use_theta = FALSE,
   tau_lower = 0.05,
-  stan_refresh = 0
+  stan_refresh = 0.5
 )
 }
 \arguments{

@@ -70,6 +70,7 @@ cat_glm_tune <-
 
     data_ <- get_adj_data(data_ = data_, formula = formula)
 
+    # TODO: all cahnge to this
     if (is.null(taus)) taus <- seq(max(0, ncol(data_$data) / 4 - 2), ncol(data_$data) / 4 + 2, 0.5)
     if (is.null(tau_0)) tau_0 <- if (fam == "gaussian") 1 else ncol(data_$adj_x) / 4
 
@@ -125,7 +126,6 @@ cat_glm_tune <-
     )
 
     risk_estimate_collect <- c()
-    optimal_tau <- NULL
 
     for (tau in taus) {
       risk_estimate_collect <- append(
@@ -176,6 +176,7 @@ cat_glm_tune <-
       )
     )
 
+    # TODO: add...
     cat_glm_obj <- list(
       function_name = "cat_glm_tune",
       formula = formula,
@@ -447,13 +448,13 @@ cross_validation <- function(formula,
 
     train_x <- data_$adj_obs_x[-random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
     (data_$obs_size * fold / cv_fold_num)], ]
-    y <- data_$obs_y[-random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
+    train_y <- data_$obs_y[-random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
     (data_$obs_size * fold / cv_fold_num)], ]
-
+    # TODO: replace by cat_glm
     estimate_beta_model <- do.call(stats::glm, list(
       formula = formula,
       family = family,
-      data = rbind(cbind(train_x, y), data_$syn_data),
+      data = rbind(cbind(train_x, train_y), data_$syn_data),
       weights = c(
         rep(1, nrow(train_x)),
         rep(tau / data_$syn_size, data_$syn_size)
