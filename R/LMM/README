@@ -1,0 +1,6 @@
+README:
+in this file, contain:
+   1. one simulation file: simulation_hpc_five_methods
+   2. some untility file contain function for simulation: LMM_own_function.R  Bayesian_LMM_function_single_sigma_u.R untility_function.R
+   3. One slides file: Catalytic_LMM_PPT.pdf this file contains the simulation setting at last several pages
+   4. Mixed Model.pdf is some notes, for example derivation of MCMC for LMM algorithm

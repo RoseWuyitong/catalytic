@@ -10,9 +10,11 @@ data_initialization_lmm(
   X_cols,
   Y_cols,
   Z_cols,
+  group_col = NULL,
   ...,
   syn_size = NULL,
-  add_intercept = TRUE
+  add_intercept = TRUE,
+  by_group = FALSE
 )
 }
 \arguments{

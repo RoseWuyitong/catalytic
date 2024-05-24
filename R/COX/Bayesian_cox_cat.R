@@ -134,7 +134,7 @@ Bayesian_cox_cat_stan <- function(X, Y, status, X.syn, T.syn, status.syn, tau = 
   D_tilde <- intv$ind.d
 
   # Stan model and sampling
-  model <- stan_model("~/catalytic/R/bayesian_cox_cat.stan")
+  model <- stan_model("bayesian_cox_cat.stan")
   fit <- sampling(
     model,
     data = list(

@@ -29,7 +29,6 @@ data_initialization <- function(formula,
   data <- standardize_data(data)
 
   y_names <- as.character(get_lhs(formula))
-
   obs_x <- as.data.frame(data[, setdiff(names(data), c(y_names))])
   obs_y <- as.data.frame(data[, c(y_names)])
 
@@ -37,9 +36,9 @@ data_initialization <- function(formula,
   syn_size <- as.integer(if (is.null(syn_size)) ncol(obs_x) * 5 else syn_size)
 
   syn_x_inform <- auto_resampling(
-    resampled_data = obs_x,
+    obs_data = obs_x,
     resample_size = syn_size,
-    data_degree = data_degree
+    data_degree = x_degree
   )
 
   model <- do.call(stats::glm, list(
@@ -48,6 +47,7 @@ data_initialization <- function(formula,
     data = data,
     ...
   ))
+  # TODO: use predict
   syn_y <- data.frame(do.call(
     get_sim_y(fam),
     c(
@@ -92,8 +92,8 @@ data_initialization <- function(formula,
     list(
       size = data_$obs_size + data_$syn_size,
       syn_data = cbind(data_$syn_x, data_$syn_y),
-      x = rbind(data_$obs_x, data_$syn_x),
-      y = rbind(data_$obs_y, data_$syn_y),
+      x = as.data.frame(rbind(data_$obs_x, data_$syn_x)),
+      y = as.data.frame(rbind(data_$obs_y, data_$syn_y))
     )
   )
 

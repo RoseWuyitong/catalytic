@@ -12,9 +12,9 @@ library(MASS)
 library(parallel)
 numCores <- detectCores()
 library(mvtnorm)
-source("~/catalytic/R/COX/untility_function.R")
-source("~/catalytic/R/COX/LMM_own_function.R")
-source("~/catalytic/R/COX/Bayesian_LMM_function_single_sigma_u.R")
+source("untility_function.R")
+source("LMM_own_function.R")
+source("Bayesian_LMM_function_single_sigma_u.R")
 
 
 # function: return posterior mean and width of confidence interval,  coverage vector-- length is length(beta_0) contains 1 and 0
@@ -140,17 +140,10 @@ two_bayesian_given_tau <- function(syndata, mydata, tau, beta_0, ZTZ_list, ZTZ_s
 
 
 
-# N_rep <- 250
-# m <- 10
-# n_i <- 10
-# p_seq <- seq(10, m * n_i - 10, by = 10)
-
-
-N_rep <- 25
-m <- 5
-n_i <- 5
-p_seq <- c(5)
-
+N_rep <- 250
+m <- 10
+n_i <- 10
+p_seq <- seq(10, m * n_i - 10, by = 10)
 
 for (rep_index in 2:(N_rep + 1)) {
   five_oracle_MSE <- matrix(0, nc = 5, nr = length(p_seq))
@@ -319,7 +312,7 @@ for (rep_index in 2:(N_rep + 1)) {
     intercept_only_model <- LMM_MLE_Oct4(matrix(X[, 1], nc = 1), Y, Z)
     var_sub <- intercept_only_model$var_par
     Y_syn <- rmvnorm(1, rep(intercept_only_model$beta, M * m), sigma = var_sub[1] * diag(M * m) + var_sub[2] * tcrossprod(Z_syn))
-    Y_syn <- as.numeric(Y_syn) # TODO: check if it resmaple by group or all
+    Y_syn <- as.numeric(Y_syn)
 
     grp <- rep(1:m, each = M)
     Y_list_syn <- split(Y_syn, grp)

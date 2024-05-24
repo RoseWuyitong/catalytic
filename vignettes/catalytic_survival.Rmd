@@ -44,8 +44,8 @@ generate_beta_0 <- function(p = 20, r = 1, sparse_prop = 0.25) {
 
 
 p <- 10
-q <- 10
-m <- 10
+q <- 5
+m <- 5
 n_i <- 10
 sigma_u_square <- 1
 sigma_square <- 1
@@ -139,6 +139,7 @@ Z_list_test <- lapply(1:m, function(index) {
   }
 })
 
+
 Y_list <- lapply(1:m, function(index) {
   X_list[[index]] %*% beta_0 + Z_list[[index]] %*% random_effect[index, ] + MASS::mvrnorm(1, rep(0, n_i), sigma_square * diag(n_i))
 })
@@ -159,30 +160,29 @@ for (i in 1:m) {
   Y[((i - 1) * n_i + 1):(i * n_i)] <- Y_list[[i]]
 }
 
-Z <- matrix(0, nr = m * n_i, nc = m * q)
-for (i in 1:m) {
-  Z[((1:n_i) + n_i * (i - 1)), ((1:q) + q * (i - 1))] <- Z_list[[i]]
-}
+Z <- do.call(rbind, Z_list)
 
-X <- cbind(X, c(rep(1, 5), rep(2, 5), rep(3, 5), rep(4, 5), rep(5,5)))
+# Z <- matrix(0, nr = m * n_i, nc = m * q)
+# for (i in 1:m) {
+#   Z[((1:n_i) + n_i * (i - 1)), ((1:q) + q * (i - 1))] <- Z_list[[i]]
+# }
 
+X <- X[, -1]
+group <- gl(m, n_i)
 
-data <- as.data.frame(cbind(X[,-1], Y, Z))
+data <- as.data.frame(cbind(X, Y, Z, group))
 
 colnames(data) <- 1:ncol(data)
 ```
 
 
 ```{r obs data prepare}
-
-
-
-X_cols <- 1:9
-group_col <- 10
-Y_cols <- 11
+X_cols <- 1:ncol(X)
+group_col <- ncol(data)
+Y_cols <- ncol(X) + 1
 Z_cols <- setdiff(colnames(data), c(X_cols, group_col, Y_cols))
 
-data_ <- data_initialization_lmm(`11` ~ 1 + (1 | `10`), data = data, X_cols = X_cols, Y_cols = Y_cols, Z_cols = Z_cols, syn_size = 200)
+data_ <- data_initialization_lmm(`10` ~ 1 + (1 | `16`), data = data, X_cols = X_cols, Y_cols = Y_cols, Z_cols = Z_cols, group_col = group_col, syn_size = 200)
 
 cat_lmm_tune(data_ = data_)
 
@@ -197,16 +197,16 @@ tau <- 0.5
 MAX_iter <- 2
 tol <- 1e-08
 
-lmer_model <- lme4::lmer(formula=`11` ~ 1 + `1` + `2` + `3` + `4` +`5`+`6` +`7` + `8` + `9` + (1 | `10`), data=data)
+lmer_model <- lme4::lmer(formula = `11` ~ 1 + `1` + `2` + `3` + `4` + `5` + `6` + `7` + `8` + `9` + (1 | `10`), data = data)
 ```
 
 
 ```{r obs data prepare}
 # Plot the first line
-plot(cv_lmm_3$taus, cv_lmm_3$risk_estimate_collect[,"our_error"], type = "l", col = "blue",xlab = "taus", ylab = "risk_estimate")
+plot(cv_lmm_3$taus, cv_lmm_3$risk_estimate_collect[, "our_error"], type = "l", col = "blue", xlab = "taus", ylab = "risk_estimate")
 
 # Add the second line to the same plot
-lines(cv_lmm_3$taus, cv_lmm_3$risk_estimate_collect[,"lmer_error"], col = "red")
+lines(cv_lmm_3$taus, cv_lmm_3$risk_estimate_collect[, "lmer_error"], col = "red")
 
 # Add a legend
 legend("topleft", legend = c("our", "lmer"), col = c("blue", "red"), lty = 1)
@@ -215,14 +215,21 @@ legend("topleft", legend = c("our", "lmer"), col = c("blue", "red"), lty = 1)
 x <- data_$x
 y <- data_$y
 group_col <- data_$group_col
-system.time(lmer_model <- lme4::lmer(formula=y ~ 1 + x + (1 | group_col), weights=c(
-    rep(1, 100), rep(1/200, 200)
+system.time(lmer_model <- lme4::lmer(formula = y ~ 1 + x + (1 | group_col), weights = c(
+  rep(1, 100), rep(1 / 200, 200)
 )))
-system.time(cat_lmm(data_=data_, tau=1))
-
-
+system.time(cat_lmm(data_ = data_, tau = 1))
 ```
+```{r}
+plot(lmm_g1$taus, lmm_g1$risk_estimate_collect[, "our_error"], type = "l", col = "blue", xlab = "taus", ylab = "risk_estimate")
 
+# Add the second line to the same plot
+lines(lmm_g1$taus, lmm_g1$risk_estimate_collect[, "lmer_error"], col = "red")
+lines(lmm_g1$taus, lmm_g1$risk_estimate_collect[, "lmer_group_error"], col = "green")
+
+# Add a legend
+legend("topleft", legend = c("our", "lmer", "lmer_group"), col = c("blue", "red", "green"), lty = 1)
+```
 
 
 

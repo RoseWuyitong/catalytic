@@ -99,17 +99,15 @@ LMM_cat_Oct4 <- function(X, Y, Z, X_syn, Y_syn, Z_syn, tau, MAX_iter = 500, tol 
   parameter_diff <- TRUE
   while ((iter < MAX_iter) & (parameter_diff)) {
     beta_old <- beta_new
-    V_inv <- quadform::quad.tform(diag(1 / (sig_square_par_new[1] + sig_square_par_new[2] * d_seq)), U)
-    V_star_inv <- quadform::quad.tform(diag(1 / (sig_square_par_new[1] + sig_square_par_new[2] * d_seq_star)), U_star)
-    beta_new <- MASS::ginv(tau / M * quadform::quad.form(V_star_inv, X_syn) +
-      quadform::quad.form(V_inv, X)) %*% (
-      quadform::quad.3form(V_inv, X, Y) + tau / M * quadform::quad.3form(V_star_inv, X_syn, Y_syn))
+    V_inv <- quad.tform(diag(1 / (sig_square_par_new[1] + sig_square_par_new[2] * d_seq)), U)
+    V_star_inv <- quad.tform(diag(1 / (sig_square_par_new[1] + sig_square_par_new[2] * d_seq_star)), U_star)
+    beta_new <- ginv(tau / M * quad.form(V_star_inv, X_syn) + quad.form(V_inv, X)) %*% (quad.3form(V_inv, X, Y) + tau / M * quad.3form(V_star_inv, X_syn, Y_syn))
     q <- t(U) %*% (Y - X %*% beta_new)
     q_star <- t(U_star) %*% (Y_syn - X_syn %*% beta_new)
     sig_square_par_old <- sig_square_par_new
     sigma_square_old <- sig_square_par_new[1]
-    sigma_u_square_new <- stats::optimize(update_sigma_u_square, c(0, 30), sigma_square_old, d_seq, d_seq_star, q, q_star, tau)$minimum
-    sigma_square_new <- stats::optimize(update_sigma_square, c(0, 30), sigma_u_square_new, d_seq, d_seq_star, q, q_star, tau)$minimum
+    sigma_u_square_new <- optimize(update_sigma_u_square, c(0, 30), sigma_square_old, d_seq, d_seq_star, q, q_star, tau)$minimum
+    sigma_square_new <- optimize(update_sigma_square, c(0, 30), sigma_u_square_new, d_seq, d_seq_star, q, q_star, tau)$minimum
     sig_square_par_new <- c(sigma_square_new, sigma_u_square_new)
 
     if ((norm(sig_square_par_new - sig_square_par_old, "2") < tol) & (norm(beta_new - beta_old, "2") < tol)) {
@@ -117,6 +115,5 @@ LMM_cat_Oct4 <- function(X, Y, Z, X_syn, Y_syn, Z_syn, tau, MAX_iter = 500, tol 
     }
     iter <- iter + 1
   }
-  browser()
   return(list(beta = as.numeric(beta_new), var_par = sig_square_par_new))
 }

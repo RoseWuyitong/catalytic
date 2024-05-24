@@ -27,12 +27,8 @@ cat_glm <-
     validate_glm_formula(formula)
     family <- validate_family(family)
 
-    if (is.null(tau)) {
-      tau <- ncol(model.frame(
-        rhs(formula, TRUE),
-        data_$x
-      )) / 4
-    }
+    tau <- if (is.null(tau)) ncol(data_$x) / 4 else tau
+
 
     .small_number_stop(tau, 0, "Please enter non-negative `tau` value.")
 

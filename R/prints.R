@@ -11,7 +11,8 @@
 #' @examples
 print.data_ <- function(data_,
                         show_data = TRUE,
-                        detail = TRUE, ...) {
+                        detail = TRUE,
+                        ...) {
   cat(data_$function_name)
   if (data_$function_name == "data_initialization") {
     cat(
@@ -237,8 +238,7 @@ print.cat_lmm_tune <- function(cat_lmm_, digit = 3, detail = TRUE, ...) {
   cat("\n------\n")
   cat("optimal model:\n")
 
-  print(round(cat_lmm_$model$iter_collect[nrow(cat_lmm_$model$iter_collect), ], digit))
-
+  print(cat_lmm_$model)
 
   if (detail) {
     cat("\n------\n")
@@ -249,3 +249,57 @@ print.cat_lmm_tune <- function(cat_lmm_, digit = 3, detail = TRUE, ...) {
 }
 
 
+# TODO:: combined
+
+#' Title
+#'
+#' @param digit
+#' @param detail
+#' @param ...
+#' @param cat_cox_data_
+#'
+#' @return
+#' @export
+#'
+#' @examples
+print.cat_cox <- function(cat_cox_data_,
+                          digit = 3,
+                          detail = TRUE, ...) {
+  cat(cat_cox_data_$function_name)
+  cat("\n size:              ", cat_cox_data_$data_$size)
+  cat("\n method:            ", cat_cox_data_$method)
+  cat("\n tau:               ", cat_cox_data_$tau)
+  if (cat_cox_data_$method == "CRE") {
+    cat(
+      "\n iter:              ",
+      paste(
+        cat_cox_data_$iter,
+        "/",
+        cat_cox_data_$max_iter
+      )
+    )
+  }
+
+  cat("\n------\n")
+
+
+  cat("coefficients' information:\n")
+  if (cat_cox_data_$method == "CRE") {
+    cat("\n initial value:\n")
+    print(round(cat_cox_data_$iter_collect[1, ], digit))
+
+
+    cat("\n final value:\n")
+    print(round(cat_cox_data_$iter_collect[nrow(cat_cox_data_$iter_collect), ], digit))
+  } else {
+    cat(round(cat_cox_data_$coefficients, digit))
+  }
+
+  if (detail) {
+    cat("\n------\n")
+    cat("* For help interpreting the printed output see ?print.cat_cox\n")
+  }
+
+
+  invisible(cat_cox_data_)
+}

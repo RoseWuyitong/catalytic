@@ -32,7 +32,7 @@ risk_estimate_plot.none_bayes <- function(cat_glm, digit = 2) {
   )
 }
 
- # TODO: combine some that, clean the unnecessary class
+# TODO: combine some that, clean the unnecessary class
 #' Title
 #'
 #' @param cat_glm
@@ -44,26 +44,26 @@ risk_estimate_plot.none_bayes <- function(cat_glm, digit = 2) {
 #' @examples
 risk_estimate_plot.cat_lmm_tune <- function(cat_glm, digit = 2) {
   plot(cat_glm$taus,
-       cat_glm$risk_estimate_collect,
-       type = "l",
-       col = "black",
-       lwd = 2,
-       xlab = "taus",
-       ylab = paste0("risk estimate (", cat_glm$discrepancy_function, ")"),
-       main = paste0("Plot of Risk Estimate from ",cat_glm$function_name," (", cat_glm$risk_estimate_method, ")")
+    cat_glm$risk_estimate_collect,
+    type = "l",
+    col = "black",
+    lwd = 2,
+    xlab = "taus",
+    ylab = paste0("risk estimate (", cat_glm$discrepancy_function, ")"),
+    main = paste0("Plot of Risk Estimate from ", cat_glm$function_name, " (", cat_glm$risk_estimate_method, ")")
   )
 
   text(cat_glm$tau,
-       cat_glm$min_risk_estimate,
-       labels = round(cat_glm$min_risk_estimate, digit),
-       pos = 3,
-       offset = 0.5
+    cat_glm$min_risk_estimate,
+    labels = round(cat_glm$min_risk_estimate, digit),
+    pos = 3,
+    offset = 0.5
   )
 
   points(cat_glm$tau,
-         cat_glm$min_risk_estimate,
-         pch = 4,
-         col = "red"
+    cat_glm$min_risk_estimate,
+    pch = 4,
+    col = "red"
   )
 }
 
@@ -172,3 +172,28 @@ traceplot <- function(cat_) {
 #     ggplot2::geom_density_2d(bins = bin)
 #
 # }
+
+likelihood_plot <- function(cat_cox, digit = 3) {
+  plot(cat_cox$taus,
+    cat_cox$likelihood_collect,
+    type = "l",
+    col = "black",
+    lwd = 2,
+    xlab = "taus",
+    ylab = paste0("risk estimate (", cat_cox$discrepancy_function, ")"),
+    main = paste0("Plot of Risk Estimate from ", cat_cox$function_name, " (", cat_cox$likelihood_method, ")")
+  )
+
+  text(cat_cox$tau,
+    cat_cox$max_likelihood,
+    labels = round(cat_cox$max_likelihood, digit),
+    pos = 3,
+    offset = 0.5
+  )
+
+  points(cat_cox$tau,
+    cat_cox$max_likelihood,
+    pch = 4,
+    col = "red"
+  )
+}

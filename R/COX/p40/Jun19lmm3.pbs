@@ -1,0 +1,11 @@
+#!/bin/bash
+#PBS -q parallel24
+#PBS -l select=1:ncpus=24:mem=100GB
+#PBS -j oe
+#PBS -N cen1p4
+
+cd $PBS_0_WORKDIR;
+source /etc/profile.d/rec_modules.sh
+module load R-4.0.4
+cd /home/svu/e0708167/Aug7_2023/simulation_add_pred_correct_skew/sequce_weibull/cen1/p40/
+R CMD BATCH p40cen1.R

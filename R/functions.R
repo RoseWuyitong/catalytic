@@ -1,55 +1,84 @@
-source("~/catalytic/R/utils.R")
-
-auto_resampling <- function(obs_data,
+#' Auto resampling of data
+#'
+#' This function performs automatic resampling on a dataset,
+#' potentially applying different resampling methods based on
+#' the type and characteristics of the data.
+#'
+#' @param data A matrix or data.frame, which is the original data for resampling.
+#' @param resample_size A integer, which is the size(number of rows) of resampled data.
+#' @param data_degree A numeric matrix or data.frame, which is the degree matrix of `data`.
+#' @param resample_only A bool, which indicate if only do simple resmapling `data` or
+#'                      resampling `data` with different resampling methods if need.
+#' @param ...
+#'
+#' @return A list, including the resampled data in matrix format and
+#'        the resampling process for future review
+#' @export
+#'
+#' @examples
+auto_resampling <- function(data,
                             resample_size,
-                            data_degree = NULL, ...) {
-  recd_resampled_data <- data.frame(
-    Type = character(),
-    Process = character(),
-    stringsAsFactors = FALSE
-  )
+                            data_degree = NULL,
+                            resample_only = FALSE) {
+  data <- as.matrix(data)
+  resample_size <- as.integer(resample_size)
+  data_degree <- if (is.null(data_degree)) rep(1, ncol(data)) else data_degree
 
-  data_degree <- if (is.null(data_degree)) rep(1, ncol(obs_data)) else data_degree
-
-  resampled_data <- as.data.frame(apply(obs_data,
+  ## Resmapling Start
+  # Resampling `data` (by columns) without any resampling method
+  resampled_data <- as.data.frame(apply(data,
     2,
     sample,
     size = resample_size,
     replace = TRUE
   ))
 
+  # Return resampled_data if resample_only == TRUE
+  if (resample_only) {
+    return(list(
+      resampled_data = resampled_data,
+      resampled_data_record = NULL
+    ))
+  }
+
+  # Create data frame for recording the process of resampling each column of `data`
+  resampled_data_record <- data.frame(
+    Type = character(), # Record the type of each column of `data`
+    Process = character() # Record the resampling process for each column of `data`
+  )
+
   for (n in 1:ncol(resampled_data)) {
     process <- "Coordinate"
     # Check continue or category
-    if (is.continuous(obs_data[, n])) {
+    if (is.continuous(data[, n])) {
       data_type <- "Continuous"
       # Check order and diversity
-      if (data_degree[n] >= length(unique(obs_data[, n])) - 1) {
+      if (data_degree[n] >= length(unique(data[, n])) - 1) {
         process <- c(process, "Smoothing")
         resampled_data[, n] <- do.call(
           resampling_methods,
           list(
             resampled_data[, n],
-            obs_data[, n],
+            data[, n],
             "smoothing"
           )
         )
       }
       # Check skewness
-      if (abs(e1071::skewness(obs_data[, n])) >= 1) {
+      if (abs(e1071::skewness(data[, n])) >= 1) {
         process <- c(process, "IQR")
         resampled_data[, n] <- do.call(
           resampling_methods,
           list(
             resampled_data[, n],
-            obs_data[, n],
+            data[, n],
             "IQR"
           )
         )
       }
     } else {
       data_type <- "Category"
-      tbl <- table(obs_data[, n])
+      tbl <- table(data[, n])
       # Check data balance
       if (any(tbl < nrow(data) / (2 * length(tbl)))) {
         process <- c(process, "Flattening")
@@ -57,7 +86,7 @@ auto_resampling <- function(obs_data,
           resampling_methods,
           list(
             resampled_data[, n],
-            obs_data[, n],
+            data[, n],
             "flattening"
           )
         )
@@ -65,7 +94,7 @@ auto_resampling <- function(obs_data,
     }
 
 
-    recd_resampled_data <- rbind(recd_resampled_data, data.frame(
+    resampled_data_record <- rbind(resampled_data_record, data.frame(
       Type = data_type,
       Process = paste(process,
         collapse = "->"
@@ -75,34 +104,71 @@ auto_resampling <- function(obs_data,
 
   return(list(
     resampled_data = resampled_data,
-    recd_resampled_data = recd_resampled_data
+    resampled_data_record = resampled_data_record
   ))
 }
 
 
 
-resampling_methods <- function(x, sample_x, method) {
-  switch(method,
-    "symmetrizing" = mean(sample_x) + sample(c(-1, 1),
-      length(x),
-      replace = TRUE
-    ) * (x - mean(sample_x)),
-    "smoothing" = x + stats::rnorm(length(x), 0, min(diff(sort(unique(sample_x)))) / 10),
-    "flattening" = (function(x) {
-      x[sample(length(x), length(x) / 2)] <- sample(unique(sample_x),
-        length(x) / 2,
-        replace = TRUE
-      )
-      return(x)
-    })(x),
-    "IQR" = (function(x) {
-      x[sample(length(x), length(x) / 2)] <- rnorm(
-        length(x) / 2,
-        median(sample_x),
-        -get_iqr_diff(sample_x) / (2 * qnorm(1 / 4))
-      )
-      return(x)
-    })(x)
+#' Resampling methods for one vector
+#'
+#'
+#' This function applies various resampling methods
+#' (symmetrizing, smoothing, flattening, and IQR adjustment)
+#' to a vector `x` baesd on information from a vector `sample_x`.
+#'
+#' @param x A vector, which is the target to be resampled.
+#' @param sample_x A vector, which is providing information (e.g. mean) for resmapling `x`.
+#' @param method A character string, for specifying the resampling method to use.
+#'
+#' @return A vector, which is the resampled `x`.
+#' @export
+#'
+#' @examples
+#' # High skewed vector
+#' x <- c(10000, rep(0, 9))
+#' e1071::skewness(x)
+#'
+#' # Set sample x same as x in this example
+#' sample_x <- x
+#'
+#' # Using one of resample method to reduce the skewness of x
+#' resampled_x <- resampling_methods(x = x, sample_x = sample_x, method = "symmetrizing")
+#' e1071::skewness(resampled_x)
+#'
+resampling_methods <- function(x,
+                               sample_x,
+                               method = c(
+                                 "symmetrizing",
+                                 "smoothing",
+                                 "flattening",
+                                 "IQR"
+                               )) {
+  method <- match.arg(method)
+  return(
+    switch(method,
+      "symmetrizing" = mean(sample_x) +
+        sample(c(-1, 1), length(x), replace = TRUE) *
+          (x - mean(sample_x)),
+      "smoothing" = x +
+        stats::rnorm(length(x), 0, min(diff(sort(unique(sample_x)))) / 10),
+      "flattening" = (function(x) {
+        x[sample(length(x), length(x) / 2)] <- sample(
+          unique(sample_x),
+          length(x) / 2,
+          replace = TRUE
+        )
+        return(x)
+      })(x),
+      "IQR" = (function(x) {
+        x[sample(length(x), length(x) / 2)] <- rnorm(
+          length(x) / 2,
+          median(sample_x),
+          -get_iqr_diff(sample_x) / (2 * qnorm(1 / 4))
+        )
+        return(x)
+      })(x)
+    )
   )
 }
 
@@ -207,12 +273,12 @@ get_mean <- function(fam) {
       return(
         mean_of_gaussian(
           X = as.matrix(X),
-          coefficients = if (is.null(coefficients)
+          coefficients = as.matrix(if (is.null(coefficients)
           ) {
             coef(model)
           } else {
             coefficients
-          }
+          })
         )
       )
     }
@@ -346,6 +412,7 @@ get_discrepancy <- function(func) {
                                    est_model = NULL,
                                    est_coefficients = NULL) {
       # cap the value between 0.0001 and 0.9999 for better calculation process
+      browser()
       return(
         discrepancy_of_logarithmic_error(
           Y = pmax(0.0001, pmin(0.9999, Y)),
@@ -369,7 +436,7 @@ get_discrepancy <- function(func) {
                               est_Y = NULL,
                               ...,
                               X = NULL,
-                              fam = NULL,
+                              fam = "gaussian",
                               est_model = NULL,
                               est_coefficients = NULL) {
       return(
@@ -580,7 +647,7 @@ H_matrix <- function(X, X_star, tau, M, n) {
 
 
 get_adj_data <- function(data_, formula) {
-  data_$adj_x <- model.frame(get_rhs(formula, TRUE), data_$x)
+  data_$adj_x <- model.frame(get_rhs(formula, TRUE), as.data.frame(data_$x))
   data_$adj_obs_x <- data_$adj_x[1:data_$obs_size, ]
   data_$adj_syn_x <- data_$adj_x[(data_$obs_size + 1):data_$size, ]
   return(data_)
@@ -603,6 +670,228 @@ check_incul_wo_overlap <- function(whole_set, ...) {
 
   return(TRUE)
 }
+
+
+#' Solves a system of linear equations using QR decomposition.
+#'
+#' This function solves the system of linear equations \(Mx = b\) using the QR decomposition method.
+#' If any NA values are encountered in the solution, they are replaced with 0.0001.
+#'
+#' @param coef_matrix A matrix of coefficients.
+#' @param constant_vector A vector representing the constants on the right side of the equations.
+#'
+#' @return A vector containing the solutions to the system of equations.
+#'
+#'
+#' @seealso \code{\link[base]{qr}} for the QR decomposition function used internally.
+get_qr_solve <- function(coef_matrix, constant_vector) {
+  # Calculate solution using QR decomposition
+  qr_solution <- qr.coef(qr(coef_matrix), constant_vector)
+
+  # Replace any NA values in the solution with 0.0001
+  qr_solution[is.na(qr_solution)] <- 0.0001
+
+  return(qr_solution)
+}
+
+
+# Hessian function --------------------------------------------------------
+#' Compute the Hessian Matrix for Log Partial Likelihood of Cox Proportional Hazards Model
+#'
+#' This function calculates the negative Hessian matrix associated with the log partial likelihood of the Cox proportional hazards model.
+#'
+#' @param beta A vector representing the coefficients of the model.
+#' @param Xs A matrix of covariates where rows represent observations and columns represent features.
+#' @param entry A vector of entry times for each observation.
+#' @param Ts A vector of event times for each observation.
+#' @param event A binary vector indicating event occurrence (1 for event, 0 for censored).
+#'
+#' @return The negative Hessian matrix for the log partial likelihood of the Cox proportional hazards model.
+#'
+#' @examples
+#' # Provide example data and function calls here.
+#'
+#' @seealso Related functions or packages, especially the ones used internally.
+get_cox_hessian <- function(beta, Xs, entry, Ts, event) {
+  p <- ncol(Xs)
+  hessian <- matrix(0, p, p)
+  uncensored_set <- which(as.numeric(event) == 1)
+
+  for (i in uncensored_set) {
+    ts <- Ts[i]
+    xs <- Xs[i, ]
+    riskindex <- get_risk_set(ts, entry, Ts, event)
+
+    if (length(riskindex) > 1) {
+      X_risk_set <- Xs[riskindex, ]
+    } else {
+      X_risk_set <- matrix(Xs[riskindex, ], ncol = ncol(Xs))
+    }
+
+    theta <- exp(X_risk_set %*% beta)
+    t1 <- t(X_risk_set) %*% theta
+    t2 <- sum(theta)
+
+    xxxt <- t(X_risk_set)
+    eee <- sapply(1:length(riskindex), function(i) (xxxt[, i] * sqrt(theta[i])))
+
+    hessian <- hessian + crossprod(t(eee)) / t2 - t1 %*% t(t1) / t2^2
+  }
+
+  return(-hessian)
+}
+
+
+#' Calculate the Hessian Matrix for the Log Catalytic with No Censoring for Synthetic Data
+#'
+#' This function computes the Hessian matrix for the log catalytic prior, specifically for synthetic data that has no censoring.
+#'
+#' @param Xsbeta A vector representing the product of the covariates and the coefficients of the model.
+#' @param Xs A matrix of covariates (predictor variables) where rows represent observations and columns represent features.
+#' @param Ts A vector of event times for each observation.
+#' @param h_daga A function representing the hazard rate for synthetic data.
+#'
+#' @return A Hessian matrix for the log catalytic prior.
+#'
+#' @examples
+#' # Provide example data and function calls here.
+#'
+#' @seealso Related functions or packages, especially the ones used internally.
+get_syn_cox_hessian <- function(Xsbeta, Xs, Ts, h_daga) {
+  M <- nrow(Xs)
+  p <- ncol(Xs)
+  hess <- matrix(0, p, p)
+
+  for (ii in 1:M) {
+    hess <- hess - integrate(Vectorize(h_daga), lower = 0, upper = Ts[ii])$value * exp(Xsbeta[ii]) * tcrossprod(Xs[ii, ])
+  }
+
+  return(hess)
+}
+
+
+get_risk_set <- function(time_of_interest,
+                         entry_vector,
+                         time_vector,
+                         event_vector) {
+  return(which((time_of_interest >= entry_vector) & (
+    (time_vector == time_of_interest & event_vector == 1) | (
+      time_vector + 1e-08 > time_of_interest))))
+}
+
+
+
+# gradient function -------------------------------------------------------
+#' Compute the Gradient for Log Partial Likelihood of Cox Proportional Hazards Model
+#'
+#' This function calculates the gradient vector associated with the log partial likelihood of the Cox proportional hazards model.
+#'
+#' @param beta A vector representing the coefficients of the model.
+#' @param Xs A matrix of covariates where rows represent observations and columns represent features.
+#' @param entry A vector of entry times for each observation.
+#' @param Ts A vector of event times for each observation.
+#' @param event A binary vector indicating event occurrence (1 for event, 0 for censored).
+#'
+#' @return A vector representing the gradient of the log partial likelihood with respect to beta.
+#'
+#' @examples
+#' # Provide example data and function calls here.
+#'
+#' @seealso Related functions or packages, especially the ones used internally.
+get_cox_gradient <- function(beta, Xs, entry, Ts, event) {
+  p <- ncol(Xs)
+
+  gradient <- apply(cbind(Ts, Xs), 1, function(df) {
+    df <- matrix(df, nrow = 1)
+    ts <- df[, 1]
+    xs <- df[, 2:ncol(df)]
+    X_risk_set <- Xs[get_risk_set(ts, entry, Ts, event), ] %>%
+      matrix(ncol = ncol(Xs))
+
+    t1 <- t(X_risk_set) %*% exp(X_risk_set %*% beta)
+    t2 <- sum(exp(X_risk_set %*% beta))
+
+    return(xs - t1 / t2)
+  }) %*% event
+
+  return(gradient)
+}
+
+
+
+#' Compute the Gradient for Log Catalytic Prior for Synthetic Data
+#'
+#' This function calculates the gradient of the log catalytic prior, specifically for synthetic data without censoring.
+#'
+#' @param Xsbeta A vector representing the product of the covariates and the coefficients of the model.
+#' @param Xs A matrix of covariates where rows represent observations and columns represent features.
+#' @param Ts A vector of event times for each observation.
+#' @param status.s A vector indicating the status of the synthetic data (typically 1 for event and 0 for censored).
+#' @param h_daga A function representing the hazard rate for synthetic data.
+#'
+#' @return A vector representing the gradient of the log catalytic prior with respect to beta.
+#'
+#' @examples
+#' # Provide example data and function calls here.
+#'
+#' @seealso Related functions or packages, especially the ones used internally.
+get_syn_cox_gradient <- function(Xsbeta, Xs, Ts, status.s, h_daga) {
+  M <- nrow(Xs)
+  p <- ncol(Xs)
+  gd <- rep(0, p)
+
+  for (ii in 1:M) {
+    gd <- gd + (status.s[ii] - integrate(Vectorize(h_daga), lower = 0, upper = Ts[ii])$value * exp(Xsbeta[ii])) * Xs[ii, ]
+  }
+
+  return(gd)
+}
+
+
+setting.interval <- function(y, delta, s, J) {
+  n <- length(y)
+
+  smax <- max(s)
+
+  case0 <- which(delta == 0)
+  case1 <- which(delta == 1)
+
+  case0yleq <- which(delta == 0 & y <= smax)
+  case0ygeq <- which(delta == 0 & y > smax)
+  case1yleq <- which(delta == 1 & y <= smax)
+  case1ygeq <- which(delta == 1 & y > smax)
+
+
+  ind.d <- ind.r <- matrix(0, n, J)
+
+  for (i in case1yleq) {
+    d.mat.ind <- min(which(s - y[i] >= 0))
+    ind.d[i, d.mat.ind] <- 1
+    ind.r[i, 1:d.mat.ind] <- 1
+  }
+
+  for (i in case0yleq) {
+    cen.j <- min(which(s - y[i] >= 0))
+    ind.r[i, 1:cen.j] <- 1
+  }
+
+  if (length(union(case1ygeq, case0ygeq)) > 0) {
+    ind.r[union(case1ygeq, case0ygeq), ] <- 1
+  }
+
+  ind.r_d <- ind.r - ind.d
+
+
+  d <- colSums(ind.d)
+
+  list(
+    ind.r = ind.r,
+    ind.d = ind.d,
+    d = d,
+    ind.r_d = ind.r_d
+  )
+}
+
 
 
 real_coefficients_vector <- function(dimention,

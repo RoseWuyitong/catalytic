@@ -1,0 +1,204 @@
+---
+title: "How to Use the catalytic Package"
+author: "Huang Dongming, Li Weihao and Wu Yitong"
+date: "2024-04-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+# Demo
+
+
+```{r obs data prepare}
+predict_log_PL_compute <- function(betahat, 
+                                   predbeta, 
+                                   X_test, 
+                                   Y_test, 
+                                   status_test) {
+  term1 <- CoxPL(betahat, X_test, rep(0, length(Y_test)), Y_test, status_test)
+  term2 <- CoxPL(predbeta, X_test, rep(0, length(Y_test)), Y_test, status_test)
+
+  return(term1-term2)
+}
+
+N_rep <- 100
+M <- 1000
+n <- 100
+test_n <- 100
+
+rho <- 0.5
+censor_rate <- 0.1
+p <- 20
+sim_times <- 5
+
+all_result_squareloss_matrix <- matrix(0, nrow = sim_times, nc = 4)
+all_result_log_pl_matrix <- matrix(0, nrow = sim_times, nc = 4)
+for (sim in 1:sim_times) {
+  cat("\n simt_imes:", sim)
+# Generate obs data
+X_obs <- matrix(rnorm(n * p), n, p)
+X_test <-  matrix(rnorm(test_n * p), test_n, p)
+# X_obs<-scale(X_obs)
+X_obs[, 1] <- rbinom(n, 1, 0.9)
+X_test[,1]<- rbinom(n, 1, 0.9)
+
+X_obs[, 3] <- rchisq(n, 1)
+X_test[,3]<- rchisq(n, 1)
+
+X_obs[, 2] <- rchisq(n, 4)
+X_test[, 2] <- rchisq(n, 4)
+
+X <- X_obs
+beta <- c(4, -4, 3, -3, 1, -1, 1, -1, rep(1, p - 8)) / sqrt(p)
+
+Xbeta <- as.numeric(X %*% beta)
+X_testbeta <- as.numeric(X_test %*% beta)
+
+TT <- sapply(1:n, function(i) {
+  rexp(1, 0.5 * exp(Xbeta[i]))
+})
+
+TT_test <- sapply(1:n, function(i) {
+  rexp(1, 0.5 * exp(X_testbeta[i]))
+})
+
+
+if (censor_rate == 0.1) {
+  pre_value <- quantile(TT, 0.95)
+  pre_value_test <- quantile(TT_test, 0.95)
+
+  C <- runif(n, 0, pre_value)
+  C_test <- runif(test_n, 0, pre_value_test)
+  
+  censor_rates <- sum(C < TT) / n
+  censor_rates_test <- sum(C_test < TT_test) / n
+  target_censor_rate <- censor_rate
+  target_censor_rate_test <- censor_rate
+  while (abs(target_censor_rate - censor_rates) > 0.02) {
+    C <- runif(n, 0, pre_value)
+    censor_rates <- sum(C < TT) / n
+    # print(censor_rates)
+  }
+  
+  while (abs(target_censor_rate_test - censor_rates) > 0.02) {
+    C_test <- runif(test_n, 0, pre_value_test)
+    censor_rates <- sum(C_test < TT_test) / test_n
+    # print(censor_rates)
+  }
+}
+if (censor_rate == 0.2) {
+  pre_value <- quantile(TT, 0.90)
+
+  C <- runif(n, 0, pre_value)
+  censor_rates <- sum(C < TT) / n
+  target_censor_rate <- censor_rate
+  while (abs(target_censor_rate - censor_rates) > 0.02) {
+    C <- runif(n, 0, pre_value)
+    censor_rates <- sum(C < TT) / n
+    # print(censor_rates)
+  }
+}
+if (censor_rate == 0.4) {
+  pre_value <- quantile(TT, 0.70)
+
+  C <- runif(n, 0, pre_value)
+  censor_rates <- sum(C < TT) / n
+  target_censor_rate <- censor_rate
+  while (abs(target_censor_rate - censor_rates) > 0.02) {
+    C <- runif(n, 0, pre_value)
+    censor_rates <- sum(C < TT) / n
+    # print(censor_rates)
+  }
+}
+
+Y_status <- t(sapply(1:n, function(aa) {
+  c(min(C[aa], TT[aa]), (C[aa] > TT[aa]))
+}))
+
+Y_status_test <- t(sapply(1:n, function(aa) {
+  c(min(C_test[aa], TT_test[aa]), (C_test[aa] > TT_test[aa]))
+}))
+
+Y <- Y_status[, 1]
+Y_test <- Y_status_test[,1]
+status <- Y_status[, 2]
+status_test <- Y_status_test[, 2]
+
+
+obs_data <- as.data.frame(cbind(X, Y_status))
+colnames(obs_data) <- 1:ncol(obs_data)
+
+data_ <- data_initialization_cox(formula = survival::Surv(`21`, `22`) ~ 1, data = obs_data, syn_size = 1000)
+
+cox_cre_p <- cat_cox(data_=data_, method="CRE", tau=p)
+cox_wme_p <- cat_cox(data_=data_, method="WME", tau=p)
+
+cox_cre_cv <- cat_cox_tune(data_=data_, method="CRE", taus=seq(0.5, 50, 0.5))
+cox_wme_cv <- cat_cox_tune(data_=data_, method="WME", taus=seq(0.5, 50, 0.5))
+
+all_result_squareloss_matrix[sim, ] <- c(
+norm(beta - cox_cre_p$coefficients, "2")^2,
+norm(beta - cox_wme_p$coefficients, "2")^2,
+norm(beta - cox_cre_cv$coefficients, "2")^2,
+norm(beta - cox_wme_cv$coefficients, "2")^2)
+
+all_result_log_pl_matrix[sim, ] <- c(
+  predict_log_PL_compute(beta, 
+                       cox_cre_p$coefficients, 
+                       X_test, 
+                                   Y_test, 
+                                   status_test),
+  predict_log_PL_compute(beta, 
+                       cox_wme_p$coefficients, 
+                       X_test, 
+                                   Y_test, 
+                                   status_test),
+  predict_log_PL_compute(beta, 
+                       cox_cre_cv$coefficients, 
+                       X_test, 
+                                   Y_test, 
+                                   status_test),
+  predict_log_PL_compute(beta, 
+                       cox_wme_cv$coefficients, 
+                       X_test, 
+                                   Y_test, 
+                                   status_test)
+  
+  
+)
+
+}
+
+
+```
+
+
+```{r run}
+a <- all_result_squareloss_matrix
+# cox_1 <- cat_cox(data_=data_)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

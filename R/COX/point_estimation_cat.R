@@ -163,7 +163,7 @@ CoxstarHessian <- function(Xsbeta, Xs, Ts, h_daga) {
   M <- nrow(Xs)
   p <- ncol(Xs)
   hess <- matrix(0, p, p)
-
+  browser()
   for (ii in 1:M) {
     hess <- hess - integrate(Vectorize(h_daga), lower = 0, upper = Ts[ii])$value * exp(Xsbeta[ii]) * tcrossprod(Xs[ii, ])
   }
@@ -208,7 +208,7 @@ betahat_RL_estimation <- function(X, TT, status,
   }
   if (is.null(h_daga)) {
     h_daga <- function(t) {
-      sum(status) / mean(TT) / n
+      sum(status) / mean(Y) / n
     }
   }
   n <- length(TT)
@@ -230,6 +230,7 @@ betahat_RL_estimation <- function(X, TT, status,
   while ((iter < MAX_ITER) & diff_new_old) {
     beta_old <- beta_new
     Xstarbetaold <- as.numeric(X.star %*% beta_old)
+    browser()
     H_old <- CoxHessian(beta_old, X, entry, TT, status) + tau / M * CoxstarHessian(Xstarbetaold, X.star, TT.star, h_daga)
     gd_old <- CoxGradient(beta_old, X, entry, TT, status) + tau / M * CoxstarGradient(Xstarbetaold, X.star, TT.star, status.star, h_daga)
     beta_new <- beta_old - qr_solve_my(H_old, gd_old)

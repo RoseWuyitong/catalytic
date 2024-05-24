@@ -35,11 +35,36 @@ cat_lmm <- function(data_,
   d_seq <- eigen_ZZT$values
   U <- eigen_ZZT$vectors
 
-  Z_synZ_synT <- tcrossprod(as.matrix(data_$syn_z))
-  eigen_Z_synZ_synT <- eigen(Z_synZ_synT)
-  d_seq_star <- eigen_Z_synZ_synT$values
-  U_star <- eigen_Z_synZ_synT$vectors
+  # Adapt CODE 14 May wait for check
+  combined_df <- data.frame(
+    syn_x = I(data_$syn_x),
+    syn_y = I(data_$syn_y),
+    syn_z = I(data_$syn_z),
+    syn_group_col = I(data_$syn_group_col)
+  )
+  sorted_df <- combined_df[order(combined_df$syn_group_col), ]
+  data_$syn_x <- sorted_df$syn_x
+  data_$syn_y <- sorted_df$syn_y
+  data_$syn_z <- sorted_df$syn_z
 
+
+  d_seq_star <- c(rep(0, data_$syn_size))
+  U_star <- matrix(0, ncol = data_$syn_size, nrow = data_$syn_size)
+  add_up <- 0
+  for (g in unique(data_$group_col)) {
+    idx <- which(data_$syn_group_col == g)
+    Z_synZ_synT <- tcrossprod(data_$syn_z[idx, ])
+    eigen_Z_synZ_synT <- eigen(Z_synZ_synT)
+    d_seq_star[idx] <- eigen_Z_synZ_synT$values
+    U_star[(1:nrow(eigen_Z_synZ_synT$vectors)) + add_up, idx] <- eigen_Z_synZ_synT$vectors
+    add_up <- add_up + nrow(eigen_Z_synZ_synT$vectors)
+  }
+
+  # WEIHAO's CODE
+  # Z_synZ_synT <- tcrossprod(Z)
+  # eigen_Z_synZ_synT <- eigen(Z_synZ_synT)
+  # d_seq_star <- eigen_Z_synZ_synT$values
+  # U_star <- eigen_Z_synZ_synT$vectors
 
   iter <- 0
   coefficients_new <- if (is.null(init_coefficients)) rnorm(ncol(data_$obs_x)) else init_coefficients
@@ -79,6 +104,7 @@ cat_lmm <- function(data_,
     iter <- iter + 1
     iter_collect <- rbind(iter_collect, c(sig_square_par_new, coefficients_new))
   }
+
 
   cat_lmer_obj <- list(
     function_name = "cat_lmm",

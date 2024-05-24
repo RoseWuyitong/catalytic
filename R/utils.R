@@ -1,36 +1,41 @@
-multiply_two_matrices <- function(matrix1,
-                                  matrix2,
-                                  intl = TRUE) {
+#' Multiply two matrix
+#'
+#' This function multiplies two matrices or data frames. The function first
+#' converts data frames to matrices (if necessary), checks the dimensions,
+#' and performs the matrix multiplication.
+#'
+#' @param matrix1 A numeric `matrix` or `data.frame`, which will be multiplied by `matrix2`.
+#' @param matrix2 A numeric `matrix` or `data.frame`, which will be multiplied by `matrix1`.
+#'
+#' @return A numeric `matrix`, which is the product of `matrix1` and `matrix2`.
+#' @export
+#' @examples
+#' # Create example matrices
+#' matrix1 <- matrix(data = c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
+#' matrix2 <- matrix(data = c(1, 2, 3, 4, 5, 6, 7, 8), nrow = 2, ncol = 4)
+#'
+#' multiply_two_matrices(matrix1, matrix2)
+#'
+#' # should return the same result
+#' multiply_two_matrices(matrix2, matrix1)
+multiply_matrix <- function(matrix1,
+                            matrix2) {
   matrix1 <- as.matrix(matrix1)
   matrix2 <- as.matrix(matrix2)
 
-  if (intl) {
-    if (ncol(matrix1) + 1 == nrow(matrix2)) {
-      return(matrix2[1] + matrix1 %*% matrix2[-1])
-    } else if (
-      ncol(matrix2) + 1 == nrow(matrix1)) {
-      return(matrix1[1] + matrix2 %*% matrix1[-1])
-    } else if (
-      nrow(matrix1) + 1 == nrow(matrix2)) {
-      return(matrix2[1] + matrix2[-1] %*% matrix1)
-    } else if (
-      nrow(matrix2) + 1 == nrow(matrix1)) {
-      return(matrix1[1] + matrix1[-1] %*% matrix2)
-    }
-  }
-
   if (ncol(matrix1) == nrow(matrix2)) {
     return(matrix1 %*% matrix2)
-  } else if (
-    nrow(matrix1) == ncol(matrix2)) {
+  } else if (nrow(matrix1) == ncol(matrix2)) {
     return(matrix2 %*% matrix1)
+  } else if (ncol(matrix1) == ncol(matrix2)) {
+    return(t(matrix1) %*% matrix2)
+  } else if (nrow(matrix1) == nrow(matrix2)) {
+    return(matrix1 %*% t(matrix2))
   }
 
-  stop(paste(
-    "Please note that the two matrices cannot be multiplied:",
-    str(head(matrix1)),
-    str(head(matrix2))
-  ))
+  stop("Please note that these two matrices cannot be multiplied.",
+    call. = TRUE
+  )
 }
 
 
@@ -55,10 +60,9 @@ log_density_grad_binomial <- function(X,
                                       weights = 1) {
   return(
     c(
-      multiply_two_matrices(
+      multiply_matrix(
         matrix1 = t(weights * (Y - mean)),
-        matrix2 = cbind(1, X),
-        intl = FALSE
+        matrix2 = cbind(1, X)
       )
     )
   )
@@ -84,7 +88,7 @@ mean_of_binomial <- function(X,
 
 mean_of_gaussian <- function(X,
                              coefficients) {
-  return(X %*% coefficients)
+  return(multiply_matrix(X, coefficients))
 }
 
 correlation_matrix <- function(corr, dim) {
@@ -120,7 +124,10 @@ is.continuous <- function(lst) {
 
 is.data_ <- function(x) inherits(x, "data_")
 is.data_lmm <- function(x) inherits(x, "data_") & x$function_name == "data_initilization_lmm"
+is.data_cox <- function(x) inherits(x, "data_") & x$function_name == "data_initilization_cox"
 
+is.lmer_formula <- function(f) grepl("\\(.*|.*\\)", deparse(f))
+is.surv_formula <- function(f) grepl("Surv", deparse(get_lhs(f)))
 
 .large_number_warning <- function(num, threshold, suggestion) {
   if (any(num > threshold)) warning(suggestion, call. = FALSE)
