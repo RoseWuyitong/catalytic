@@ -182,7 +182,7 @@ get_log_density <- function(fam) {
                           coefficients = NULL) {
       return(log_density_binomial(
         Y = as.matrix(Y),
-        mean = multiply_two_matrices(
+        mean = multiply_matrix(
           X,
           if (is.null(model)
           ) {
@@ -346,7 +346,7 @@ get_lambda_function <- function(discrepancy_function) {
         "binomial",
         "only binomial family can use logistic_deviance"
       )
-      return(multiply_two_matrices(X, coefficients))
+      return(multiply_matrix(X, coefficients))
     }
   )
 }
@@ -412,7 +412,6 @@ get_discrepancy <- function(func) {
                                    est_model = NULL,
                                    est_coefficients = NULL) {
       # cap the value between 0.0001 and 0.9999 for better calculation process
-      browser()
       return(
         discrepancy_of_logarithmic_error(
           Y = pmax(0.0001, pmin(0.9999, Y)),
@@ -520,26 +519,28 @@ update_sigma_u_square_cat <- function(sigma_u_square, sigma_square, d_seq, d_seq
 }
 
 
-stan_model_selection <- memoise::memoise(function(fam,
-                                                  joint,
-                                                  gibbs,
-                                                  use_theta,
+stan_model_selection <- memoise::memoise(function(method,
+                                                  fam = NULL,
+                                                  gibbs = FALSE,
+                                                  joint_tau = FALSE,
+                                                  joint_theta = FALSE,
                                                   joint_alpha = FALSE) {
   return(rstan::stan_model(
-    file = if (is.null(model_file)) {
-      paste0(
-        "~/catalytic/R/rstan_script/",
-        fam,
-        if (joint & isFALSE(gibbs)) "_joint",
-        "_bayesian",
-        if (fam == "binomial" & joint & use_theta & isFALSE(gibbs)) "_theta",
-        if (fam == "binomial" & joint & isFALSE(use_theta) & isFALSE(gibbs)) "_tau",
-        if (fam == "binomial" & joint & use_theta & isFALSE(gibbs) & joint_alpha) "_joint_alpha",
-        ".stan"
-      )
-    } else {
-      model_file
-    }
+    file = paste0(
+      "~/catalytic/R/rstan_script/",
+      method,
+      fam,
+      if (any(
+        joint_tau,
+        joint_theta,
+        joint_alpha
+      )) {
+        "_joint"
+      },
+      if (method == "glm" && fam == "binomial" && joint_theta && isFALSE(gibbs)) "_theta",
+      if (method == "glm" && fam == "binomial" && joint_theta && isFALSE(gibbs) & joint_alpha) "_alpha",
+      ".stan"
+    )
   ))
 })
 
@@ -647,9 +648,10 @@ H_matrix <- function(X, X_star, tau, M, n) {
 
 
 get_adj_data <- function(data_, formula) {
-  data_$adj_x <- model.frame(get_rhs(formula, TRUE), as.data.frame(data_$x))
-  data_$adj_obs_x <- data_$adj_x[1:data_$obs_size, ]
-  data_$adj_syn_x <- data_$adj_x[(data_$obs_size + 1):data_$size, ]
+  data_$adj_x <- as.matrix(model.frame(get_rhs(formula, TRUE), as.data.frame(data_$x)))
+  rownames(data_$adj_x) <- rownames(data_$x)
+  data_$adj_obs_x <- as.matrix(data_$adj_x[1:data_$obs_size, ])
+  data_$adj_syn_x <- as.matrix(data_$adj_x[(data_$obs_size + 1):data_$size, ])
   return(data_)
 }
 
@@ -712,30 +714,37 @@ get_qr_solve <- function(coef_matrix, constant_vector) {
 #' # Provide example data and function calls here.
 #'
 #' @seealso Related functions or packages, especially the ones used internally.
-get_cox_hessian <- function(beta, Xs, entry, Ts, event) {
-  p <- ncol(Xs)
-  hessian <- matrix(0, p, p)
-  uncensored_set <- which(as.numeric(event) == 1)
+get_cox_hessian <- function(X,
+                            time,
+                            event,
+                            coefs,
+                            entry_points = NULL) {
+  if (is.null(entry_points)) entry_points <- rep(0, nrow(X))
 
-  for (i in uncensored_set) {
-    ts <- Ts[i]
-    xs <- Xs[i, ]
-    riskindex <- get_risk_set(ts, entry, Ts, event)
+  cersored_event <- which(as.numeric(event) == 1)
+  hessian <- matrix(0, ncol(X), ncol(X))
 
-    if (length(riskindex) > 1) {
-      X_risk_set <- Xs[riskindex, ]
-    } else {
-      X_risk_set <- matrix(Xs[riskindex, ], ncol = ncol(Xs))
-    }
+  for (i in cersored_event) {
+    risk_set_idx <- get_risk_set_idx(
+      time_of_interest = time[i],
+      entry_vector = entry_points,
+      time_vector = time,
+      event_vector = event
+    )
+    risk_set <- matrix(X[risk_set_idx, ], ncol = ncol(X))
 
-    theta <- exp(X_risk_set %*% beta)
-    t1 <- t(X_risk_set) %*% theta
-    t2 <- sum(theta)
+    exp_risk_lp <- exp(risk_set %*% coefs)
+    risk_exp_risk_lp <- t(risk_set) %*% exp_risk_lp
+    sum_exp_risk_lp <- sum(exp_risk_lp)
 
-    xxxt <- t(X_risk_set)
-    eee <- sapply(1:length(riskindex), function(i) (xxxt[, i] * sqrt(theta[i])))
+    risk_sqrt_exp_risk_lp <- sapply(
+      1:length(risk_set_idx),
+      function(i) (t(risk_set)[, i] * sqrt(exp_risk_lp[i]))
+    )
 
-    hessian <- hessian + crossprod(t(eee)) / t2 - t1 %*% t(t1) / t2^2
+    hessian <- hessian +
+      crossprod(t(risk_sqrt_exp_risk_lp)) / sum_exp_risk_lp -
+      tcrossprod(risk_exp_risk_lp) / sum_exp_risk_lp^2
   }
 
   return(-hessian)
@@ -757,23 +766,30 @@ get_cox_hessian <- function(beta, Xs, entry, Ts, event) {
 #' # Provide example data and function calls here.
 #'
 #' @seealso Related functions or packages, especially the ones used internally.
-get_syn_cox_hessian <- function(Xsbeta, Xs, Ts, h_daga) {
-  M <- nrow(Xs)
-  p <- ncol(Xs)
-  hess <- matrix(0, p, p)
+get_syn_cox_hessian <- function(X,
+                                time,
+                                coefs,
+                                hazard_constant) {
+  syn_lp <- as.numeric(multiply_matrix(X, coefs))
 
-  for (ii in 1:M) {
-    hess <- hess - integrate(Vectorize(h_daga), lower = 0, upper = Ts[ii])$value * exp(Xsbeta[ii]) * tcrossprod(Xs[ii, ])
+  hessian <- matrix(0, ncol(X), ncol(X))
+  for (i in 1:nrow(X)) {
+    hessian <- hessian -
+      hazard_constant *
+        time[i] *
+        exp(syn_lp[i]) *
+        tcrossprod(X[i, ])
   }
 
-  return(hess)
+  return(hessian)
 }
 
 
-get_risk_set <- function(time_of_interest,
-                         entry_vector,
-                         time_vector,
-                         event_vector) {
+
+get_risk_set_idx <- function(time_of_interest,
+                             entry_vector,
+                             time_vector,
+                             event_vector) {
   return(which((time_of_interest >= entry_vector) & (
     (time_vector == time_of_interest & event_vector == 1) | (
       time_vector + 1e-08 > time_of_interest))))
@@ -786,11 +802,12 @@ get_risk_set <- function(time_of_interest,
 #'
 #' This function calculates the gradient vector associated with the log partial likelihood of the Cox proportional hazards model.
 #'
-#' @param beta A vector representing the coefficients of the model.
-#' @param Xs A matrix of covariates where rows represent observations and columns represent features.
-#' @param entry A vector of entry times for each observation.
-#' @param Ts A vector of event times for each observation.
 #' @param event A binary vector indicating event occurrence (1 for event, 0 for censored).
+#' @param X
+#' @param time
+#' @param coefs
+#' @param ...
+#' @param entry_points
 #'
 #' @return A vector representing the gradient of the log partial likelihood with respect to beta.
 #'
@@ -798,21 +815,47 @@ get_risk_set <- function(time_of_interest,
 #' # Provide example data and function calls here.
 #'
 #' @seealso Related functions or packages, especially the ones used internally.
-get_cox_gradient <- function(beta, Xs, entry, Ts, event) {
-  p <- ncol(Xs)
+get_cox_gradient <- function(X,
+                             time,
+                             event,
+                             coefs,
+                             ...,
+                             entry_points = NULL) {
+  if (is.null(entry_points)) entry_points <- rep(0, nrow(X))
 
-  gradient <- apply(cbind(Ts, Xs), 1, function(df) {
-    df <- matrix(df, nrow = 1)
-    ts <- df[, 1]
-    xs <- df[, 2:ncol(df)]
-    X_risk_set <- Xs[get_risk_set(ts, entry, Ts, event), ] %>%
-      matrix(ncol = ncol(Xs))
+  gradient <- apply(
+    cbind(time, X), 1,
+    function(df) {
+      df <- matrix(df, nrow = 1)
+      ts <- df[, 1]
+      xs <- df[, 2:ncol(df)]
+      X_risk_set <- X[GetRiskSet(ts, entry_points, time, event), ] %>%
+        matrix(ncol = ncol(X))
 
-    t1 <- t(X_risk_set) %*% exp(X_risk_set %*% beta)
-    t2 <- sum(exp(X_risk_set %*% beta))
+      t1 <- t(X_risk_set) %*% exp(X_risk_set %*% coefs)
+      t2 <- sum(exp(X_risk_set %*% coefs))
 
-    return(xs - t1 / t2)
-  }) %*% event
+      return(xs - t1 / t2)
+    }
+  ) %*% event
+  #
+  #   cersored_event <- which(as.numeric(event) == 1)
+  #   gradient <- rep(0, ncol(X))
+  #   for (i in cersored_event) {
+  #     risk_set_idx <- get_risk_set_idx(
+  #       time_of_interest = time[i],
+  #       entry_vector = entry_points,
+  #       time_vector = time,
+  #       event_vector = event
+  #     )
+  #     risk_set <- as.matrix(X[risk_set_idx, ])
+  #
+  #     exp_risk_lp <- exp(multiply_matrix(risk_set, coefs))
+  #     risk_exp_risk_lp <- multiply_matrix(risk_set, exp_risk_lp)
+  #     sum_exp_risk_lp <- sum(exp_risk_lp)
+  #
+  #     gradient <- gradient + X[i, ] - risk_exp_risk_lp / sum_exp_risk_lp
+  #   }
 
   return(gradient)
 }
@@ -835,63 +878,122 @@ get_cox_gradient <- function(beta, Xs, entry, Ts, event) {
 #' # Provide example data and function calls here.
 #'
 #' @seealso Related functions or packages, especially the ones used internally.
-get_syn_cox_gradient <- function(Xsbeta, Xs, Ts, status.s, h_daga) {
-  M <- nrow(Xs)
-  p <- ncol(Xs)
-  gd <- rep(0, p)
-
-  for (ii in 1:M) {
-    gd <- gd + (status.s[ii] - integrate(Vectorize(h_daga), lower = 0, upper = Ts[ii])$value * exp(Xsbeta[ii])) * Xs[ii, ]
+get_syn_cox_gradient <- function(X,
+                                 time,
+                                 coefs,
+                                 hazard_constant) {
+  syn_lp <- as.numeric(multiply_matrix(X, coefs))
+  gradient <- rep(0, ncol(X))
+  for (i in 1:nrow(X)) {
+    gradient <- gradient + (1 - hazard_constant * time[i] * exp(syn_lp[i])) * X[i, ]
   }
-
-  return(gd)
+  return(gradient)
 }
 
 
-setting.interval <- function(y, delta, s, J) {
-  n <- length(y)
+get_cox_pl <- function(X,
+                       time,
+                       event,
+                       coefs,
+                       entry_points = NULL) {
+  if (is.null(entry_points)) entry_points <- rep(0, nrow(X))
 
-  smax <- max(s)
-
-  case0 <- which(delta == 0)
-  case1 <- which(delta == 1)
-
-  case0yleq <- which(delta == 0 & y <= smax)
-  case0ygeq <- which(delta == 0 & y > smax)
-  case1yleq <- which(delta == 1 & y <= smax)
-  case1ygeq <- which(delta == 1 & y > smax)
-
-
-  ind.d <- ind.r <- matrix(0, n, J)
-
-  for (i in case1yleq) {
-    d.mat.ind <- min(which(s - y[i] >= 0))
-    ind.d[i, d.mat.ind] <- 1
-    ind.r[i, 1:d.mat.ind] <- 1
+  cersored_event <- which(as.numeric(event) == 1)
+  pl <- 0
+  for (i in cersored_event) {
+    risk_set_idx <- get_risk_set_idx(
+      time_of_interest = time[i],
+      entry_vector = entry_points,
+      time_vector = time,
+      event_vector = event
+    )
+    risk_set <- as.matrix(X[risk_set_idx, ])
+    exp_risk_lp <- exp(multiply_matrix(risk_set, coefs))
+    pl <- pl + sum(X[i, ] * coefs) - log(sum(exp_risk_lp))
   }
-
-  for (i in case0yleq) {
-    cen.j <- min(which(s - y[i] >= 0))
-    ind.r[i, 1:cen.j] <- 1
-  }
-
-  if (length(union(case1ygeq, case0ygeq)) > 0) {
-    ind.r[union(case1ygeq, case0ygeq), ] <- 1
-  }
-
-  ind.r_d <- ind.r - ind.d
-
-
-  d <- colSums(ind.d)
-
-  list(
-    ind.r = ind.r,
-    ind.d = ind.d,
-    d = d,
-    ind.r_d = ind.r_d
-  )
+  return(pl)
 }
 
+get_interval_indicators <- function(time_vector, event_vector, s) {
+  # Function to find the time where the event occurred or reach censoring time
+  find_occur_idx <- function(time) {
+    min(which(s >= time))
+  }
+
+  risk_set <- failure_set <- matrix(0, length(time_vector), length(s))
+
+  # Process subjects with event
+  for (i in which(event_vector == 1)) {
+    # Mark only exactly when the event occurrence
+    failure_set[i, find_occur_idx(time_vector[i])] <- 1
+    # Mark from risk up to the event time
+    risk_set[i, 1:find_occur_idx(time_vector[i])] <- 1
+  }
+
+  # Process subjects without event
+  for (i in which(event_vector == 0)) {
+    # Mark the subject as at risk up to the censoring time
+    risk_set[i, 1:find_occur_idx(time_vector[i])] <- 1
+  }
+
+  return(list(
+    risk_set = risk_set,
+    failure_set = failure_set
+  ))
+}
+
+
+get_cox_kappa <- function(X,
+                          time,
+                          event,
+                          hazard_constant = NULL,
+                          tol = 1e-5,
+                          max_iter = 25,
+                          entry_points = NULL,
+                          initial_values = NULL) {
+  if (is.null(hazard_constant)) hazard_constant <- sum(event) / mean(time) / nrow(X)
+  if (is.null(entry_points)) entry_points <- rep(0, nrow(X))
+  coefs <- if (is.null(initial_values)) rep(0, ncol(X)) else initial_values
+
+  iter <- 1
+  diff_new_old <- TRUE
+  while ((iter < max_iter) & diff_new_old) {
+    coefs_old <- coefs
+
+    exp_lp <- exp(multiply_matrix(X, coefs_old))
+    gd_old <- get_syn_cox_gradient(
+      X = X,
+      time = time,
+      coefs = coefs_old,
+      hazard_constant = hazard_constant
+    )
+    hess_old <- get_syn_cox_hessian(
+      X = X,
+      time = time,
+      coefs = coefs_old,
+      hazard_constant = hazard_constant
+    )
+    coefs <- coefs_old - get_qr_solve(hess_old, gd_old)
+
+    iter <- iter + 1
+
+    .true_stop(
+      any(is.na(coefs)),
+      "Please note NA appears in iteration."
+    )
+
+    .true_stop(
+      norm(as.numeric(coefs), "2") > 1000000,
+      "Please not the euclidean norm of coefficients is too large."
+    )
+
+    diff_new_old <- norm(as.numeric(coefs_old - coefs), "2") > tol * norm(as.numeric(coefs_old), "2")
+  }
+
+  lp_new <- as.numeric(multiply_matrix(X, coefs))
+
+  return(sum(lp_new - exp(lp_new) * hazard_constant * time) / nrow(X))
+}
 
 
 real_coefficients_vector <- function(dimention,
@@ -944,5 +1046,14 @@ observed_covariate_vector <- function(dimention, # number of columns
 err <- function(x,
                 coefficients0,
                 coefficients1) {
-  return(mean(get_discrepancy("logarithmic_error")(Y = get_mean("binomial")(x, coefficients = coefficients0), est_Y = get_mean("binomial")(x, coefficients = coefficients1))))
+  return(
+    mean(
+      get_discrepancy("logarithmic_error")(
+        Y = get_mean("binomial")(x,
+          coefficients = coefficients0
+        ),
+        est_Y = get_mean("binomial")(x,
+          coefficients = coefficients1))
+    )
+  )
 }

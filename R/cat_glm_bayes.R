@@ -50,22 +50,21 @@ cat_glm_bayes <- function(formula,
     x_col_n = ncol(data_$adj_x),
     tau = if (is.null(tau)) ncol(data_$adj_x) / 4 else tau,
     obs_x = data_$adj_obs_x,
-    obs_y = as.numeric(data_$obs_y[[1]]),
+    obs_y = as.vector(data_$obs_y),
     syn_x = data_$adj_syn_x,
-    syn_y = as.numeric(data_$syn_y[[1]])
+    syn_y = as.vector(data_$syn_y)
   )
 
   .small_number_stop(data$tau, 0, "Please enter non-negative `tau` value.")
 
-  stan_model <- stan_model_selection(
-    fam = fam,
-    joint = FALSE,
-    gibbs = FALSE,
-    use_theta = FALSE
-  )
 
   sample_model <- rstan::sampling(
-    object = stan_model,
+    object = stan_model_selection(
+      fam = fam,
+      joint = FALSE,
+      gibbs = FALSE,
+      use_theta = FALSE
+    ),
     data = data,
     chains = chains,
     iter = iter,
@@ -78,7 +77,7 @@ cat_glm_bayes <- function(formula,
     function_name = "cat_glm_bayes",
     formula = formula,
     data_ = data_,
-    tau = data$tau,
+    tau = data_$tau,
     family = family,
     algorithm = algorithm,
     sample_model = sample_model,

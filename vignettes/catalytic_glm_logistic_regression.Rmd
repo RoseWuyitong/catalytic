@@ -1,0 +1,153 @@
+---
+title: "How to Use the catalytic Package for GLM in Logistic Regression"
+author: "Huang Dongming and Wu Yitong"
+date: "2024-05-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This vignette provides an _overview_ of how to use the functions in the 
+__catalytic__ package that focuses on commonalities. The other __catalytic__ 
+vignettes go into the particularities of each of the individual model-estimating
+functions.
+
+The goal of the __catalytic__ package is to build framework for catalytic prior distributions, as proposed in the paper "Catalytic prior distributions with application to generalized linear models" by Huang et al. Stabilizing high-dimensional working models by shrinking them towards simplified models. This is achieved by supplementing observed data with weighted synthetic data generated from a predictive distribution under the simpler model.
+
+The two steps of using catalytic package are
+
+1. The `initialization` function constructs a `data_` object based on the formula provided by the user to generate synthetic data. The resulting `data_` object is tailored to facilitate further analysis, resembling `stats::glm`, and is integral for subsequent modeling steps in the `catalytic` package.
+
+2. Users have the flexibility to choose from three main functions within the catalytic package: `cat_tau_glm`, `cat_freq_glm`, and `cat_beta_glm`. Each function serves a specific purpose in modeling with catalytic priors and offers distinct capabilities tailored to different modeling scenarios. This approach enables users to seamlessly incorporate synthetic data with varying weights from different method into GLM analyses, providing flexibility and control over the modeling process.
+
+2.1. The `cat_tau_glm` function is designed to fit a generalized linear model (GLM) with a catalytic prior on the regression coefficients, leveraging the information provided by the user through the `data_` object generated during the `initialization` step, which containing both observed and synthetic data information. Subsequently, the GLM is fitted using the specified formula and data_, with the synthetic data weighted according to the provided tau value. The resulting model object, including estimated regression coefficients and family information, is encapsulated within a `cat_tau_glm` object for further analysis. 
+
+2.2. The `cat_freq_glm` function is designed to fit a generalized linear model (GLM) with a catalytic prior on the regression coefficients. This function offers several options for estimating the optimal weight, including parametric bootstrap, cross-validation, Mallows'cp estimate, and Steinian estimate. Users can choose their preferred method by specifying the `risk_estimate_method` parameter. Additionally, users can select from various discrepancy functions, such as square error, classification error, or logistic deviance, to quantify the difference between observed and predicted values. The function iterates over a range of tau values provided in the `taus` parameter and computes the risk estimates for each tau value. It then selects the optimal tau that minimizes the risk estimate. Finally, the function fits the GLM model using the optimal tau value and returns a list containing relevant information, including the fitted model, regression coefficients, optimal tau value, and risk estimates.
+
+2.3. The `cat_bayesian_glm` function enables Bayesian inference for generalized linear models (GLMs) with catalytic priors. This function utilizes Markov chain Monte Carlo (MCMC) methods, implemented using the rstan package in R, to sample from the posterior distribution of model parameters. Users can specify various options such as the number of MCMC chains (chains), iterations (iter), warmup steps (warmup), and the MCMC algorithm (algorithm). If joint estimation is selected for a binomial outcome and `gibbs` is enabled, the function employs Gibbs sampling to jointly sample regression coefficients (`beta`) and the weight parameter (`tau`). Otherwise, it fits the Bayesian GLM model using Stan. The function returns a list containing relevant information, including the fitted model, regression coefficients, and other diagnostic statistics. If joint estimation is chosen for a binomial outcome and `gibbs` is enabled, additional information such as the sampled coefficients (`beta_collect`) and weight parameters (`tau_collect`) are also returned.
+
+
+# SWIM Demo
+
+In this Demo, we use SWIM data (swim_data) and apply the catalytic GLM framework to estimate model coefficients. Here is a standard GLM model (swim_glm_1) fitted using the traditional `glm` function in R.
+
+```{r catalytic-mle, eval=TRUE}
+swim_data <- readRDS("~/catalytic/data/swim_data.rds")
+
+# Fit a standard GLM model for comparison
+swim_glm_1 <- stats::glm(emp1y ~ FEMALE + AGEGE35 + NUMCHILD + NEVMAR, data = swim_data, family = binomial(link = "logit"))
+
+coef(summary(swim_glm_1))
+```
+
+## Step 1: Initialization
+
+The `initialization` function is used to create a `data_` object for further use in catalytic GLM. 
+
+The `formula` argument specifies a simple model (`emp1y ~ FEMALE`) for generating synthetic data. The `data` argument (`swim_data`) provides the observed data, and `syn_size = 5000` specifies the size of synthetic data to be generated. After running the `initialization` function, the resulting `data_` object contains the initialized data for subsequent modeling steps.
+
+```{r initilization }
+library(catalytic)
+
+data_ <- data_initialization(
+  formula = emp1y ~ FEMALE, # Dimple model for generating synthetic data
+  family = binomial(), # Family for simple model
+  data = swim_data, # Observation data
+  syn_size = 5000 # Number of synthetic data to be generated
+)
+
+data_
+```
+
+The `data_` object contains all the necessary information, including information about both synthetic and observed data. You can access this information directly from the `data_` object without the need to re-enter synthetic data information in subsequent steps. The output shows the names of the elements in the `data_` object, including the formula used for generating synthetic responses (`emp1y ~ FEMALE`), the family of the GLM (`gaussian`), the sizes of observed and synthetic data, and other relevant details about the data generation process.
+
+```{r show data_}
+names(data_)
+```
+
+## Step 2.1: Fit - Point estimate for tau
+
+As previously mentioned, the `data_ `object, generated from the `initialization` function in Step 1, serves a similar purpose as the data argument in `stats::glm`. 
+
+We use the `cat_tau_glm` function to obtain a point estimate for a specified value of tau.
+
+```{r point estimate }
+# Get point estimate from defined single tau
+point_estimate_result <- cat_tau_glm(
+  formula = emp1y ~ FEMALE + AGEGE35 + NUMCHILD + NEVMAR,
+  data_ = data_
+)
+
+point_estimate_result
+```
+
+The `cat_tau_glm` function returns an object encapsulating various elements pertinent to a generalized linear model. It includes the formula employed in model specification, denoted by the `formula` component. Indicated by `cat_glm`, it confirms the class of the object. The fitted model itself is represented by the `model` component, while tau signifies the specific tau value utilized in the model, the estimated coefficients of the model are stored in beta, and so on. Together, these components comprise the output of `cat_tau_glm`, offering comprehensive insights into the model parameters and the data utilized in the analysis.
+
+```{r names point_estimate tau }
+names(point_estimate_result)
+```
+
+## Step 2.2: Fit - Freqentist
+
+In the provided code snippet, the `cat_freq_glm` function is utilized to conduct a frequentist analysis on the specified model formula. The function employs a parametric bootstrap method for risk estimation, utilizing a square error discrepancy function. 
+
+However, a warning is issued, suggesting the use of cross-validation due to the large size of the observation data. After confirmation from user to continue running, the function proceeds with the analysis, determining the optimal tau.
+
+```{r freqentist }
+freq_boots_result <- cat_freq_glm(
+  formula = emp1y ~ FEMALE + AGEGE35 + NUMCHILD + NEVMAR,
+  data_ = data_,
+  risk_estimate_method = "parametric_bootstrap",
+  discrepancy_function = "square_error"
+)
+
+freq_boots_result
+```
+
+```{r names tau }
+names(freq_boots_result)
+```
+
+## Step 2.3: Fit - Bayesian
+
+The `cat_bayesian_glm` function generates results based on Bayesian analysis, particularly using Markov Chain Monte Carlo (MCMC) methods with `rstan`. 
+
+```{r bayesian}
+baye_joint_result <- cat_bayesian_glm(
+  formula = emp1y ~ FEMALE + AGEGE35 + NUMCHILD + NEVMAR,
+  data_ = data_,
+  joint = TRUE
+)
+
+baye_joint_result
+```
+
+
+
+```{r baye names}
+names(baye_joint_result)
+```
+
+```{r baye model}
+baye_joint_result$rstan_model
+```
+
+# Conclusion
+
+In this vignette, we introduced a novel approach called Catalytic prior distributions for generalized linear models (GLMs). These priors provide a flexible framework for incorporating external information into the modeling process, leading to more accurate and reliable estimates. By leveraging synthetic data generation and Bayesian inference techniques, Catalytic priors offer a robust solution for handling complex data structures and improving model performance.
+
+Through the demo provided in this document, we demonstrated the effectiveness of Catalytic priors in estimating model parameters and making inference in GLMs. The comparison of frequentist and Bayesian approaches showcased the advantages of incorporating prior knowledge into the modeling process, leading to more stable estimates and improved model performance.
+
+In summary, the flexibility of Catalytic priors allows for seamless integration with existing modeling workflows, making them a valuable tool for researchers and practitioners across various domains. The implementation of Catalytic priors in R provides an accessible and user-friendly interface for utilizing these powerful techniques in real-world applications.
+
+# References
+
+Huang, D., Stein, N., Rubin, D. B., & Kou, S. C. (2020). Catalytic prior distributions with application to generalized linear models. Proceedings of the National Academy of Sciences, 117(22), 12004-12010.(https://doi.org/10.1073/pnas.1920913117).
+
+
+
+

@@ -23,7 +23,7 @@ cat_glm <-
         "catalytic::data_initialization."
       )
     )
-
+    # TODO: check formular get_lhs same as data_ini
     validate_glm_formula(formula)
     family <- validate_family(family)
 
@@ -74,7 +74,7 @@ cat_glm <-
     )
 
 
-    class(cat_glm_obj) <- c(cat_glm_obj$class, "none_bayes", "cat_glm")
+    class(cat_glm_obj) <- c(cat_glm_obj$class, "cat_glm")
 
     return(cat_glm_obj)
   }

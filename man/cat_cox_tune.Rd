@@ -5,6 +5,7 @@
 \title{Title}
 \usage{
 cat_cox_tune(
+  formula,
   data_,
   taus = NULL,
   method = c("CRE", "WME"),

@@ -1,8 +1,22 @@
+#' Title
+#'
+#' @param formula
+#' @param data
+#' @param ...
+#' @param syn_size
+#' @param x_degree
+#'
+#' @return
+#' @export
+#'
+#' @examples
 data_initialization_cox <- function(formula,
                                     data,
                                     ...,
+                                    hazard_constant = NULL,
                                     syn_size = NULL,
-                                    x_degree = NULL) {
+                                    x_degree = NULL,
+                                    entry_points = NULL) {
   .not_true_stop(
     is.data.frame(data),
     "Please use `data` that in `data.frame` class."
@@ -28,7 +42,7 @@ data_initialization_cox <- function(formula,
 
   x_degree <- if (is.null(x_degree)) rep(1, ncol(obs_x)) else x_degree
   syn_size <- as.integer(if (is.null(syn_size)) ncol(obs_x) * 5 else syn_size)
-
+  if (is.null(entry_points)) entry_points <- rep(0, obs_size)
 
   # Generate synthetic data
   syn_x_inform <- auto_resampling(
@@ -106,7 +120,9 @@ data_initialization_cox <- function(formula,
     syn_time = syn_time,
     syn_event = syn_event,
     syn_x_generation_steps = syn_x_inform$resampled_data_record,
-    x_degree = x_degree
+    x_degree = x_degree,
+    entry_points = entry_points,
+    hazard_constant = if (is.null(hazard_constant)) sum(obs_event) / mean(obs_time) / obs_size else hazard_constant
   )
 
   data_ <- c(
@@ -121,7 +137,7 @@ data_initialization_cox <- function(formula,
 
   data_$data <- rbind(data_$obs_data, data_$syn_data)
 
-  class(data_) <- c(data_$class, "data_")
+  class(data_) <- c(data_$class, "data_", "cox")
 
   return(data_)
 }

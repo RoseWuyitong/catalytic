@@ -4,10 +4,10 @@
 \alias{print.cat_cox}
 \title{Title}
 \usage{
-\method{print}{cat_cox}(cat_cox_data_, digit = 3, detail = TRUE, ...)
+\method{print}{cat_cox}(cat_cox_model, digit = 3, detail = TRUE, ...)
 }
 \arguments{
-\item{cat_cox_data_}{}
+\item{cat_cox_model}{}
 }
 \description{
 Title

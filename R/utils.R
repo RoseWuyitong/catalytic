@@ -28,17 +28,28 @@ multiply_matrix <- function(matrix1,
   } else if (nrow(matrix1) == ncol(matrix2)) {
     return(matrix2 %*% matrix1)
   } else if (ncol(matrix1) == ncol(matrix2)) {
-    return(t(matrix1) %*% matrix2)
-  } else if (nrow(matrix1) == nrow(matrix2)) {
     return(matrix1 %*% t(matrix2))
+  } else if (nrow(matrix1) == nrow(matrix2)) {
+    return(t(matrix1) %*% matrix2)
   }
 
-  stop("Please note that these two matrices cannot be multiplied.",
+  stop(
+    "Please note that these two matrices cannot be multiplied.",
     call. = TRUE
   )
 }
 
 
+#' Calculate log probability density of binomial distribution with weight
+#'
+#' @param Y A numeric vector
+#' @param mean
+#' @param weights A number or a numeric vector
+#'
+#' @return
+#' @export
+#'
+#' @examples
 log_density_binomial <- function(Y,
                                  mean,
                                  weights = 1) {
@@ -167,3 +178,13 @@ is.surv_formula <- function(f) grepl("Surv", deparse(get_lhs(f)))
 .not_true_stop <- function(statement, suggestion) {
   if (!isTRUE(statement)) stop(suggestion, call. = FALSE)
 }
+
+.true_stop <- function(statement, suggestion) {
+  if (isTRUE(statement)) stop(suggestion, call. = FALSE)
+}
+
+.true_warning <- function(statement, suggestion) {
+  if (isTRUE(statement)) warning(suggestion, call. = FALSE)
+}
+
+# TODO CHANGE all to true not true

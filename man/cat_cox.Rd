@@ -5,6 +5,7 @@
 \title{Title}
 \usage{
 cat_cox(
+  formula,
   data_,
   tau = NULL,
   method = c("CRE", "WME"),

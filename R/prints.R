@@ -14,10 +14,8 @@ print.data_ <- function(data_,
                         detail = TRUE,
                         ...) {
   cat(data_$function_name)
-  if (data_$function_name == "data_initialization") {
-    cat(
-      "\n family:            ", family_plus_link(data_$family)
-    )
+  if ("glm" %in% class(data_)) {
+    cat("\n family:            ", family_plus_link(data_$family))
   }
   cat("\n formula:           ", formula_string(data_$formula))
   cat("\n size:              ", data_$size)
@@ -47,22 +45,21 @@ print.data_ <- function(data_,
     }
   }
 
-  if (data_$function_name == "data_initialization") {
-    cat("\n synthetic data generation process:")
-    cat("\n [only show the first 10 columns] \n")
-    print(
-      format(
-        if (nrow(data_$syn_x_generation_steps) > 10) {
-          data_$syn_x_generation_steps[1:10, ]
-        } else {
-          data_$syn_x_generation_steps
-        },
-        justify = "left",
-        width = max(nchar(as.character(unlist(data_$syn_x_generation_steps)))) + 1
-      ),
-      quote = FALSE
-    )
-  }
+  cat("\n synthetic data generation process:")
+  cat("\n [only show the first 10 columns] \n")
+  print(
+    format(
+      if (nrow(data_$syn_x_generation_steps) > 10) {
+        data_$syn_x_generation_steps[1:10, ]
+      } else {
+        data_$syn_x_generation_steps
+      },
+      justify = "left",
+      width = max(nchar(as.character(unlist(data_$syn_x_generation_steps)))) + 1
+    ),
+    quote = FALSE
+  )
+
   if (detail) {
     cat("\n------\n")
     cat("* For help interpreting the printed output see ?print.data_\n")
@@ -70,6 +67,10 @@ print.data_ <- function(data_,
 
   invisible(data_)
 }
+
+
+
+
 
 #' Title
 #'
@@ -256,26 +257,26 @@ print.cat_lmm_tune <- function(cat_lmm_, digit = 3, detail = TRUE, ...) {
 #' @param digit
 #' @param detail
 #' @param ...
-#' @param cat_cox_data_
+#' @param cat_cox_model
 #'
 #' @return
 #' @export
 #'
 #' @examples
-print.cat_cox <- function(cat_cox_data_,
+print.cat_cox <- function(cat_cox_model,
                           digit = 3,
                           detail = TRUE, ...) {
-  cat(cat_cox_data_$function_name)
-  cat("\n size:              ", cat_cox_data_$data_$size)
-  cat("\n method:            ", cat_cox_data_$method)
-  cat("\n tau:               ", cat_cox_data_$tau)
-  if (cat_cox_data_$method == "CRE") {
+  cat(cat_cox_model$function_name)
+  cat("\n size:              ", cat_cox_model$data_$size)
+  cat("\n method:            ", cat_cox_model$method)
+  cat("\n tau:               ", cat_cox_model$tau)
+  if (cat_cox_model$method == "CRE") {
     cat(
       "\n iter:              ",
       paste(
-        cat_cox_data_$iter,
+        cat_cox_model$iter,
         "/",
-        cat_cox_data_$max_iter
+        cat_cox_model$max_iter
       )
     )
   }
@@ -284,15 +285,15 @@ print.cat_cox <- function(cat_cox_data_,
 
 
   cat("coefficients' information:\n")
-  if (cat_cox_data_$method == "CRE") {
+  if (cat_cox_model$method == "CRE") {
     cat("\n initial value:\n")
-    print(round(cat_cox_data_$iter_collect[1, ], digit))
+    print(round(cat_cox_model$iter_collect[1, ], digit))
 
 
     cat("\n final value:\n")
-    print(round(cat_cox_data_$iter_collect[nrow(cat_cox_data_$iter_collect), ], digit))
+    print(round(cat_cox_model$iter_collect[nrow(cat_cox_model$iter_collect), ], digit))
   } else {
-    cat(round(cat_cox_data_$coefficients, digit))
+    cat(round(cat_cox_model$coefficients, digit))
   }
 
   if (detail) {
@@ -301,5 +302,54 @@ print.cat_cox <- function(cat_cox_data_,
   }
 
 
-  invisible(cat_cox_data_)
+  invisible(cat_cox_model)
+}
+
+#' Title
+#'
+#' @param cat_cox_model
+#' @param digit
+#' @param detail
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
+print.cat_cox_tune <- function(cat_cox_tune_model,
+                               digit = 3,
+                               detail = TRUE, ...) {
+  cat(cat_cox_tune_model$function_name)
+  cat("\n size:              ", cat_cox_tune_model$data_$size)
+  cat("\n method:            ", cat_cox_tune_model$method)
+  cat_cox_tune_model$taus <- round(cat_cox_tune_model$taus, digit)
+  cat(
+    "\n taus:              ",
+    if (length(cat_cox_tune_model$taus) > 10) {
+      paste(
+        paste(cat_cox_tune_model$taus[1:3], collapse = ", "),
+        "...",
+        paste(
+          cat_cox_tune_model$taus[(length(cat_cox_tune_model$taus) - 2):
+          length(cat_cox_tune_model$taus)],
+          collapse = ", "
+        )
+      )
+    } else {
+      paste(cat_cox_tune_model$taus, collapse = ", ")
+    }
+  )
+  cat("\n optimal tau:       ", cat_cox_tune_model$tau)
+  cat("\n optimal likelihood:", cat_cox_tune_model$max_likelihood)
+
+  cat("\n------\n")
+  cat("coefficients' information:\n")
+  cat(round(cat_cox_tune_model$coefficients, digit))
+
+  if (detail) {
+    cat("\n------\n")
+    cat("* For help interpreting the printed output see ?print.cat_cox_tune\n")
+  }
+
+  invisible(cat_cox_tune_model)
 }

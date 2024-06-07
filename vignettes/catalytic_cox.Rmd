@@ -11,176 +11,463 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
+This is one other __catalytic__ vignettes go into the particularities of example of Cox Regression from paper `Bayesian Inference on Cox Regression Models Using Catalytic Prior Distributions`.
+
 # Demo
 
-
 ```{r obs data prepare}
-predict_log_PL_compute <- function(betahat, 
-                                   predbeta, 
-                                   X_test, 
-                                   Y_test, 
+devtools::load_all()
+predict_log_PL_compute <- function(real_beta,
+                                   pred_beta,
+                                   X_test,
+                                   Y_test,
                                    status_test) {
-  term1 <- CoxPL(betahat, X_test, rep(0, length(Y_test)), Y_test, status_test)
-  term2 <- CoxPL(predbeta, X_test, rep(0, length(Y_test)), Y_test, status_test)
+  term1 <- get_cox_pl(X_test,
+                       Y_test,
+                       status_test,
+                       real_beta)
+  term2 <- get_cox_pl(X_test,
+                       Y_test,
+                       status_test,
+                       pred_beta)
 
-  return(term1-term2)
+  return(term1 - term2)
 }
 
-N_rep <- 100
-M <- 1000
-n <- 100
-test_n <- 100
+M <- 1000 # Synthetic data size
+n <- 100 # Observation data size
+test_n <- 100 # Test data size
+
+p <- 20 # Number of covariance
+sim_times <- 3 # Simulation times
+taus <- seq(0.1, 10, 0.1) # Taus for CV
+
+iter <- 2000 # iteration for stan
+warmup <- 1000 # warnup for stan
+chains <- 1 # chains for stan
+
 
 rho <- 0.5
 censor_rate <- 0.1
-p <- 20
-sim_times <- 5
 
-all_result_squareloss_matrix <- matrix(0, nrow = sim_times, nc = 4)
-all_result_log_pl_matrix <- matrix(0, nrow = sim_times, nc = 4)
+all_result_squareloss_matrix <- matrix(0, nrow = sim_times, nc = 2)
+all_result_log_pl_matrix <- matrix(0, nrow = sim_times, nc = 2)
+all_tau <- matrix(0, nrow = sim_times, nc = 2)
+
 for (sim in 1:sim_times) {
   cat("\n simt_imes:", sim)
-# Generate obs data
-X_obs <- matrix(rnorm(n * p), n, p)
-X_test <-  matrix(rnorm(test_n * p), test_n, p)
-# X_obs<-scale(X_obs)
-X_obs[, 1] <- rbinom(n, 1, 0.9)
-X_test[,1]<- rbinom(n, 1, 0.9)
+  # Generate obs data
+  X_obs <- matrix(rnorm(n * p), n, p)
+  X_test <- matrix(rnorm(test_n * p), test_n, p)
+  # X_obs<-scale(X_obs)
+  X_obs[, 1] <- rbinom(n, 1, 0.9)
+  X_test[, 1] <- rbinom(n, 1, 0.9)
 
-X_obs[, 3] <- rchisq(n, 1)
-X_test[,3]<- rchisq(n, 1)
+  X_obs[, 3] <- rchisq(n, 1)
+  X_test[, 3] <- rchisq(n, 1)
 
-X_obs[, 2] <- rchisq(n, 4)
-X_test[, 2] <- rchisq(n, 4)
+  X_obs[, 2] <- rchisq(n, 4)
+  X_test[, 2] <- rchisq(n, 4)
 
-X <- X_obs
-beta <- c(4, -4, 3, -3, 1, -1, 1, -1, rep(1, p - 8)) / sqrt(p)
+  X <- X_obs
+  beta <- c(4, -4, 3, -3, 1, -1, 1, -1, rep(1, p - 8)) / sqrt(p)
 
-Xbeta <- as.numeric(X %*% beta)
-X_testbeta <- as.numeric(X_test %*% beta)
+  Xbeta <- as.numeric(X %*% beta)
+  X_testbeta <- as.numeric(X_test %*% beta)
 
-TT <- sapply(1:n, function(i) {
-  rexp(1, 0.5 * exp(Xbeta[i]))
-})
+  TT <- sapply(1:n, function(i) {
+    rexp(1, 0.5 * exp(Xbeta[i]))
+  })
 
-TT_test <- sapply(1:n, function(i) {
-  rexp(1, 0.5 * exp(X_testbeta[i]))
-})
+  TT_test <- sapply(1:n, function(i) {
+    rexp(1, 0.5 * exp(X_testbeta[i]))
+  })
 
 
-if (censor_rate == 0.1) {
-  pre_value <- quantile(TT, 0.95)
-  pre_value_test <- quantile(TT_test, 0.95)
+  if (censor_rate == 0.1) {
+    pre_value <- quantile(TT, 0.95)
+    pre_value_test <- quantile(TT_test, 0.95)
 
-  C <- runif(n, 0, pre_value)
-  C_test <- runif(test_n, 0, pre_value_test)
-  
-  censor_rates <- sum(C < TT) / n
-  censor_rates_test <- sum(C_test < TT_test) / n
-  target_censor_rate <- censor_rate
-  target_censor_rate_test <- censor_rate
-  while (abs(target_censor_rate - censor_rates) > 0.02) {
     C <- runif(n, 0, pre_value)
-    censor_rates <- sum(C < TT) / n
-    # print(censor_rates)
-  }
-  
-  while (abs(target_censor_rate_test - censor_rates) > 0.02) {
     C_test <- runif(test_n, 0, pre_value_test)
-    censor_rates <- sum(C_test < TT_test) / test_n
-    # print(censor_rates)
-  }
-}
-if (censor_rate == 0.2) {
-  pre_value <- quantile(TT, 0.90)
 
-  C <- runif(n, 0, pre_value)
-  censor_rates <- sum(C < TT) / n
-  target_censor_rate <- censor_rate
-  while (abs(target_censor_rate - censor_rates) > 0.02) {
+    censor_rates <- sum(C < TT) / n
+    censor_rates_test <- sum(C_test < TT_test) / n
+    target_censor_rate <- censor_rate
+    target_censor_rate_test <- censor_rate
+    while (abs(target_censor_rate - censor_rates) > 0.02) {
+      C <- runif(n, 0, pre_value)
+      censor_rates <- sum(C < TT) / n
+      # print(censor_rates)
+    }
+
+    while (abs(target_censor_rate_test - censor_rates) > 0.02) {
+      C_test <- runif(test_n, 0, pre_value_test)
+      censor_rates <- sum(C_test < TT_test) / test_n
+      # print(censor_rates)
+    }
+  }
+  if (censor_rate == 0.2) {
+    pre_value <- quantile(TT, 0.90)
+
     C <- runif(n, 0, pre_value)
     censor_rates <- sum(C < TT) / n
-    # print(censor_rates)
+    target_censor_rate <- censor_rate
+    while (abs(target_censor_rate - censor_rates) > 0.02) {
+      C <- runif(n, 0, pre_value)
+      censor_rates <- sum(C < TT) / n
+      # print(censor_rates)
+    }
   }
-}
-if (censor_rate == 0.4) {
-  pre_value <- quantile(TT, 0.70)
+  if (censor_rate == 0.4) {
+    pre_value <- quantile(TT, 0.70)
 
-  C <- runif(n, 0, pre_value)
-  censor_rates <- sum(C < TT) / n
-  target_censor_rate <- censor_rate
-  while (abs(target_censor_rate - censor_rates) > 0.02) {
     C <- runif(n, 0, pre_value)
     censor_rates <- sum(C < TT) / n
-    # print(censor_rates)
+    target_censor_rate <- censor_rate
+    while (abs(target_censor_rate - censor_rates) > 0.02) {
+      C <- runif(n, 0, pre_value)
+      censor_rates <- sum(C < TT) / n
+      # print(censor_rates)
+    }
   }
-}
 
-Y_status <- t(sapply(1:n, function(aa) {
-  c(min(C[aa], TT[aa]), (C[aa] > TT[aa]))
-}))
+  Y_status <- t(sapply(1:n, function(aa) {
+    c(min(C[aa], TT[aa]), (C[aa] > TT[aa]))
+  }))
 
-Y_status_test <- t(sapply(1:n, function(aa) {
-  c(min(C_test[aa], TT_test[aa]), (C_test[aa] > TT_test[aa]))
-}))
+  Y_status_test <- t(sapply(1:n, function(aa) {
+    c(min(C_test[aa], TT_test[aa]), (C_test[aa] > TT_test[aa]))
+  }))
 
-Y <- Y_status[, 1]
-Y_test <- Y_status_test[,1]
-status <- Y_status[, 2]
-status_test <- Y_status_test[, 2]
+  Y <- Y_status[, 1]
+  Y_test <- Y_status_test[, 1]
+  status <- Y_status[, 2]
+  status_test <- Y_status_test[, 2]
 
 
-obs_data <- as.data.frame(cbind(X, Y_status))
-colnames(obs_data) <- 1:ncol(obs_data)
+  obs_data <- as.data.frame(cbind(X, Y_status))
+  colnames(obs_data) <- 1:ncol(obs_data)
 
-data_ <- data_initialization_cox(formula = survival::Surv(`21`, `22`) ~ 1, data = obs_data, syn_size = 1000)
-
-cox_cre_p <- cat_cox(data_=data_, method="CRE", tau=p)
-cox_wme_p <- cat_cox(data_=data_, method="WME", tau=p)
-
-cox_cre_cv <- cat_cox_tune(data_=data_, method="CRE", taus=seq(0.5, 50, 0.5))
-cox_wme_cv <- cat_cox_tune(data_=data_, method="WME", taus=seq(0.5, 50, 0.5))
-
-all_result_squareloss_matrix[sim, ] <- c(
-norm(beta - cox_cre_p$coefficients, "2")^2,
-norm(beta - cox_wme_p$coefficients, "2")^2,
-norm(beta - cox_cre_cv$coefficients, "2")^2,
-norm(beta - cox_wme_cv$coefficients, "2")^2)
-
-all_result_log_pl_matrix[sim, ] <- c(
-  predict_log_PL_compute(beta, 
-                       cox_cre_p$coefficients, 
-                       X_test, 
-                                   Y_test, 
-                                   status_test),
-  predict_log_PL_compute(beta, 
-                       cox_wme_p$coefficients, 
-                       X_test, 
-                                   Y_test, 
-                                   status_test),
-  predict_log_PL_compute(beta, 
-                       cox_cre_cv$coefficients, 
-                       X_test, 
-                                   Y_test, 
-                                   status_test),
-  predict_log_PL_compute(beta, 
-                       cox_wme_cv$coefficients, 
-                       X_test, 
-                                   Y_test, 
-                                   status_test)
+  data_ <- data_initialization_cox(formula = survival::Surv(`21`, `22`) ~ 1, data = obs_data, syn_size = 1000)
+  
+  cat("\n cat_cox_bayes")
+  
+  cox_bayes <- cat_cox_bayes(formula = ~.,
+                          data_ = data_,
+                          taus = taus,
+                          chains = chains,
+                          iter = iter,
+                          warmup = warmup)
+  
+  cat("\n weihao_cat_cox_bayes")
+  my_syndata <- list(
+    T.syn = data_$syn_time,
+    X.syn = data_$syn_x,
+    status.syn = data_$syn_event,
+    h_star = sum(data_$syn_event) / mean(data_$syn_time) / nrow(data_$syn_x)
+  )
+  
+  cv_result_list <- weihao_five_fold_cv_tau(taus, taus, X, Y, status, my_syndata)
+  
+  best_tau_penalty_cv <- cv_result_list$best_tau_penalty
+  
+  wh_cat_cox_bayes <- weihao_Bayesian_cox_cat_stan(X, Y, status, data_$syn_x, as.vector(data_$syn_time), as.vector(data_$syn_event), tau = best_tau_penalty_cv)
+  
+  weihao_cox_bayes_taup_beta <- rstan::summary(wh_cat_cox_bayes)$summary[
+    grep("beta", rownames(rstan::summary(wh_cat_cox_bayes)$summary)),
+    "mean"]
   
   
-)
+  all_tau[sim, ] <- c(
+    cox_bayes$tau,
+    best_tau_penalty_cv
+  )
 
+
+  all_result_squareloss_matrix[sim, ] <- c(
+    norm(beta - cox_bayes$coefficients, "2")^2,
+    norm(beta - weihao_cox_bayes_taup_beta, "2")^2)
+
+  all_result_log_pl_matrix[sim, ] <- c(
+    predict_log_PL_compute(
+      beta,
+      cox_bayes$coefficients,
+      X_test,
+      Y_test,
+      status_test
+    ),
+    predict_log_PL_compute(
+      beta,
+      weihao_cox_bayes_taup_beta,
+      X_test,
+      Y_test,
+      status_test
+    ))
 }
+  
+  # cat("\ncox_cre")
+  # cox_cre <- cat_cox(
+  #   formula = ~.,
+  #                            data_ = data_,
+  #                            method = "CRE",
+  #                            tau = p
+  # )
+  # cat("\ncox_wme")
+  # cox_wme <- cat_cox(
+  #   formula = ~.,
+  #                            data_ = data_,
+  #                            method = "WME",
+  #                            tau = p
+  # )
+  #
 
 
+  # CV
+#   cat("\ncox_cre_cv")
+#   cox_cre_cv <- cat_cox_tune(
+#     formula = ~.,
+#     data_ = data_,
+#     method = "CRE",
+#     taus = taus
+#   )
+#   cat("\ncox_wme_cv")
+#   cox_wme_cv <- cat_cox_tune(
+#     formula = ~.,
+#     data_ = data_,
+#     method = "WME",
+#     taus = taus
+#   )
+# 
+#   my_syndata <- list(
+#     T.syn = data_$syn_time,
+#     X.syn = data_$syn_x,
+#     status.syn = data_$syn_event,
+#     h_star = sum(data_$syn_event) / mean(data_$syn_time) / nrow(data_$syn_x)
+#   )
+# 
+#   cat("\nweihao_cv_result_list")
+#   weihao_cv_result_list <- weihao_five_fold_cv_tau(
+#     taus,
+#     taus,
+#     X,
+#     Y,
+#     status,
+#     my_syndata
+#   )
+# 
+#   # CRE
+#   best_tau_penalty_cv <- weihao_cv_result_list$best_tau_penalty
+#   betahat_tau_cv <- betahat_pencat_function(best_tau_penalty_cv, X, Y, status, my_syndata)
+# 
+#   # WME
+#   best_tau_mix_cv <- weihao_cv_result_list$best_tau_mix
+#   betahat_tau_cv_mix <- betahat_mixcat_function(best_tau_mix_cv, X, Y, status, my_syndata)
+# 
+# 
+#   all_tau[sim, ] <- c(
+#     cox_cre_cv$tau,
+#     best_tau_penalty_cv,
+#     cox_wme_cv$tau,
+#     best_tau_mix_cv
+#   )
+# 
+# 
+#   all_result_squareloss_matrix[sim, ] <- c(
+#     norm(beta - cox_cre_cv$coefficients, "2")^2,
+#     norm(beta - betahat_tau_cv, "2")^2,
+#     norm(beta - cox_wme_cv$coefficients, "2")^2,
+#     norm(beta - betahat_tau_cv_mix, "2")^2
+#   )
+# 
+#   all_result_log_pl_matrix[sim, ] <- c(
+#     predict_log_PL_compute(
+#       beta,
+#       cox_cre_cv$coefficients,
+#       X_test,
+#       Y_test,
+#       status_test
+#     ),
+#     predict_log_PL_compute(
+#       beta,
+#       betahat_tau_cv,
+#       X_test,
+#       Y_test,
+#       status_test
+#     ),
+#     predict_log_PL_compute(
+#       beta,
+#       cox_wme_cv$coefficients,
+#       X_test,
+#       Y_test,
+#       status_test
+#     ),
+#     predict_log_PL_compute(
+#       beta,
+#       betahat_tau_cv_mix,
+#       X_test,
+#       Y_test,
+#       status_test
+#     )
+#   )
+# }
+# 
+# 
+# col_names <- c("|CRE CV|", "|Weihao's CRE CV|", "|WME CV|", "|Weihao's WME CV|")
+# 
+# colnames(all_result_squareloss_matrix) <- col_names
+# colnames(all_result_log_pl_matrix) <- col_names
+# colnames(all_tau) <- col_names
+
+# BAYES
+#   cat("\n ---bayes tau=p---")
+#   cox_bayes_taup <- cat_cox_bayes(
+#     formula = ~.,
+#     data_ = data_,
+#     taus = p,
+#     iter = iter,
+#     warmup = warmup,
+#     chains = chains
+#   )
+#
+#   cat("\n ---bayes joint---")
+#   cox_bayes_joint <- cat_cox_bayes_joint(
+#     formula = ~.,
+#     data_ = data_,
+#     iter = iter,
+#     warmup = warmup,
+#     chains = chains
+#   )
+#
+#   cat("\n ---weihao bayes tau=p---")
+#   weihao_cox_bayes_taup <- weihao_Bayesian_cox_cat_stan(X,
+#                                                  Y,
+#                                                  status,
+#                                                  X.syn = data_$syn_x,
+#                                                  T.syn = as.vector(data_$syn_time),
+#                                                  status.syn = as.vector(data_$syn_event),
+#                                                  tau = p)
+#
+#   weihao_cox_bayes_taup_beta <- rstan::summary(weihao_cox_bayes_taup)$summary[
+#     grep("beta", rownames(rstan::summary(weihao_cox_bayes_taup)$summary)),
+#     "mean"
+#   ]
+#
+#   cat("\n ---weihao bayes joint---")
+#   weihao_cox_bayes_joint <- weihao_Bayesian_cox_cat_joint_stan(X,
+#                                                  Y,
+#                                                  status,
+#                                                  X.syn = data_$syn_x,
+#                                                  T.syn = as.vector(data_$syn_time),
+#                                                  status.syn = as.vector(data_$syn_event))
+#
+#   weihao_cox_bayes_joint_beta <- rstan::summary(weihao_cox_bayes_joint)$summary[
+#     grep("beta", rownames(rstan::summary(weihao_cox_bayes_joint)$summary)),
+#     "mean"
+#   ]
+#
+#   all_result_squareloss_matrix[sim, ] <- c(
+#     # norm(beta - cox_bayes_taus$coefficients, "2")^2,
+#     norm(beta - cox_bayes_taup$coefficients, "2")^2,
+#     norm(beta - weihao_cox_bayes_taup_beta, "2")^2,
+#     norm(beta - cox_bayes_joint$coefficients, "2")^2,
+#     norm(beta - weihao_cox_bayes_joint_beta, "2")^2
+#   )
+#
+#   all_result_log_pl_matrix[sim, ] <- c(
+#     # predict_log_PL_compute(
+#     #   beta,
+#     #   cox_bayes_taus$coefficients,
+#     #   X_test,
+#     #   Y_test,
+#     #   status_test
+#     # ),
+#     predict_log_PL_compute(
+#       beta,
+#       cox_bayes_taup$coefficients,
+#       X_test,
+#       Y_test,
+#       status_test
+#     ),
+#     predict_log_PL_compute(
+#       beta,
+#       weihao_cox_bayes_taup_beta,
+#       X_test,
+#       Y_test,
+#       status_test
+#     ),
+#     predict_log_PL_compute(
+#       beta,
+#       cox_bayes_joint$coefficients,
+#       X_test,
+#       Y_test,
+#       status_test
+#     ),
+#     predict_log_PL_compute(
+#       beta,
+#       weihao_cox_bayes_joint_beta,
+#       X_test,
+#       Y_test,
+#       status_test
+#     )
+#   )
+# }
+
+# if (norm(beta - cox_bayes_taus$coefficients, "2")^2 > 2){
+#   stop()
+
+# FREQ
+# cox_cre_p <- cat_cox(data_ = data_, method = "CRE", tau = p)
+# cox_wme_p <- cat_cox(data_ = data_, method = "WME", tau = p)
+#
+# cox_cre_cv <- cat_cox_tune(data_ = data_, method = "CRE", taus = seq(0.5, 50, 0.5))
+# cox_wme_cv <- cat_cox_tune(data_ = data_, method = "WME", taus = seq(0.5, 50, 0.5))
+#
+# all_result_squareloss_matrix[sim, ] <- c(
+#   norm(beta - cox_cre_p$coefficients, "2")^2,
+#   norm(beta - cox_wme_p$coefficients, "2")^2,
+#   norm(beta - cox_cre_cv$coefficients, "2")^2,
+#   norm(beta - cox_wme_cv$coefficients, "2")^2
+# )
+#
+# all_result_log_pl_matrix[sim, ] <- c(
+#   predict_log_PL_compute(
+#     beta,
+#     cox_cre_p$coefficients,
+#     X_test,
+#     Y_test,
+#     status_test
+#   ),
+#   predict_log_PL_compute(
+#     beta,
+#     cox_wme_p$coefficients,
+#     X_test,
+#     Y_test,
+#     status_test
+#   ),
+#   predict_log_PL_compute(
+#     beta,
+#     cox_cre_cv$coefficients,
+#     X_test,
+#     Y_test,
+#     status_test
+#   ),
+#   predict_log_PL_compute(
+#     beta,
+#     cox_wme_cv$coefficients,
+#     X_test,
+#     Y_test,
+#     status_test
+#   )
+# )
 ```
 
 
 ```{r run}
-a <- all_result_squareloss_matrix
-# cox_1 <- cat_cox(data_=data_)
+col_names <- c("|CPM (tau=p)|", "|Weihao's CPM (tau=p)|", "|APM|", "|Weihao's APM|")
+
+colnames(all_result_squareloss_matrix) <- col_names
+colnames(all_result_log_pl_matrix) <- col_names
 ```
 
 

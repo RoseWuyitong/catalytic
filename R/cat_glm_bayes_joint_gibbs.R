@@ -179,7 +179,6 @@ cat_glm_bayes_joint_gibbs <- function(formula,
 
 
 
-
     if (gibbs > gibbs_warmup) {
       gibbs_collect <- rbind(gibbs_collect, c(tau, coefficients))
 
