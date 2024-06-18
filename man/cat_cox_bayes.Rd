@@ -5,24 +5,26 @@
 \title{Title}
 \usage{
 cat_cox_bayes(
+  formula,
   data_,
-  tau = NULL,
-  method = c("CRE", "WME"),
+  taus = NULL,
   ...,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  cv_method = c("CRE", "WME"),
+  cv_fold_num = 5,
   initial_values = NULL,
-  hazard_function = NULL,
   tol = 1e-05,
   max_iter = 25,
-  entry = NULL,
-  eta0 = 1,
-  kappa0 = 1,
-  c0 = 2
+  c_0 = 2,
+  H_star_list = NULL
 )
 }
 \arguments{
-\item{eta0}{Hyperparameters for gamma process prior construction}
+\item{cv_fold_num}{}
 
-\item{kappa0}{Hyperparameters for gamma process prior construction}
+\item{c_0}{small value of c_0 corresponds to a more diffuse and less informative prior}
 }
 \description{
 Title

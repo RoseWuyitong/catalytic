@@ -4,7 +4,15 @@
 \alias{data_initialization_cox}
 \title{Title}
 \usage{
-data_initialization_cox(formula, data, ..., syn_size = NULL, x_degree = NULL)
+data_initialization_cox(
+  formula,
+  data,
+  ...,
+  hazard_constant = NULL,
+  syn_size = NULL,
+  x_degree = NULL,
+  entry_points = NULL
+)
 }
 \arguments{
 \item{x_degree}{}

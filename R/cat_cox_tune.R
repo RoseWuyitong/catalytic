@@ -148,13 +148,13 @@ cross_validation_cox <- function(formula,
         )
       )
 
-      error_sum <- get_cox_pl(
+      error_sum <- get_cox_partial_likelihood(
         X = data_$obs_x,
         time = data_$obs_time,
         event = data_$obs_event,
         coefs = cv_model$coefficients,
         entry_points = data_$entry_points
-      ) - get_cox_pl(
+      ) - get_cox_partial_likelihood(
         X = train_x,
         time = train_time,
         event = train_event,

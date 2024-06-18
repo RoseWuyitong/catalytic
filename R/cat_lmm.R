@@ -94,8 +94,24 @@ cat_lmm <- function(data_,
     q_star <- t(U_star) %*% (data_$syn_y - data_$syn_x %*% coefficients_new)
     sig_square_par_old <- sig_square_par_new
     sigma_square_old <- sig_square_par_new[1]
-    sigma_u_square_new <- stats::optimize(update_sigma_u_square_cat, optimize_domain, sigma_square_old, d_seq, d_seq_star, q, q_star, tau)$minimum
-    sigma_square_new <- stats::optimize(update_sigma_square_cat, optimize_domain, sigma_u_square_new, d_seq, d_seq_star, q, q_star, tau)$minimum
+    sigma_u_square_new <- stats::optimize(update_sigma_square_cat,
+      optimize_domain,
+      sigma_square = sigma_square_old,
+      d_seq = d_seq,
+      d_seq_star = d_seq_star,
+      q = q,
+      q_star = q_star,
+      tau = tau
+    )$minimum
+    sigma_square_new <- stats::optimize(update_sigma_square_cat,
+      optimize_domain,
+      sigma_u_square = sigma_u_square_new,
+      d_seq = d_seq,
+      d_seq_star = d_seq_star,
+      q = q,
+      q_star = q_star,
+      tau = tau
+    )$minimum
     sig_square_par_new <- c(sigma_square_new, sigma_u_square_new)
 
     if ((norm(sig_square_par_new - sig_square_par_old, "2") < tol) & (norm(coefficients_new - coefficients_old, "2") < tol)) {

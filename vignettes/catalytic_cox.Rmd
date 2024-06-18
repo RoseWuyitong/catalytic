@@ -22,14 +22,18 @@ predict_log_PL_compute <- function(real_beta,
                                    X_test,
                                    Y_test,
                                    status_test) {
-  term1 <- get_cox_pl(X_test,
-                       Y_test,
-                       status_test,
-                       real_beta)
-  term2 <- get_cox_pl(X_test,
-                       Y_test,
-                       status_test,
-                       pred_beta)
+  term1 <- get_cox_pl(
+    X_test,
+    Y_test,
+    status_test,
+    real_beta
+  )
+  term2 <- get_cox_pl(
+    X_test,
+    Y_test,
+    status_test,
+    pred_beta
+  )
 
   return(term1 - term2)
 }
@@ -150,16 +154,18 @@ for (sim in 1:sim_times) {
   colnames(obs_data) <- 1:ncol(obs_data)
 
   data_ <- data_initialization_cox(formula = survival::Surv(`21`, `22`) ~ 1, data = obs_data, syn_size = 1000)
-  
+
   cat("\n cat_cox_bayes")
-  
-  cox_bayes <- cat_cox_bayes(formula = ~.,
-                          data_ = data_,
-                          taus = taus,
-                          chains = chains,
-                          iter = iter,
-                          warmup = warmup)
-  
+
+  cox_bayes <- cat_cox_bayes(
+    formula = ~.,
+    data_ = data_,
+    taus = taus,
+    chains = chains,
+    iter = iter,
+    warmup = warmup
+  )
+
   cat("\n weihao_cat_cox_bayes")
   my_syndata <- list(
     T.syn = data_$syn_time,
@@ -167,18 +173,19 @@ for (sim in 1:sim_times) {
     status.syn = data_$syn_event,
     h_star = sum(data_$syn_event) / mean(data_$syn_time) / nrow(data_$syn_x)
   )
-  
+
   cv_result_list <- weihao_five_fold_cv_tau(taus, taus, X, Y, status, my_syndata)
-  
+
   best_tau_penalty_cv <- cv_result_list$best_tau_penalty
-  
+
   wh_cat_cox_bayes <- weihao_Bayesian_cox_cat_stan(X, Y, status, data_$syn_x, as.vector(data_$syn_time), as.vector(data_$syn_event), tau = best_tau_penalty_cv)
-  
+
   weihao_cox_bayes_taup_beta <- rstan::summary(wh_cat_cox_bayes)$summary[
     grep("beta", rownames(rstan::summary(wh_cat_cox_bayes)$summary)),
-    "mean"]
-  
-  
+    "mean"
+  ]
+
+
   all_tau[sim, ] <- c(
     cox_bayes$tau,
     best_tau_penalty_cv
@@ -187,7 +194,8 @@ for (sim in 1:sim_times) {
 
   all_result_squareloss_matrix[sim, ] <- c(
     norm(beta - cox_bayes$coefficients, "2")^2,
-    norm(beta - weihao_cox_bayes_taup_beta, "2")^2)
+    norm(beta - weihao_cox_bayes_taup_beta, "2")^2
+  )
 
   all_result_log_pl_matrix[sim, ] <- c(
     predict_log_PL_compute(
@@ -203,27 +211,28 @@ for (sim in 1:sim_times) {
       X_test,
       Y_test,
       status_test
-    ))
+    )
+  )
 }
-  
-  # cat("\ncox_cre")
-  # cox_cre <- cat_cox(
-  #   formula = ~.,
-  #                            data_ = data_,
-  #                            method = "CRE",
-  #                            tau = p
-  # )
-  # cat("\ncox_wme")
-  # cox_wme <- cat_cox(
-  #   formula = ~.,
-  #                            data_ = data_,
-  #                            method = "WME",
-  #                            tau = p
-  # )
-  #
+
+# cat("\ncox_cre")
+# cox_cre <- cat_cox(
+#   formula = ~.,
+#                            data_ = data_,
+#                            method = "CRE",
+#                            tau = p
+# )
+# cat("\ncox_wme")
+# cox_wme <- cat_cox(
+#   formula = ~.,
+#                            data_ = data_,
+#                            method = "WME",
+#                            tau = p
+# )
+#
 
 
-  # CV
+# CV
 #   cat("\ncox_cre_cv")
 #   cox_cre_cv <- cat_cox_tune(
 #     formula = ~.,
@@ -238,14 +247,14 @@ for (sim in 1:sim_times) {
 #     method = "WME",
 #     taus = taus
 #   )
-# 
+#
 #   my_syndata <- list(
 #     T.syn = data_$syn_time,
 #     X.syn = data_$syn_x,
 #     status.syn = data_$syn_event,
 #     h_star = sum(data_$syn_event) / mean(data_$syn_time) / nrow(data_$syn_x)
 #   )
-# 
+#
 #   cat("\nweihao_cv_result_list")
 #   weihao_cv_result_list <- weihao_five_fold_cv_tau(
 #     taus,
@@ -255,31 +264,31 @@ for (sim in 1:sim_times) {
 #     status,
 #     my_syndata
 #   )
-# 
+#
 #   # CRE
 #   best_tau_penalty_cv <- weihao_cv_result_list$best_tau_penalty
 #   betahat_tau_cv <- betahat_pencat_function(best_tau_penalty_cv, X, Y, status, my_syndata)
-# 
+#
 #   # WME
 #   best_tau_mix_cv <- weihao_cv_result_list$best_tau_mix
 #   betahat_tau_cv_mix <- betahat_mixcat_function(best_tau_mix_cv, X, Y, status, my_syndata)
-# 
-# 
+#
+#
 #   all_tau[sim, ] <- c(
 #     cox_cre_cv$tau,
 #     best_tau_penalty_cv,
 #     cox_wme_cv$tau,
 #     best_tau_mix_cv
 #   )
-# 
-# 
+#
+#
 #   all_result_squareloss_matrix[sim, ] <- c(
 #     norm(beta - cox_cre_cv$coefficients, "2")^2,
 #     norm(beta - betahat_tau_cv, "2")^2,
 #     norm(beta - cox_wme_cv$coefficients, "2")^2,
 #     norm(beta - betahat_tau_cv_mix, "2")^2
 #   )
-# 
+#
 #   all_result_log_pl_matrix[sim, ] <- c(
 #     predict_log_PL_compute(
 #       beta,
@@ -311,10 +320,10 @@ for (sim in 1:sim_times) {
 #     )
 #   )
 # }
-# 
-# 
+#
+#
 # col_names <- c("|CRE CV|", "|Weihao's CRE CV|", "|WME CV|", "|Weihao's WME CV|")
-# 
+#
 # colnames(all_result_squareloss_matrix) <- col_names
 # colnames(all_result_log_pl_matrix) <- col_names
 # colnames(all_tau) <- col_names

@@ -1,28 +1,112 @@
-#' Auto resampling of data
+# ----- Functions for data_initialization -----
+
+#' Standardize and Clean Data Frame
 #'
-#' This function performs automatic resampling on a dataset,
-#' potentially applying different resampling methods based on
-#' the type and characteristics of the data.
+#' This function standardizes a data frame by replacing `NA` values and converting columns to appropriate data types.
+#' It ensures that numeric columns remain numeric, logical columns remain logical, and other columns are converted to factors.
 #'
-#' @param data A matrix or data.frame, which is the original data for resampling.
-#' @param resample_size A integer, which is the size(number of rows) of resampled data.
-#' @param data_degree A numeric matrix or data.frame, which is the degree matrix of `data`.
-#' @param resample_only A bool, which indicate if only do simple resmapling `data` or
-#'                      resampling `data` with different resampling methods if need.
-#' @param ...
+#' @param data A data frame containing the data to be standardized and cleaned.
+#' @param na_replace A value or function used to replace `NA` values.
+#'                   If a numeric value is provided, it will replace all `NA` values.
+#'                   If a function is provided (e.g., `mean` or `median`), the function will
+#' .                  be applied to each column to replace `NA` values. Default is `stats::na.omit`.
 #'
-#' @return A list, including the resampled data in matrix format and
-#'        the resampling process for future review
+#' @return A standardized and cleaned data frame.
 #' @export
 #'
 #' @examples
-auto_resampling <- function(data,
-                            resample_size,
-                            data_degree = NULL,
-                            resample_only = FALSE) {
-  data <- as.matrix(data)
-  resample_size <- as.integer(resample_size)
-  data_degree <- if (is.null(data_degree)) rep(1, ncol(data)) else data_degree
+#' data <- data.frame(
+#'   continue_col = c(1, 2, NA, 4),
+#'   bool_col =     c(1, 0, NA, 1),
+#'   factor_col =   c("a", "b", "c", NA)
+#' )
+#'
+#' # Example 1: Remove rows contains NA
+#' standardized_data <- get_standardized_data(data)
+#' print(standardized_data)
+#'
+#' # Example 2: Replace NA with a specific value and mode for factor columns
+#' standardized_data <- get_standardized_data(data, na_replace = 0)
+#' print(standardized_data)
+#'
+#' # Example 3: Replace NA with mean for numeric columns and mode for factor columns
+#' standardized_data <- get_standardized_data(data, na_replace = base::mean)
+#' print(standardized_data)
+get_standardized_data <- function(data, na_replace = stats::na.omit) {
+  convert_to_numeric_or_factor <- function(x) {
+    if (is.continuous(stats::na.omit(x))) {
+      x <- as.numeric(x)
+    } else {
+      x <- as.factor(x)
+    }
+  }
+
+  replace_df_na <- function(x) {
+    if (anyNA(x)) {
+      if (is.continuous(stats::na.omit(x))) {
+        replace_value <- if (is.numeric(na_replace)) na_replace else na_replace(x, na.rm = TRUE)
+        x[is.na(x)] <- replace_value
+      } else {
+        x[is.na(x)] <- get_mode(x)
+      }
+    }
+    return(x)
+  }
+
+  data <- as.data.frame(lapply(data, convert_to_numeric_or_factor))
+  data <- as.data.frame(if (identical(stats::na.omit, na_replace)) {
+    stats::na.omit(data)
+  } else {
+    lapply(data, replace_df_na)
+  })
+
+  if (nrow(data) == 1) {{ stop(
+    "The data size is 1, which is too small. cannot process."
+  ) }}
+
+  return(data)
+}
+
+#' Resample Data Frame Columns
+#'
+#' This function performs resampling on each column of a data frame based on its type (continuous or categorical).
+#' It provides options for various resampling methods such as smoothing for continuous variables and flattening for categorical variables.
+#'
+#' @param data A data frame containing the data to be resampled.
+#' @param resample_size The size of the resampled data.
+#' @param data_degree Optional vector specifying the degrees of each column in `data`.
+#'                    If not provided, defaults to all columns having degree 1.
+#' @param resample_only Logical indicating whether to return only the resampled data without recording the process. Default is FALSE.
+#'
+#' @return A list containing:
+#'   - \code{resampled_data}: The resampled data frame.
+#'   - \code{resampled_data_record}: A data frame recording the resampling process for each column.
+#' @export
+#'
+#' @examples
+#' # Example 1: Resample data frame columns with default settings
+#' data <- data.frame(
+#'   col1 = c(1, 1, 1, 1, 10),
+#'   col2 = c("A", "B", "C", "D", "E")
+#' )
+#' resampled <- get_resampled_data(data, resample_size = 10)
+#' print(resampled$resampled_data)
+#' print(resampled$resampled_data_record)
+#'
+#' # Example 2: Resample data frame columns with specified resample size and data degree
+#' resampled <- get_resampled_data(data, resample_size = 10, data_degree = c(2, 1))
+#' print(resampled$resampled_data)
+#' print(resampled$resampled_data_record)
+#'
+#' # Example 3: Resample data frame only
+#' resampled <- get_resampled_data(data, resample_size = 10, resample_only = TRUE)
+#' print(resampled$resampled_data)
+#' print(resampled$resampled_data_record)
+get_resampled_data <- function(data,
+                               resample_size,
+                               data_degree = NULL,
+                               resample_only = FALSE) {
+  if (is.null(data_degree)) data_degree <- rep(1, ncol(data))
 
   ## Resmapling Start
   # Resampling `data` (by columns) without any resampling method
@@ -46,7 +130,7 @@ auto_resampling <- function(data,
     Type = character(), # Record the type of each column of `data`
     Process = character() # Record the resampling process for each column of `data`
   )
-
+  # TODO try apply/lapply
   for (n in 1:ncol(resampled_data)) {
     process <- "Coordinate"
     # Check continue or category
@@ -56,7 +140,7 @@ auto_resampling <- function(data,
       if (data_degree[n] >= length(unique(data[, n])) - 1) {
         process <- c(process, "Smoothing")
         resampled_data[, n] <- do.call(
-          resampling_methods,
+          get_resampling_methods,
           list(
             resampled_data[, n],
             data[, n],
@@ -65,10 +149,10 @@ auto_resampling <- function(data,
         )
       }
       # Check skewness
-      if (abs(e1071::skewness(data[, n])) >= 1) {
+      if (abs(get_skewness(data[, n])) >= 1) {
         process <- c(process, "IQR")
         resampled_data[, n] <- do.call(
-          resampling_methods,
+          get_resampling_methods,
           list(
             resampled_data[, n],
             data[, n],
@@ -83,7 +167,7 @@ auto_resampling <- function(data,
       if (any(tbl < nrow(data) / (2 * length(tbl)))) {
         process <- c(process, "Flattening")
         resampled_data[, n] <- do.call(
-          resampling_methods,
+          get_resampling_methods,
           list(
             resampled_data[, n],
             data[, n],
@@ -103,58 +187,47 @@ auto_resampling <- function(data,
   }
 
   return(list(
-    resampled_data = resampled_data,
-    resampled_data_record = resampled_data_record
+    resampled_data = as.data.frame(resampled_data),
+    resampled_data_record = as.data.frame(resampled_data_record)
   ))
 }
 
-
-
-#' Resampling methods for one vector
+#' Resampling Methods for Data
 #'
+#' This function applies various resampling methods to a vector `x` based on the chosen method.
+#' It supports methods such as symmetrizing, smoothing, flattening, and IQR adjustment.
 #'
-#' This function applies various resampling methods
-#' (symmetrizing, smoothing, flattening, and IQR adjustment)
-#' to a vector `x` baesd on information from a vector `sample_x`.
+#' @param x The vector to be resampled.
+#' @param original_x The original vector before resampling.
+#' @param method Character specifying the resampling method to apply. Options are "symmetrizing",
+#'               "smoothing", "flattening", or "IQR".
 #'
-#' @param x A vector, which is the target to be resampled.
-#' @param sample_x A vector, which is providing information (e.g. mean) for resmapling `x`.
-#' @param method A character string, for specifying the resampling method to use.
-#'
-#' @return A vector, which is the resampled `x`.
+#' @return A vector of the same length as `x`, resampled according to the chosen method.
 #' @export
 #'
 #' @examples
-#' # High skewed vector
-#' x <- c(10000, rep(0, 9))
-#' e1071::skewness(x)
-#'
-#' # Set sample x same as x in this example
-#' sample_x <- x
-#'
-#' # Using one of resample method to reduce the skewness of x
-#' resampled_x <- resampling_methods(x = x, sample_x = sample_x, method = "symmetrizing")
-#' e1071::skewness(resampled_x)
-#'
-resampling_methods <- function(x,
-                               sample_x,
-                               method = c(
-                                 "symmetrizing",
-                                 "smoothing",
-                                 "flattening",
-                                 "IQR"
-                               )) {
+#' original_data <- c(10, 20, 10, 10, 20)
+#' resampled_data <- get_resampling_methods(original_data, original_data, method = "smoothing")
+#' print(resampled_data)
+get_resampling_methods <- function(x,
+                                   original_x,
+                                   method = c(
+                                     "symmetrizing",
+                                     "smoothing",
+                                     "flattening",
+                                     "IQR"
+                                   )) {
   method <- match.arg(method)
   return(
     switch(method,
-      "symmetrizing" = mean(sample_x) +
+      "symmetrizing" = mean(original_x) +
         sample(c(-1, 1), length(x), replace = TRUE) *
-          (x - mean(sample_x)),
+          (x - mean(original_x)),
       "smoothing" = x +
-        stats::rnorm(length(x), 0, min(diff(sort(unique(sample_x)))) / 10),
+        stats::rnorm(length(x), 0, min(diff(sort(unique(original_x)))) / 10),
       "flattening" = (function(x) {
         x[sample(length(x), length(x) / 2)] <- sample(
-          unique(sample_x),
+          unique(original_x),
           length(x) / 2,
           replace = TRUE
         )
@@ -163,8 +236,8 @@ resampling_methods <- function(x,
       "IQR" = (function(x) {
         x[sample(length(x), length(x) / 2)] <- rnorm(
           length(x) / 2,
-          median(sample_x),
-          -get_iqr_diff(sample_x) / (2 * qnorm(1 / 4))
+          median(original_x),
+          -get_iqr(original_x) / (2 * qnorm(1 / 4))
         )
         return(x)
       })(x)
@@ -172,548 +245,148 @@ resampling_methods <- function(x,
   )
 }
 
-get_log_density <- function(fam) {
-  switch(fam,
-    "binomial" = function(X,
-                          Y,
-                          model = NULL,
-                          weights = 1,
-                          ...,
-                          coefficients = NULL) {
-      return(log_density_binomial(
-        Y = as.matrix(Y),
-        mean = multiply_matrix(
-          X,
-          if (is.null(model)
-          ) {
-            coefficients
-          } else {
-            model$coefficients
-          }
-        ),
-        weights = weights
-      ))
-    },
-    "gaussian" = function(model = NULL,
-                          weights = 1,
-                          ...,
-                          residuals = NULL) {
-      return(log_density_gaussian(
-        residuals = if (is.null(model)
-        ) {
-          residuals
-        } else {
-          model$residuals
-        },
-        weights = weights
-      ))
-    }
-  )
+#' Adjust `data_` Object from `data_initialization` Functions with Additional Matrix Calculations
+#'
+#' This function adjusts a data frame `data_` by adding new matrices based on the formula provided.
+#' It computes adjusted matrices `adj_x`, `adj_obs_x`, and `adj_syn_x` and attaches them to the input `data_`.
+#'
+#' @param data_ A data frame containing the original data.
+#' @param formula A formula specifying the adjustments to be made.
+#'
+#' @return The modified data frame `data_` with additional matrices `adj_x`, `adj_obs_x`, and `adj_syn_x`.
+#' @export
+get_adjusted_data <- function(data_, formula) {
+  data_$adj_x <- model.frame(get_formula_rhs(as.formula(formula), TRUE), as.data.frame(data_$x))
+  rownames(data_$adj_x) <- rownames(data_$x)
+  data_$adj_obs_x <- as.data.frame(data_$adj_x[1:data_$obs_size, ])
+  data_$adj_syn_x <- as.data.frame(data_$adj_x[(data_$obs_size + 1):data_$size, ])
+  colnames(data_$adj_obs_x) <- colnames(data_$adj_syn_x) <- colnames(data_$adj_x)
+  return(data_)
 }
 
+# ----- Functions for cat -----
 
-get_diag_approx_cov <- function(X, model) {
-  return(diag(chol2inv(chol(second_derivative(
-    X = as.matrix(X),
-    fitted_values = model$fitted.values,
-    prior_weights = model$prior.weights
-  )))))
-}
+#' Memoized Function to Retrieve Stan Models
+#'
+#' This function memoizes the creation of a Stan model based on the specified model type
+#' and optional parameters for specific methods like GLMs. It returns a compiled Stan model object.
+#'
+#' @param model_type A character string specifying the type of Stan model (e.g., "glm", "lm").
+#' @param glm_family A character string specifying the family for GLM models. Default is NULL.
+#' @param joint_tau Logical indicating joint modeling for tau parameter. Default is FALSE.
+#' @param glm_binomial_joint_theta Logical indicating joint modeling for theta parameter in binomial GLMs. Default is FALSE.
+#' @param glm_binomial_joint_alpha Logical indicating joint modeling for alpha parameter in binomial GLMs. Default is FALSE.
+#' @param glm_binomial_gibbs Logical indicating whether Gibbs sampling is used in binomial GLMs. Default is FALSE.
+#'
+#' @return A compiled Stan model object.
+#'
+#' @examples
+#' # Retrieve a Stan model for binomial logistic regression with joint theta
+#' model <- get_stan_model("glm", glm_family = "binomial", glm_binomial_joint_theta = TRUE)
+get_stan_model <- memoise::memoise(function(model_type,
+                                            glm_family = NULL,
+                                            joint_tau = FALSE,
+                                            glm_binomial_joint_theta = FALSE,
+                                            glm_binomial_joint_alpha = FALSE,
+                                            glm_binomial_gibbs = FALSE) {
+  fam <- if (!is.null(glm_family)) get_glm_family(glm_family) else NULL
 
-
-get_log_density_grad <- function(fam) {
-  switch(fam,
-    "binomial" = function(X,
-                          Y,
-                          model = NULL,
-                          weights = 1,
-                          ...,
-                          coefficients = NULL) {
-      return(
-        log_density_grad_binomial(
-          X = as.matrix(X),
-          Y = as.matrix(Y),
-          mean = get_mean("binomial")(
-            X = X,
-            coefficients = if (is.null(model)
-            ) {
-              coefficients
-            } else {
-              model$coefficients
-            }),
-          weights = weights
-        )
-      )
-    }
-  )
-}
-
-get_mean <- function(fam) {
-  switch(fam,
-    "binomial" = function(X,
-                          model = NULL,
-                          ...,
-                          coefficients = NULL) {
-      return(
-        mean_of_binomial(
-          X = as.matrix(X),
-          coefficients = if (is.null(coefficients)
-          ) {
-            coefficients
-          } else {
-            coef(model)
-          }
-        )
-      )
-    },
-    "gaussian" = function(X,
-                          model = NULL,
-                          ...,
-                          coefficients = NULL) {
-      return(
-        mean_of_gaussian(
-          X = as.matrix(X),
-          coefficients = as.matrix(if (is.null(coefficients)
-          ) {
-            coef(model)
-          } else {
-            coefficients
-          })
-        )
-      )
-    }
-  )
-}
-
-
-get_sim_y <- function(fam) {
-  switch(fam,
-    "binomial" = function(X,
-                          model = NULL,
-                          ...,
-                          coefficients = NULL,
-                          mean = NULL) {
-      get_data(
-        "binomial"
-      )(
-        n = nrow(X),
-        mean = if (is.null(mean)) {
-          get_mean(
-            "binomial"
-          )(
-            X = X,
-            model = model,
-            coefficients = coefficients
-          )
-        } else {
-          mean
-        })
-    },
-    "gaussian" = function(X,
-                          model = NULL,
-                          coefficients = NULL,
-                          ...,
-                          mean = NULL,
-                          sd = NULL) {
-      get_data(
-        "gaussian"
-      )(
-        n = nrow(X),
-        mean = if (is.null(mean)) {
-          get_mean(
-            "gaussian"
-          )(
-            X = X,
-            coefficients = coefficients,
-            model = model
-          )
-        } else {
-          mean
-        },
-        sd = if (is.null(sd)) sqrt(sum(residuals(model)^2) / df.residual(model)) else sd
-      )
-    }
-  )
-}
-
-get_lambda_function <- function(discrepancy_function) {
-  switch(discrepancy_function,
-    "square_error" = function(X, coefficients, fam, ...) 2 * get_mean(fam)(X, coefficients),
-    "classification_error" = function(X, coefficients, fam, ...) 2 * get_mean(fam)(X, coefficients),
-    "logistic_deviance" = function(X, coefficients, fam, ...) {
-      .not_same_stop(
-        fam,
-        "binomial",
-        "only binomial family can use logistic_deviance"
-      )
-      return(multiply_matrix(X, coefficients))
-    }
-  )
-}
-
-get_iqr_diff <- function(x, invl = 0.5) {
-  right_quantile <- (2 - invl) / 2
-  iqr_value <- 0
-  while (iqr_value == 0 & right_quantile < 1) {
-    iqr_value <- diff(
-      quantile(
-        as.numeric(x),
-        c(1 - right_quantile, right_quantile),
-        na.rm = FALSE,
-        names = FALSE,
-        type = 7
-      )
-    )
-    right_quantile <- right_quantile + 0.05
-  }
-
-  return(iqr_value)
-}
-
-
-get_data <- function(fam) {
-  switch(fam,
-    "binomial" = function(n = 10,
-                          mean = 0,
-                          ...) {
-      stats::rbinom(
-        n,
-        1,
-        mean
-      )
-    },
-    "gaussian" = function(n = 10,
-                          mean = 0,
-                          sd = 1,
-                          ...) {
-      stats::rnorm(
-        n,
-        mean,
-        sd
-      )
-    },
-    "uniform" = function(n = 10,
-                         mean = 0,
-                         ...) {
-      rep(
-        mean,
-        n
-      )
-    }
-  )
-}
-
-get_discrepancy <- function(func) {
-  switch(func,
-    "logarithmic_error" = function(Y,
-                                   est_Y = NULL,
-                                   ...,
-                                   fam = NULL,
-                                   est_model = NULL,
-                                   est_coefficients = NULL) {
-      # cap the value between 0.0001 and 0.9999 for better calculation process
-      return(
-        discrepancy_of_logarithmic_error(
-          Y = pmax(0.0001, pmin(0.9999, Y)),
-          est_Y = pmax(0.0001, pmin(
-            0.9999,
-            if (is.null(est_Y)) {
-              get_mean(
-                fam
-              )(
-                X = X,
-                coefficients = if (is.null(est_model)) est_coefficients else est_model$coefficients
-              )
-            } else {
-              est_Y
-            }
-          ))
-        )
-      )
-    },
-    "square_error" = function(Y,
-                              est_Y = NULL,
-                              ...,
-                              X = NULL,
-                              fam = "gaussian",
-                              est_model = NULL,
-                              est_coefficients = NULL) {
-      return(
-        discrepancy_of_square_error(
-          Y = Y,
-          est_Y = if (is.null(est_Y)) {
-            get_mean(
-              fam
-            )(
-              X = X,
-              coefficients = if (is.null(est_model)) est_coefficients else est_model$coefficients
-            )
-          } else {
-            est_Y
-          }
-        )
-      )
-    },
-    "classification_error" = function(Y,
-                                      est_Y = NULL,
-                                      ...,
-                                      X = NULL,
-                                      fam = NULL,
-                                      est_model = NULL,
-                                      est_coefficients = NULL) {
-      return(
-        discrepancy_of_classification_error(
-          Y = Y,
-          est_Y = if (is.null(est_Y)) {
-            get_mean(
-              fam
-            )(
-              X = X,
-              coefficients = if (is.null(est_model)) est_coefficients else est_model$coefficients
-            )
-          } else {
-            est_Y
-          }
-        )
-      )
-    },
-    "logistic_deviance" = function(X,
-                                   Y,
-                                   fam,
-                                   model = NULL,
-                                   coefficients = NULL,
-                                   ...) {
-      -get_log_density(fam)(
-        X = X,
-        Y = Y,
-        model = model,
-        coefficients = coefficients)
-    }
-  )
-}
-
-update_sigma_square <- function(sigma_square,
-                                sigma_u_square,
-                                d_seq,
-                                q) { # minimization program
-  sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square))
-}
-
-
-update_sigma_u_square <- function(sigma_u_square,
-                                  sigma_square,
-                                  d_seq,
-                                  q) { # minimization program
-  sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square))
-}
-
-
-update_sigma_square_cat <- function(sigma_square, sigma_u_square, d_seq, d_seq_star, q, q_star, tau) { # minimization program
-  sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square)) + tau / length(d_seq_star) *
-    sum(log(sigma_u_square * d_seq_star + sigma_square) + q_star^2 / (sigma_u_square * d_seq_star + sigma_square))
-}
-
-update_sigma_u_square_cat <- function(sigma_u_square, sigma_square, d_seq, d_seq_star, q, q_star, tau) { # minimization program
-  sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square)) + tau / length(d_seq_star) *
-    sum(log(sigma_u_square * d_seq_star + sigma_square) + q_star^2 / (sigma_u_square * d_seq_star + sigma_square))
-}
-
-
-stan_model_selection <- memoise::memoise(function(method,
-                                                  fam = NULL,
-                                                  gibbs = FALSE,
-                                                  joint_tau = FALSE,
-                                                  joint_theta = FALSE,
-                                                  joint_alpha = FALSE) {
   return(rstan::stan_model(
     file = paste0(
       "~/catalytic/R/rstan_script/",
-      method,
-      fam,
-      if (any(
-        joint_tau,
-        joint_theta,
-        joint_alpha
-      )) {
-        "_joint"
-      },
-      if (method == "glm" && fam == "binomial" && joint_theta && isFALSE(gibbs)) "_theta",
-      if (method == "glm" && fam == "binomial" && joint_theta && isFALSE(gibbs) & joint_alpha) "_alpha",
+      paste0(
+        c(
+          model_type,
+          fam,
+          if (any(
+            joint_tau,
+            glm_binomial_joint_theta,
+            glm_binomial_joint_alpha
+          )) {
+            "joint"
+          },
+          if (model_type == "glm" && fam == "binomial" && glm_binomial_joint_theta && !glm_binomial_gibbs) "theta",
+          if (model_type == "glm" && fam == "binomial" && glm_binomial_joint_theta && !glm_binomial_gibbs & glm_binomial_joint_alpha) "alpha"
+        ),
+        collapse = "_"
+      ),
       ".stan"
     )
   ))
 })
 
-standardize_data <- function(data, if_missing = NULL) {
-  data <- as.data.frame(data)
 
-  for (i in 1:ncol(data)) {
-    if (!(NA %in% suppressWarnings(as.numeric(data[, i])))) {
-      data[, i] <- as.numeric(data[, i])
-    } else if (!(NA %in% suppressWarnings(as.logical(data[, i])))) {
-      data[, i] <- as.logical(data[, i])
-    } else {
-      data[, i] <- as.factor(data[, i])
-    }
-  }
-  return(data)
-}
+# ----- Functions for cat_lmm -----
 
-
-validate_glm_formula <- function(f) {
-  if (!any(grepl("~", f))) {
-    stop("please enter ~ for formula",
-      call. = FALSE
-    )
-  }
-}
-
-validate_surv_formula <- function(f) {
-  validate_glm_formula(f)
-
-  if (!any(grepl("Surv", f))) {
-    stop("please use `Surv` for formula",
-      call. = FALSE
-    )
-  }
-}
-
-
-
-validate_family <- function(f) {
-  if (is.character(f)) {
-    f <- get(f, mode = "function", envir = parent.frame(2))
-  }
-  if (is.function(f)) {
-    f <- f()
-  }
-  if (!is(f, "family")) {
-    stop("'family' must be a family.", call. = FALSE)
-  }
-
-  return(f)
-}
-
-get_family <- function(family) {
-  fam <- try(family$family, silent = TRUE)
-  if (inherits(fam, "try-error")) {
-    fam <- family()$family
-  }
-  return(fam)
-}
-
-family_plus_link <- function(fam) {
-  if (is.character(fam)) {
-    stopifnot(identical(fam, x$method))
-    fam <- paste0("ordered [", fam, "]")
-  } else {
-    fam <- paste0(fam$family, " [", fam$link, "]")
-  }
-  return(fam)
-}
-
-formula_string <- function(formula, break_and_indent = TRUE) {
-  coll <- if (break_and_indent) {
-    "--MARK--"
-  } else {
-    " "
-  }
-  char <- gsub("\\s+", " ", paste(deparse(formula), collapse = coll))
-  if (!break_and_indent) {
-    return(char)
-  }
-  gsub("--MARK--", "\n\t  ", char, fixed = TRUE)
-}
-
-get_rhs <- function(formula, with_ = FALSE) {
-  # Split the formula string by "~" and extract the first element
-  if (with_) {
-    return(as.formula(paste("~", deparse(rlang::f_rhs(formula)), collapse = " ")))
-  }
-  return(rlang::f_rhs(formula))
-}
-
-get_lhs <- function(formula) {
-  return(rlang::f_lhs(formula))
-}
-
-H_matrix <- function(X, X_star, tau, M, n) {
-  X <- as.matrix(X)
-  X_star <- as.matrix(X_star)
-  return(X %*% (
-    chol2inv(chol((t(X) %*% X + (tau / M) * (t(X_star) %*% X_star))))) %*% (
-    t(X) + tau / (M * n) * t(X_star) %*% rep(1, M) %*% t(rep(1, n))
-  ))
-}
-
-
-get_adj_data <- function(data_, formula) {
-  data_$adj_x <- as.matrix(model.frame(get_rhs(formula, TRUE), as.data.frame(data_$x)))
-  rownames(data_$adj_x) <- rownames(data_$x)
-  data_$adj_obs_x <- as.matrix(data_$adj_x[1:data_$obs_size, ])
-  data_$adj_syn_x <- as.matrix(data_$adj_x[(data_$obs_size + 1):data_$size, ])
-  return(data_)
-}
-
-
-
-check_incul_wo_overlap <- function(whole_set, ...) {
-  subset <- c(...)
-
-  # Check if there is any overlap
-  if (length(unique(subset)) != sum(lengths(list(...)))) {
-    return(FALSE)
-  }
-
-  # Check if all elements in whole_set are present in the subset
-  if (!all(whole_set %in% subset)) {
-    return(FALSE)
-  }
-
-  return(TRUE)
-}
-
-
-#' Solves a system of linear equations using QR decomposition.
+#' Update Sigma Square for LMM
 #'
-#' This function solves the system of linear equations \(Mx = b\) using the QR decomposition method.
-#' If any NA values are encountered in the solution, they are replaced with 0.0001.
+#' This function performs the minimization program for updating the sigma square
+#' parameter in a linear mixed model (LMM). It computes the sum of the
+#' log of the variances plus the squared terms divided by the variances, adjusted by tau.
 #'
-#' @param coef_matrix A matrix of coefficients.
-#' @param constant_vector A vector representing the constants on the right side of the equations.
+#' @param sigma_square Numeric value representing the sigma square parameter.
+#' @param sigma_u_square Numeric value representing the sigma_u square parameter.
+#' @param d_seq Numeric vector of d sequence values.
+#' @param d_seq_star Numeric vector of d star sequence values.
+#' @param q Numeric vector of q values.
+#' @param q_star Numeric vector of q star values.
+#' @param tau Numeric value for the tau parameter.
 #'
-#' @return A vector containing the solutions to the system of equations.
-#'
-#'
-#' @seealso \code{\link[base]{qr}} for the QR decomposition function used internally.
-get_qr_solve <- function(coef_matrix, constant_vector) {
-  # Calculate solution using QR decomposition
-  qr_solution <- qr.coef(qr(coef_matrix), constant_vector)
-
-  # Replace any NA values in the solution with 0.0001
-  qr_solution[is.na(qr_solution)] <- 0.0001
-
-  return(qr_solution)
-}
-
-
-# Hessian function --------------------------------------------------------
-#' Compute the Hessian Matrix for Log Partial Likelihood of Cox Proportional Hazards Model
-#'
-#' This function calculates the negative Hessian matrix associated with the log partial likelihood of the Cox proportional hazards model.
-#'
-#' @param beta A vector representing the coefficients of the model.
-#' @param Xs A matrix of covariates where rows represent observations and columns represent features.
-#' @param entry A vector of entry times for each observation.
-#' @param Ts A vector of event times for each observation.
-#' @param event A binary vector indicating event occurrence (1 for event, 0 for censored).
-#'
-#' @return The negative Hessian matrix for the log partial likelihood of the Cox proportional hazards model.
+#' @return Numeric value representing the result of the minimization program.
+#' @export
 #'
 #' @examples
-#' # Provide example data and function calls here.
+#' # Example data
+#' sigma_square <- 0.5
+#' sigma_u_square <- 1.0
+#' d_seq <- c(1, 2, 3)
+#' d_seq_star <- c(1.5, 2.5, 3.5)
+#' q <- c(0.1, 0.2, 0.3)
+#' q_star <- c(0.15, 0.25, 0.35)
+#' tau <- 0.01
 #'
-#' @seealso Related functions or packages, especially the ones used internally.
+#' # Update sigma square
+#' result <- update_sigma_square_cat(sigma_square, sigma_u_square, d_seq, d_seq_star, q, q_star, tau)
+#' print(result)
+update_sigma_square_cat <- function(sigma_square,
+                                    sigma_u_square,
+                                    d_seq,
+                                    d_seq_star,
+                                    q,
+                                    q_star,
+                                    tau) {
+  return(sum(log(sigma_u_square * d_seq + sigma_square) + q^2 / (sigma_u_square * d_seq + sigma_square)) +
+    tau / length(d_seq_star) * sum(log(sigma_u_square * d_seq_star + sigma_square) + q_star^2 / (sigma_u_square * d_seq_star + sigma_square)))
+}
+
+
+# ----- Functions for cat_cox -----
+
+#' Compute the Hessian Matrix for Cox Proportional Hazards Model
+#'
+#' This function calculates the Hessian matrix for a Cox proportional hazards model,
+#' which is used to estimate the second-order partial derivatives of the log-likelihood function.
+#'
+#' @param X A numeric matrix or data frame of predictor variables. Each row represents an observation,
+#'          and each column represents a predictor variable.
+#' @param time A numeric vector representing the time-to-event or censoring time for each observation.
+#' @param event A numeric vector indicating whether the event of interest occurred (1) or the observation was censored (0).
+#' @param coefs A numeric vector of coefficients for the predictor variables.
+#' @param entry_points An optional numeric vector of entry times for each observation. Default is NULL, in which case all entry times are set to 0.
+#'
+#' @return A numeric matrix representing the Hessian matrix.
+#' @export
+#'
+#' @examples
+#' # Example data
+#' X <- matrix(rnorm(50), nrow = 10)
+#' time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
+#' event <- c(1, 0, 1, 0, 1, 0, 1, 0, 1, 1)
+#' coefs <- rnorm(ncol(X))
+#'
+#' # Compute Hessian matrix
+#' hessian_matrix <- get_cox_hessian(X, time, event, coefs)
+#' print(hessian_matrix)
 get_cox_hessian <- function(X,
                             time,
                             event,
@@ -750,27 +423,35 @@ get_cox_hessian <- function(X,
   return(-hessian)
 }
 
-
-#' Calculate the Hessian Matrix for the Log Catalytic with No Censoring for Synthetic Data
+#' Compute the Synthetic Hessian Matrix for Cox Proportional Hazards Model
 #'
-#' This function computes the Hessian matrix for the log catalytic prior, specifically for synthetic data that has no censoring.
+#' This function calculates the synthetic Hessian matrix for a Cox proportional hazards model,
+#' using the provided predictor variables, time-to-event data, coefficients, and a hazard constant.
 #'
-#' @param Xsbeta A vector representing the product of the covariates and the coefficients of the model.
-#' @param Xs A matrix of covariates (predictor variables) where rows represent observations and columns represent features.
-#' @param Ts A vector of event times for each observation.
-#' @param h_daga A function representing the hazard rate for synthetic data.
+#' @param X A numeric matrix or data frame of predictor variables. Each row represents an observation,
+#'          and each column represents a predictor variable.
+#' @param time A numeric vector representing the time-to-event or censoring time for each observation.
+#' @param coefs A numeric vector of coefficients for the predictor variables.
+#' @param hazard_constant A numeric constant representing the hazard.
 #'
-#' @return A Hessian matrix for the log catalytic prior.
+#' @return A numeric matrix representing the synthetic Hessian matrix.
+#' @export
 #'
 #' @examples
-#' # Provide example data and function calls here.
+#' # Example data
+#' X <- matrix(rnorm(50), nrow = 10)
+#' time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
+#' coefs <- rnorm(ncol(X))
+#' hazard_constant <- 0.1
 #'
-#' @seealso Related functions or packages, especially the ones used internally.
+#' # Compute synthetic Hessian matrix
+#' hessian_matrix <- get_syn_cox_hessian(X, time, coefs, hazard_constant)
+#' print(hessian_matrix)
 get_syn_cox_hessian <- function(X,
                                 time,
                                 coefs,
                                 hazard_constant) {
-  syn_lp <- as.numeric(multiply_matrix(X, coefs))
+  syn_lp <- as.numeric(get_linear_predictor(X, coefs))
 
   hessian <- matrix(0, ncol(X), ncol(X))
   for (i in 1:nrow(X)) {
@@ -784,42 +465,35 @@ get_syn_cox_hessian <- function(X,
   return(hessian)
 }
 
-
-
-get_risk_set_idx <- function(time_of_interest,
-                             entry_vector,
-                             time_vector,
-                             event_vector) {
-  return(which((time_of_interest >= entry_vector) & (
-    (time_vector == time_of_interest & event_vector == 1) | (
-      time_vector + 1e-08 > time_of_interest))))
-}
-
-
-
-# gradient function -------------------------------------------------------
-#' Compute the Gradient for Log Partial Likelihood of Cox Proportional Hazards Model
+#' Compute the Gradient for Cox Proportional Hazards Model
 #'
-#' This function calculates the gradient vector associated with the log partial likelihood of the Cox proportional hazards model.
+#' This function calculates the gradient for a Cox proportional hazards model using the provided predictor variables,
+#' time-to-event data, event indicators, coefficients, and optional entry points.
 #'
-#' @param event A binary vector indicating event occurrence (1 for event, 0 for censored).
-#' @param X
-#' @param time
-#' @param coefs
-#' @param ...
-#' @param entry_points
+#' @param X A numeric matrix or data frame of predictor variables. Each row represents an observation,
+#'          and each column represents a predictor variable.
+#' @param time A numeric vector representing the time-to-event or censoring time for each observation.
+#' @param event A numeric vector of event indicators (1 if event occurred, 0 if censored).
+#' @param coefs A numeric vector of coefficients for the predictor variables.
+#' @param entry_points An optional numeric vector of entry points for each observation. Default is NULL.
 #'
-#' @return A vector representing the gradient of the log partial likelihood with respect to beta.
+#' @return A numeric vector representing the gradient for the Cox proportional hazards model.
+#' @export
 #'
 #' @examples
-#' # Provide example data and function calls here.
+#' # Example data
+#' X <- matrix(rnorm(50), nrow = 10)
+#' time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
+#' event <- c(1, 0, 1, 1, 0, 1, 1, 0, 1, 1)
+#' coefs <- rnorm(ncol(X))
 #'
-#' @seealso Related functions or packages, especially the ones used internally.
+#' # Compute gradient
+#' gradient <- get_cox_gradient(X, time, event, coefs)
+#' print(gradient)
 get_cox_gradient <- function(X,
                              time,
                              event,
                              coefs,
-                             ...,
                              entry_points = NULL) {
   if (is.null(entry_points)) entry_points <- rep(0, nrow(X))
 
@@ -829,7 +503,7 @@ get_cox_gradient <- function(X,
       df <- matrix(df, nrow = 1)
       ts <- df[, 1]
       xs <- df[, 2:ncol(df)]
-      X_risk_set <- X[GetRiskSet(ts, entry_points, time, event), ] %>%
+      X_risk_set <- X[get_risk_set_idx(ts, entry_points, time, event), ] %>%
         matrix(ncol = ncol(X))
 
       t1 <- t(X_risk_set) %*% exp(X_risk_set %*% coefs)
@@ -838,64 +512,77 @@ get_cox_gradient <- function(X,
       return(xs - t1 / t2)
     }
   ) %*% event
-  #
-  #   cersored_event <- which(as.numeric(event) == 1)
-  #   gradient <- rep(0, ncol(X))
-  #   for (i in cersored_event) {
-  #     risk_set_idx <- get_risk_set_idx(
-  #       time_of_interest = time[i],
-  #       entry_vector = entry_points,
-  #       time_vector = time,
-  #       event_vector = event
-  #     )
-  #     risk_set <- as.matrix(X[risk_set_idx, ])
-  #
-  #     exp_risk_lp <- exp(multiply_matrix(risk_set, coefs))
-  #     risk_exp_risk_lp <- multiply_matrix(risk_set, exp_risk_lp)
-  #     sum_exp_risk_lp <- sum(exp_risk_lp)
-  #
-  #     gradient <- gradient + X[i, ] - risk_exp_risk_lp / sum_exp_risk_lp
-  #   }
 
-  return(gradient)
+  return(as.vector(gradient))
 }
 
-
-
-#' Compute the Gradient for Log Catalytic Prior for Synthetic Data
+#' Compute the Gradient for Synthetic Data in a Cox Proportional Hazards Model
 #'
-#' This function calculates the gradient of the log catalytic prior, specifically for synthetic data without censoring.
+#' This function calculates the gradient for synthetic data in a Cox proportional hazards model
+#' using the provided predictor variables, time-to-event data, coefficients, and a hazard constant.
 #'
-#' @param Xsbeta A vector representing the product of the covariates and the coefficients of the model.
-#' @param Xs A matrix of covariates where rows represent observations and columns represent features.
-#' @param Ts A vector of event times for each observation.
-#' @param status.s A vector indicating the status of the synthetic data (typically 1 for event and 0 for censored).
-#' @param h_daga A function representing the hazard rate for synthetic data.
+#' @param X A numeric matrix or data frame of predictor variables. Each row represents an observation,
+#'          and each column represents a predictor variable.
+#' @param time A numeric vector representing the time-to-event or censoring time for each observation.
+#' @param coefs A numeric vector of coefficients for the predictor variables.
+#' @param hazard_constant A numeric value representing the hazard constant.
 #'
-#' @return A vector representing the gradient of the log catalytic prior with respect to beta.
+#' @return A numeric vector representing the gradient for the synthetic data in the Cox proportional hazards model.
+#' @export
 #'
 #' @examples
-#' # Provide example data and function calls here.
+#' # Example data
+#' X <- matrix(rnorm(50), nrow = 10)
+#' time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
+#' coefs <- rnorm(ncol(X))
+#' hazard_constant <- 0.01
 #'
-#' @seealso Related functions or packages, especially the ones used internally.
+#' # Compute gradient
+#' gradient <- get_syn_cox_gradient(X, time, coefs, hazard_constant)
+#' print(gradient)
 get_syn_cox_gradient <- function(X,
                                  time,
                                  coefs,
-                                 hazard_constant) {
-  syn_lp <- as.numeric(multiply_matrix(X, coefs))
+                                 hazard_constant) { # TODO Optimize code, e.g. replace for loop
+  syn_lp <- as.numeric(get_linear_predictor(X, coefs))
   gradient <- rep(0, ncol(X))
   for (i in 1:nrow(X)) {
     gradient <- gradient + (1 - hazard_constant * time[i] * exp(syn_lp[i])) * X[i, ]
   }
-  return(gradient)
+  return(as.vector(gradient))
 }
 
-
-get_cox_pl <- function(X,
-                       time,
-                       event,
-                       coefs,
-                       entry_points = NULL) {
+#' Compute the Partial Likelihood for a Cox Proportional Hazards Model
+#'
+#' This function calculates the partial likelihood for a Cox proportional hazards model
+#' using the provided predictor variables, time-to-event data, event indicators, and coefficients.
+#'
+#' @param X A numeric matrix or data frame of predictor variables. Each row represents an observation,
+#'          and each column represents a predictor variable.
+#' @param time A numeric vector representing the time-to-event or censoring time for each observation.
+#' @param event A numeric vector indicating whether an event occurred (1) or the data is censored (0).
+#' @param coefs A numeric vector of coefficients for the predictor variables.
+#' @param entry_points An optional numeric vector representing the entry times for each observation. Default is NULL.
+#'
+#' @return A numeric value representing the partial likelihood for the Cox proportional hazards model.
+#' @export
+#'
+#' @examples
+#' # Example data
+#' X <- matrix(rnorm(50), nrow = 10)
+#' time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
+#' event <- c(1, 0, 1, 1, 0, 1, 0, 1, 1, 1)
+#' coefs <- rnorm(ncol(X))
+#' entry_points <- NULL
+#'
+#' # Compute partial likelihood
+#' pl <- get_cox_partial_likelihood(X, time, event, coefs, entry_points)
+#' print(pl)
+get_cox_partial_likelihood <- function(X,
+                                       time,
+                                       event,
+                                       coefs,
+                                       entry_points = NULL) {
   if (is.null(entry_points)) entry_points <- rep(0, nrow(X))
 
   cersored_event <- which(as.numeric(event) == 1)
@@ -907,39 +594,11 @@ get_cox_pl <- function(X,
       time_vector = time,
       event_vector = event
     )
-    risk_set <- as.matrix(X[risk_set_idx, ])
-    exp_risk_lp <- exp(multiply_matrix(risk_set, coefs))
+    risk_set <- matrix(X[risk_set_idx, ], ncol = ncol(X))
+    exp_risk_lp <- exp(as.vector(get_linear_predictor(risk_set, coefs)))
     pl <- pl + sum(X[i, ] * coefs) - log(sum(exp_risk_lp))
   }
   return(pl)
-}
-
-get_interval_indicators <- function(time_vector, event_vector, s) {
-  # Function to find the time where the event occurred or reach censoring time
-  find_occur_idx <- function(time) {
-    min(which(s >= time))
-  }
-
-  risk_set <- failure_set <- matrix(0, length(time_vector), length(s))
-
-  # Process subjects with event
-  for (i in which(event_vector == 1)) {
-    # Mark only exactly when the event occurrence
-    failure_set[i, find_occur_idx(time_vector[i])] <- 1
-    # Mark from risk up to the event time
-    risk_set[i, 1:find_occur_idx(time_vector[i])] <- 1
-  }
-
-  # Process subjects without event
-  for (i in which(event_vector == 0)) {
-    # Mark the subject as at risk up to the censoring time
-    risk_set[i, 1:find_occur_idx(time_vector[i])] <- 1
-  }
-
-  return(list(
-    risk_set = risk_set,
-    failure_set = failure_set
-  ))
 }
 
 
@@ -990,70 +649,112 @@ get_cox_kappa <- function(X,
     diff_new_old <- norm(as.numeric(coefs_old - coefs), "2") > tol * norm(as.numeric(coefs_old), "2")
   }
 
-  lp_new <- as.numeric(multiply_matrix(X, coefs))
+  lp_new <- as.numeric(get_linear_predictor(X, coefs))
 
   return(sum(lp_new - exp(lp_new) * hazard_constant * time) / nrow(X))
 }
 
-
-real_coefficients_vector <- function(dimention,
-                                     zeta,
-                                     r,
-                                     pseudo_size = 1000) {
-  # generate real beta vector shown in paper
-
-  real_coefficients0 <- c(rep(0, dimention))
-
-  # ζ zeta proportion of the coordinates of β(0) is randomly selected and set to 1
-  real_coefficients0[sample(dimention, (dimention) * zeta, replace = FALSE)] <- 1
-  real_coefficients0 <- c(0, rnorm(dimention) * real_coefficients0)
-  pseudo_covariate <- observed_covariate_vector(dimention, pseudo_size, 0, diag(rep(1, dimention)), 0.5)
-  coefficients_scale <- 1
-
-  repeat {
-    real_coefficients <- real_coefficients0 * coefficients_scale
-    real_coefficients[1] <- -mean(pseudo_covariate %*% real_coefficients[-1])
-    pseudo_response <- get_mean("binomial")(pseudo_covariate, coefficients = real_coefficients)
-    oracle_error <- mean(1 - abs(1 - 2 * pseudo_response)) / 2
-    if (abs(oracle_error - r) < 0.005) {
-      break
-    }
-    coefficients_scale <- ifelse(oracle_error > r, coefficients_scale * 1.1, coefficients_scale * 0.9)
+#' Compute Risk and Failure Sets for Survival Analysis
+#'
+#' This function computes the risk and failure sets for a given time vector, event vector, and a sequence of times (s).
+#' It identifies the times at which events occur or subjects are censored.
+#'
+#' @param time_vector A numeric vector representing the time-to-event or censoring time for each observation.
+#' @param event_vector A numeric vector indicating whether an event occurred (1) or the data is censored (0).
+#' @param s A numeric vector of times at which to evaluate the risk and failure sets.
+#'
+#' @return A list containing two matrices: `risk_set` and `failure_set`, representing the risk and failure sets at each time point.
+#' @export
+#'
+#' @examples
+#' time_vector <- c(5, 8, 12, 18, 22)
+#' event_vector <- c(1, 0, 1, 1, 0)
+#' indicator_vector <- seq(1, 25, by = 1)
+#' result <- get_risk_and_failure_sets(time_vector, event_vector, s)
+#' print(result$risk_set)
+#' print(result$failure_set)
+get_risk_and_failure_sets <- function(time_vector,
+                                      event_vector,
+                                      indicator_vector) {
+  # Function to find the time where the event occurred or reach censoring time
+  find_occur_idx <- function(time) {
+    min(which(s >= time))
   }
-  return(real_coefficients)
+
+  risk_set <- failure_set <- matrix(0, length(time_vector), length(s))
+
+  # Process subjects with event
+  for (i in which(event_vector == 1)) {
+    # Mark only exactly when the event occurrence
+    failure_set[i, find_occur_idx(time_vector[i])] <- 1
+    # Mark from risk up to the event time
+    risk_set[i, 1:find_occur_idx(time_vector[i])] <- 1
+  }
+
+  # Process subjects without event
+  for (i in which(event_vector == 0)) {
+    # Mark the subject as at risk up to the censoring time
+    risk_set[i, 1:find_occur_idx(time_vector[i])] <- 1
+  }
+
+  return(list(
+    risk_set = risk_set,
+    failure_set = failure_set
+  ))
 }
 
-observed_covariate_vector <- function(dimention, # number of columns
-                                      sample_size, # number of rows
-                                      Z_mean,
-                                      Z_variance,
-                                      Z_corr) {
-  # generate observed covariate vector from Gaussian random vector Z
-
-  X_i <- Z_i <- MASS::mvrnorm(
-    n = sample_size,
-    mu = rep(Z_mean, dimention),
-    Sigma = correlation_matrix(Z_corr, dimention) %*% Z_variance
-  )
-
-
-  # set Xi,j = 2 · 1Zi,j >0 − 1, 2j < p Zi,j , 2j ≥ p
-  X_i[, 1:floor(dimention / 2)] <- 2 * (Z_i[, 1:floor(dimention / 2)] > 0) - 1
-
-  return(X_i)
+#' Get Risk Set Index for Survival Analysis
+#'
+#' This function identifies the risk set for a given time of interest in survival analysis.
+#' It returns the indices of subjects who are at risk at the specified time.
+#'
+#' @param time_of_interest A numeric value representing the time of interest.
+#' @param entry_vector A numeric vector representing the entry times for each subject.
+#' @param time_vector A numeric vector representing the time-to-event or censoring time for each subject.
+#' @param event_vector A numeric vector indicating whether an event occurred (1) or the data is censored (0).
+#'
+#' @return A numeric vector of indices representing the subjects at risk at the specified time of interest.
+#' @export
+#'
+#' @examples
+#' time_of_interest <- 10
+#' entry_vector <- c(0, 0, 0, 5, 7)
+#' time_vector <- c(5, 8, 12, 18, 22)
+#' event_vector <- c(1, 0, 1, 1, 0)
+#' risk_set_idx <- get_risk_set_idx(time_of_interest, entry_vector, time_vector, event_vector)
+#' print(risk_set_idx)
+get_risk_set_idx <- function(time_of_interest,
+                             entry_vector,
+                             time_vector,
+                             event_vector) {
+  return(which((time_of_interest >= entry_vector) & (
+    (time_vector == time_of_interest & event_vector == 1) | (
+      time_vector + 1e-08 > time_of_interest))))
 }
 
-err <- function(x,
-                coefficients0,
-                coefficients1) {
-  return(
-    mean(
-      get_discrepancy("logarithmic_error")(
-        Y = get_mean("binomial")(x,
-          coefficients = coefficients0
-        ),
-        est_Y = get_mean("binomial")(x,
-          coefficients = coefficients1))
-    )
-  )
+#' Solve a linear system using QR decomposition
+#'
+#' This function solves a linear system of equations represented by `coef_matrix %*% x = constant_vector`
+#' using QR decomposition. It handles NA values in the solution by replacing them with a small constant.
+#'
+#' @param coef_matrix A matrix of coefficients from the linear system.
+#' @param constant_vector The constant vector from the linear system.
+#'
+#' @return The solution vector `x` from the linear system.
+#' @export
+#'
+#' @examples
+#' coef_matrix <- matrix(c(1, 1, 1, 2, 3, 5, 4, 6, 8), nrow = 3, byrow = TRUE)
+#' constant_vector <- c(10, 20, 30)
+#' solution <- get_qr_solve(coef_matrix, constant_vector)
+#' print(solution)
+get_qr_solve <- function(coef_matrix,
+                         constant_vector) {
+  # Calculate solution using QR decomposition
+  qr_solution <- solve(coef_matrix, constant_vector)
+
+  # Replace any NA values in the solution with 0.0001
+  qr_solution[is.na(qr_solution)] <- 0.0001
+
+  return(qr_solution)
 }

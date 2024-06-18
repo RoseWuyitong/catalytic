@@ -11,8 +11,7 @@ cat_cox_tune(
   method = c("CRE", "WME"),
   ...,
   cv_fold_num = 5,
-  likelihood_method = "cross_validation_cox",
-  hazard_value = NULL
+  likelihood_method = "cross_validation_cox"
 )
 }
 \arguments{

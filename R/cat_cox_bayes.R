@@ -58,7 +58,7 @@ cat_cox_bayes <- function(formula,
   }
 
   # Get unique times from sorted observed event times and a value larger than the maximum observed time
-  s <- unique(c(
+  unique_observed_event_times_and_beyond <- unique(c(
     # Sort the times where events occurred
     sort(data_$obs_time[data_$obs_event == 1]),
     # Create a value larger than the maximum observed time
@@ -67,7 +67,11 @@ cat_cox_bayes <- function(formula,
   ))
 
   # get risk set and failure set
-  intervals <- get_interval_indicators(data_$obs_time, data_$obs_event, s)
+  risk_and_failure_sets <- get_risk_and_failure_sets(
+    data_$obs_time,
+    data_$obs_event,
+    unique_observed_event_times_and_beyond
+  )
 
   if (is.null(H_star_list)) {
     # Get the initial guess of H_0 from the intercept-only weibull regression model based on observation data
@@ -81,7 +85,7 @@ cat_cox_bayes <- function(formula,
     # Extracts the shape and scale parameters of the Weibull distribution
     weibull_shape <- 1 / surv_weibull_model$scale
     weibull_scale <- exp(coef(surv_weibull_model))
-    # Calculates the cumulative hazard values for the intervals
+    # Calculates the cumulative hazard values for the risk_and_failure_sets
 
     H_star_list <- (s / weibull_scale)^weibull_shape
   }
@@ -104,8 +108,8 @@ cat_cox_bayes <- function(formula,
     syn_time = as.vector(data_$syn_time),
     syn_event = as.vector(data_$syn_event),
     tau = tau,
-    adj_risk_set = intervals$risk_set - intervals$failure_set,
-    failure_set = intervals$failure_set
+    adj_risk_set = risk_and_failure_sets$risk_set - risk_and_failure_sets$failure_set,
+    failure_set = risk_and_failure_sets$failure_set
   )
 
   # Stan model and sampling

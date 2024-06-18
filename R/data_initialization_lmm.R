@@ -17,55 +17,72 @@ data_initialization_lmm <- function(formula,
                                     X_cols,
                                     Y_cols,
                                     Z_cols,
-                                    group_col = NULL,
                                     ...,
                                     syn_size = NULL,
-                                    add_intercept = TRUE,
                                     by_group = FALSE) {
-  .not_true_stop(
-    is.data.frame(data),
-    "Please enter `data` in `data.frame` format"
-  )
-
-  group_col_name <- c(if (is.null(group_col)) {
-    gsub(
-      "`",
-      "",
-      gsub(
-        ".*\\((.*?)\\|\\s*(\\S+)\\)",
-        "\\2",
-        deparse(formula)
+  if (!(is.glm_formula(formula) | is.lmm_formula(formula))) {
+    stop(
+      paste0(
+        "The provided formula <",
+        deparse(formula),
+        "> is not suitable for a linear mixed model (LMM) or generalized linear model (GLM)."
       )
     )
-  } else {
-    group_col
-  })
+  }
+  if (!is.data.frame(data)) {
+    stop(
+      paste0(
+        "The provided data should be in `data.frame` format, not in <`",
+        class(data)[1],
+        "`> format."
+      )
+    )
+  }
 
-  .not_true_stop(
-    check_incul_wo_overlap(colnames(data), X_cols, Y_cols, Z_cols, group_col_name),
-    "Please enter `X_cols`, `Y_cols`, `Z_cols` and `group_col` with no overlap,
-    and inlcude all column names showed in `data.
-    Or, please enter right group column name in the formula"
+  # Extract the column name of group from input formula
+  group_col_name <- gsub(
+    "`",
+    "",
+    gsub(
+      ".*\\((.*?)\\|\\s*(\\S+)\\)",
+      "\\2",
+      deparse(formula)
+    )
   )
 
-  validate_glm_formula(formula)
 
-  syn_size <- as.integer(if (is.null(syn_size)) length(X_cols) * 5 else syn_size)
+  if (!check_subset_membership(
+    colnames(data),
+    X_cols,
+    Y_cols,
+    Z_cols,
+    group_col_name
+  )) {
+    stop("Please enter `X_cols`, `Y_cols`, `Z_cols` and group_col with no overlap,
+    and inlcude all column names showed in `data.
+    Or, please enter right group column name in the formula")
+  }
 
+  if (is.null(syn_size)) syn_size <- length(X_cols) * 4
+
+  # Standardize input data
   obs_data <- standardize_data(data)
 
+  # Extract observation fixed effect, group, response and random effect
   obs_x <- as.data.frame(obs_data[, X_cols])
   obs_group <- as.data.frame(obs_data[, c(group_col_name)])
   obs_y <- as.data.frame(obs_data[, Y_cols])
   obs_z <- as.data.frame(obs_data[, Z_cols])
 
-
-  syn_group_inform <- auto_resampling(
+  # Generating synthetic covariate by resampling observation covariate
+  syn_group_inform <- get_resampled_data(
     data = obs_group,
     resample_size = syn_size,
     data_degree = NULL,
     resample_only = TRUE
   )
+
+  # Synthetic group
   syn_group <- syn_group_inform$resampled_data
 
   colnames(syn_group) <- colnames(obs_group) <- group_col_name
@@ -83,14 +100,14 @@ data_initialization_lmm <- function(formula,
     ))
     for (g in unique(c(obs_group)[[1]])) {
       idx <- which(syn_group == g)
-      syn_x_inform <- auto_resampling(
+      syn_x_inform <- get_resampled_data(
         obs_data = obs_x[which(obs_group == g), ],
         resample_size = length(idx),
         data_degree = NULL
       )
 
       syn_x[idx, ] <- syn_x_inform$resampled_data
-      syn_z_inform <- auto_resampling(
+      syn_z_inform <- get_resampled_data(
         data = obs_z[which(obs_group == g), ],
         resample_size = length(idx),
         data_degree = NULL
@@ -100,13 +117,13 @@ data_initialization_lmm <- function(formula,
     syn_x_inform <- NULL
     syn_z_inform <- NULL
   } else {
-    syn_x_inform <- auto_resampling(
+    syn_x_inform <- get_resampled_data(
       data = obs_x,
       resample_size = syn_size,
       data_degree = NULL
     )
 
-    syn_z_inform <- auto_resampling(
+    syn_z_inform <- get_resampled_data(
       data = obs_z,
       resample_size = syn_size,
       data_degree = NULL
@@ -116,7 +133,7 @@ data_initialization_lmm <- function(formula,
     syn_z <- syn_z_inform$resampled_data
   }
 
-  simple_model <- if (is.lmer_formula(formula)) {
+  simple_model <- if (is.lmm_formula(formula)) {
     do.call(
       lme4::lmer,
       list(
@@ -137,7 +154,7 @@ data_initialization_lmm <- function(formula,
 
   syn_data <- as.data.frame(cbind(syn_x, syn_group, syn_z))
 
-  syn_y <- as.matrix(predict(simple_model, newdata = syn_data))
+  syn_y <- as.data.frame(predict(simple_model, newdata = syn_data))
 
   colnames(syn_y) <- colnames(obs_y) <- Y_cols
 
@@ -148,29 +165,15 @@ data_initialization_lmm <- function(formula,
     group_col_name = group_col_name,
     obs_size = nrow(obs_x),
     orig_obs_data = data,
-    obs_x = if (add_intercept) {
-      as.matrix(
-        cbind("intercept" = 1, obs_x)
-      )
-    } else {
-      as.matrix(obs_x)
-    },
-    obs_group_col = as.matrix(data[group_col_name]),
-    obs_y = as.matrix(obs_y),
-    obs_z = as.matrix(obs_z),
+    obs_x = as.data.frame(obs_x),
+    obs_group_col = as.data.frame(data[group_col_name]),
+    obs_y = as.data.frame(obs_y),
+    obs_z = as.data.frame(obs_z),
     syn_size = syn_size,
-    syn_x = if (add_intercept) {
-      as.matrix(
-        cbind("intercept" = 1, syn_x)
-      )
-    } else {
-      as.matrix(
-        syn_x
-      )
-    },
-    syn_group_col = as.matrix(syn_group),
-    syn_y = as.matrix(syn_y),
-    syn_z = as.matrix(syn_z),
+    syn_x = syn_x,
+    syn_group_col = as.data.frame(syn_group),
+    syn_y = as.data.frame(syn_y),
+    syn_z = as.data.frame(syn_z),
     syn_x_generation_steps = syn_x_inform$recd_resampled_data,
     syn_z_generation_steps = syn_z_inform$recd_resampled_data
   )
@@ -189,8 +192,7 @@ data_initialization_lmm <- function(formula,
   )
 
   data_$data <- rbind(data_$obs_data, data_$syn_data)
-  rownames(data_$data) <- 1:nrow(data_$data)
-  class(data_) <- c(data_$class, "data_")
+  class(data_) <- c(data_$class, "data_initialization")
 
   return(data_)
 }

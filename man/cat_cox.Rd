@@ -11,10 +11,8 @@ cat_cox(
   method = c("CRE", "WME"),
   ...,
   initial_values = NULL,
-  hazard_function = NULL,
   tol = 1e-05,
-  max_iter = 25,
-  entry = NULL
+  max_iter = 25
 )
 }
 \arguments{

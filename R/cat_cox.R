@@ -72,7 +72,6 @@ cat_cox <-
         X = data_$adj_syn_x,
         time = data_$syn_time,
         coefs = coefs_old,
-        # HERE
         hazard_constant = data_$hazard_constant
       )
 

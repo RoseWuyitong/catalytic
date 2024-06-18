@@ -10,11 +10,12 @@ data_initialization_glm(
   data,
   ...,
   syn_size = NULL,
-  x_degree = NULL
+  x_degree = NULL,
+  na_replace = mean
 )
 }
 \arguments{
-\item{x_degree}{}
+\item{na_replace}{}
 }
 \description{
 Title
