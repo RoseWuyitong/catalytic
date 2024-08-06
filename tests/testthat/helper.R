@@ -1,6 +1,6 @@
 set.seed(1)
 
-# ----- Mock data -----
+# ----- mock result -----
 mock_data_glm_gaussian <- function() {
   return(as.data.frame(matrix(
     data = rnorm(15),
@@ -33,16 +33,6 @@ mock_data_initialization_glm_binomial <- function() {
   return(data_)
 }
 
-# TODO: amend
-mock_data_initialization_lmm <- function() {
-  data_ <- data_initialization_lmm(
-    formula = y ~ 1,
-    family = binomial(),
-    data = data
-  )
-
-  return(data_)
-}
 
 # TODO: amend
 mock_data_initialization_cox <- function() {
@@ -57,6 +47,13 @@ mock_data_initialization_cox <- function() {
   return(data_)
 }
 
+# Create a mock menu function
+mock_menu <- function(return_value) {
+  assign("menu", function(choices, title = NULL) {
+    cat(title, "\n") # Optionally print the title
+    return_value
+  }, envir = .GlobalEnv)
+}
 
 # ----- Expect function -----
 

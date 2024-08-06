@@ -1,34 +1,58 @@
 #' Title
 #'
-#' @param cat_glm
 #' @param digit
+#' @param cat_tune
 #'
 #' @return
 #' @export
 #'
 #' @examples
-risk_estimate_plot.none_bayes <- function(cat_glm, digit = 2) {
-  plot(cat_glm$taus,
-    cat_glm$risk_estimate_collect,
+plot.cat_tune <- function(cat_tune, digit = 2, legend_pos = "topright", text_pos = 3) {
+  if (cat_tune$function_name == "cat_glm_tune") {
+    y_lab <- paste0("discrepancy error (", cat_tune$discrepancy_method, ")")
+    y_plot <- cat_tune$risk_estimate_collect
+    main <- paste0("Plot of Risk Estimates from cat_glm_tune \n(", cat_tune$risk_estimate_method, ")")
+    mark_point <- cat_tune$min_risk_estimate
+  } else {
+    y_lab <- "likelihood score"
+    y_plot <- cat_tune$likelihood_collect
+    main <- paste0("Plot of Likelihood Scores from cat_cox_tune \n(", cat_tune$likelihood_method, ")")
+    mark_point <- cat_tune$max_likelihood
+  }
+
+
+  plot(cat_tune$tau_seq,
+    y_plot,
     type = "l",
     col = "black",
     lwd = 2,
-    xlab = "taus",
-    ylab = paste0("risk estimate (", cat_glm$discrepancy_function, ")"),
-    main = paste0("Plot of Risk Estimate from cat_glm_tune (", cat_glm$risk_estimate_method, ")")
+    xlab = "tau",
+    ylab = y_lab,
+    main = main
   )
 
-  text(cat_glm$tau,
-    cat_glm$min_risk_estimate,
-    labels = round(cat_glm$min_risk_estimate, digit),
-    pos = 3,
-    offset = 0.5
+  # Add text labels to the highlighted point
+  text(cat_tune$tau,
+    mark_point,
+    labels = paste0("(", round(cat_tune$tau, 1), ", ", round(mark_point, 1), ")"),
+    pos = text_pos
   )
 
-  points(cat_glm$tau,
-    cat_glm$min_risk_estimate,
+  # Draw red dotted lines from the axes to the highlighted point
+  segments(x0 = par("usr")[1], y0 = mark_point, x1 = cat_tune$tau, y1 = mark_point, col = "red", lty = 2) # Horizontal line
+  segments(x0 = cat_tune$tau, y0 = par("usr")[3], x1 = cat_tune$tau, y1 = mark_point, col = "red", lty = 2) # Vertical line
+
+  points(cat_tune$tau,
+    mark_point,
     pch = 4,
     col = "red"
+  )
+
+  legend(legend_pos,
+    legend = "Optimal tau",
+    col = "red",
+    pch = 4,
+    text.col = "black"
   )
 }
 
@@ -42,13 +66,13 @@ risk_estimate_plot.none_bayes <- function(cat_glm, digit = 2) {
 #' @export
 #'
 #' @examples
-risk_estimate_plot.cat_lmm_tune <- function(cat_glm, digit = 2) {
-  plot(cat_glm$taus,
+plot.cat_lmm_tune <- function(cat_glm, digit = 2) {
+  plot(cat_glm$tau_seq,
     cat_glm$risk_estimate_collect,
     type = "l",
     col = "black",
     lwd = 2,
-    xlab = "taus",
+    xlab = "tau",
     ylab = paste0("risk estimate (", cat_glm$discrepancy_function, ")"),
     main = paste0("Plot of Risk Estimate from ", cat_glm$function_name, " (", cat_glm$risk_estimate_method, ")")
   )
@@ -69,27 +93,15 @@ risk_estimate_plot.cat_lmm_tune <- function(cat_glm, digit = 2) {
 
 #' Title
 #'
-#' @param cat_glm_tune
-#' @param digit
+#' @param bayes_
+#' @param ...
 #'
 #' @return
 #' @export
 #'
 #' @examples
-risk_estimate_plot <- function(cat_glm, digit = 2) {
-  UseMethod("risk_estimate_plot")
-}
-
-#' Title
-#'
-#' @param cat_glm_bayes
-#'
-#' @return
-#' @export
-#'
-#' @examples
-traceplot.bayes <- function(cat_glm) {
-  rstan::traceplot(cat_glm$sample_model)
+traceplot.bayes <- function(bayes_, ...) {
+  rstan::traceplot(bayes_$stan_sample_model, ...)
 }
 
 
@@ -101,35 +113,42 @@ traceplot.bayes <- function(cat_glm) {
 #' @export
 #'
 #' @examples
-traceplot.bayes_gibbs <- function(cat_glm, cols_to_plot = NULL) {
-  df <- cat_glm$gibbs_collect
+traceplot.cat_glm_bayes_joint_gibbs <- function(cat_glm_bayes_joint_gibbs_, pars = NULL, ...) {
+  df <- cat_glm_bayes_joint_gibbs_$gibbs_collect
 
-  if (is.null(cols_to_plot)) {
-    cols_to_plot <- colnames(df)[1:min(9, ncol(df))]
+  if (is.null(pars)) {
+    pars <- colnames(df)[1:min(9, ncol(df))]
   }
 
-  .large_number_stop(
-    length(cols_to_plot),
-    10,
-    "Please select less than 10 features to plot."
-  )
+  if (length(pars) > 9) {
+    stop("Please select less than 10 features to plot.")
+  }
+
+  par(mar = c(2, 2, 2, 2))
   par(mfrow = c(3, 3))
 
-  for (col_name in cols_to_plot) {
-    plot(df[, col_name], main = col_name, xlab = "iter", ylab = "Value", type = "l")
+  for (col_name in pars) {
+    plot(
+      x = seq((cat_glm_bayes_joint_gibbs_$gibbs_warmup + 1), cat_glm_bayes_joint_gibbs_$gibbs_iter),
+      y = df[, col_name],
+      main = col_name,
+      xlab = "",
+      ylab = "",
+      type = "l"
+    )
   }
 }
 
 #' Title
 #'
 #' @param cat_lmm
-#' @param cols_to_plot
+#' @param pars
 #'
 #' @return
 #' @export
 #'
 #' @examples
-traceplot.cat_lmm <- function(cat_lmm, cols_to_plot = NULL) {
+traceplot.cat_lmm <- function(cat_lmm, pars = NULL, ...) {
   df <- cat_lmm$iter_collect
 
   if (is.null(cols_to_plot)) {
@@ -157,7 +176,7 @@ traceplot.cat_lmm <- function(cat_lmm, cols_to_plot = NULL) {
 #' @export
 #'
 #' @examples
-traceplot <- function(cat_) {
+traceplot <- function(cat_, ...) {
   UseMethod("traceplot")
 }
 
@@ -174,12 +193,12 @@ traceplot <- function(cat_) {
 # }
 
 likelihood_plot <- function(cat_cox, digit = 3) {
-  plot(cat_cox$taus,
+  plot(cat_cox$tau_seq,
     cat_cox$likelihood_collect,
     type = "l",
     col = "black",
     lwd = 2,
-    xlab = "taus",
+    xlab = "tau",
     ylab = paste0("risk estimate (", cat_cox$discrepancy_function, ")"),
     main = paste0("Plot of Risk Estimate from ", cat_cox$function_name, " (", cat_cox$likelihood_method, ")")
   )

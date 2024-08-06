@@ -2,22 +2,67 @@
 % Please edit documentation in R/cat_cox.R
 \name{cat_cox}
 \alias{cat_cox}
-\title{Title}
+\title{Fit Cox Proportional-Hazards Model with Synthetic Data}
 \usage{
 cat_cox(
   formula,
-  data_,
+  cat_init,
   tau = NULL,
   method = c("CRE", "WME"),
   ...,
-  initial_values = NULL,
+  init_coefficients = NULL,
   tol = 1e-05,
   max_iter = 25
 )
 }
 \arguments{
-\item{...}{}
+\item{formula}{The formula for the Cox model, specifying the time and status variables and covariates.}
+
+\item{cat_init}{The initialized data object created from \code{catalytic::data_initialization_cox}.}
+
+\item{tau}{A regularization parameter. Default is \code{NULL}, which sets tau to the number of covariates.}
+
+\item{method}{The method for fitting the Cox model, either "CRE" (Cox Regression Estimator) or "WME" (Weighted Mean Estimator). Default is "CRE".}
+
+\item{...}{Additional arguments passed to the Cox model function.}
+
+\item{init_coefficients}{Initial coefficients for the Cox model. Default is \code{NULL}.}
+
+\item{tol}{The tolerance for convergence. Default is 1e-5.}
+
+\item{max_iter}{The maximum number of iterations for convergence. Default is 25.}
+}
+\value{
+A list containing the fitted Cox model and various fitting details:
+\describe{
+\item{function_name}{The name of the function, \code{cat_cox}.}
+\item{formula}{The formula used for the Cox model.}
+\item{cat_init}{The initialized data object used for the model.}
+\item{tau}{The regularization parameter used.}
+\item{method}{The method used for fitting the model, either "CRE" or "WME".}
+\item{coefficients}{The coefficients of the fitted Cox model.}
+\item{model}{The fitted survival model (only for "WME" method).}
+\item{iter}{The number of iterations performed (only for "CRE" method).}
+\item{iter_collect}{The collected coefficients for each iteration (only for "CRE" method).}
+\item{init_coefficients}{The initial coefficients used (if any).}
+\item{tol}{The tolerance for convergence.}
+\item{max_iter}{The maximum number of iterations allowed.}
+}
 }
 \description{
-Title
+This function fits a Cox Proportional-Hazards Model using the specified formula and data.
+The function supports two methods for fitting the model: "CRE" (Cox Regression Estimator) and "WME" (Weighted Mean Estimator).
+}
+\examples{
+# Assuming `data_cox` is an initialized data object created with `data_initialization_cox`
+formula <- survival::Surv(time, status) ~ .
+cat_cox_model <- cat_cox(
+  formula = formula,
+  data_ = data_cox,
+  tau = 5,
+  method = "CRE",
+  max_iter = 25
+)
+
+print(cat_cox_model)
 }

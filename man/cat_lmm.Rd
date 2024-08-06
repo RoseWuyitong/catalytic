@@ -5,6 +5,7 @@
 \title{Title}
 \usage{
 cat_lmm(
+  formula,
   data_,
   tau = NULL,
   ...,

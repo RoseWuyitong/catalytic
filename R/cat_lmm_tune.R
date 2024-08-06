@@ -1,7 +1,7 @@
 #' Title
 #'
 #' @param data_
-#' @param taus
+#' @param tau_seq
 #' @param ...
 #' @param discrepancy_function
 #' @param cv_fold_num
@@ -12,13 +12,13 @@
 #'
 #' @examples
 cat_lmm_tune <- function(data_,
-                         taus = NULL,
+                         tau_seq = NULL,
                          ...,
                          discrepancy_function = "square_error",
                          cv_fold_num = 5,
                          risk_estimate_method = "cross_validation_lmm") {
-  if (is.null(taus)) {
-    taus <- seq(
+  if (is.null(tau_seq)) {
+    tau_seq <- seq(
       max(0, ncol(data_$obs_x) / 4 - 2),
       ncol(data_$obs_x) / 4 + 2, 0.5
     )
@@ -28,14 +28,14 @@ cat_lmm_tune <- function(data_,
     risk_estimate_method,
     list(
       data_ = data_,
-      tau = taus,
+      tau = tau_seq,
       discrepancy_function = discrepancy_function,
       cv_fold_num = cv_fold_num,
       ...
     )
   )
 
-  optimal_tau <- taus[which.min(risk_estimate_collect)]
+  optimal_tau <- tau_seq[which.min(risk_estimate_collect)]
   optimal_model <- do.call(lme4::lmer, list(
     formula = data_$y ~ 1 + data_$x + (1 | data_$group_col),
     weight = c(
@@ -48,7 +48,7 @@ cat_lmm_tune <- function(data_,
   cat_lmm_tune_obj <- list(
     function_name = "cat_lmm_tune",
     data_ = data_,
-    taus = taus,
+    tau_seq = tau_seq,
     discrepancy_function = discrepancy_function,
     cv_fold_num = cv_fold_num,
     risk_estimate_method = risk_estimate_method,
@@ -65,13 +65,13 @@ cat_lmm_tune <- function(data_,
 }
 
 cross_validation_lmm <- function(data_,
-                                 taus,
+                                 tau_seq,
                                  ...,
                                  discrepancy_function = "square_error",
                                  cv_fold_num = 5) {
   random_sample <- sample(1:data_$obs_size)
 
-  risk_estimate_collect <- rep(0, length(taus))
+  risk_estimate_collect <- rep(0, length(tau_seq))
   for (fold in 1:cv_fold_num) {
     idx <- random_sample[(data_$obs_size * (fold - 1) / cv_fold_num + 1):
     (data_$obs_size * fold / cv_fold_num)]
@@ -87,7 +87,7 @@ cross_validation_lmm <- function(data_,
     train_group <- as.matrix(data_$obs_group[-idx, ])
 
     risk_estimate_collect_tau <- c()
-    for (tau in taus) {
+    for (tau in tau_seq) {
       yy <- rbind(train_y, data_$syn_y)
       xx <- rbind(train_x, data_$syn_x)
       gg <- rbind(train_group, data_$syn_group_col)

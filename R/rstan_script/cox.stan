@@ -9,8 +9,8 @@ functions {
    * @param coefs Vector of model coefficients.
    * @param syn_x Matrix of synthetic covariates.
    * @param syn_time Vector of synthetic survival times.
-   * @param syn_event Vector of synthetic event indicators.
-   * @param syn_time_hazard_constant Customized hazard constant values evaluated at each synthetic survival time.
+   * @param syn_status Vector of synthetic status indicators.
+   * @param hazard_constant Customized hazard constant values evaluated at each synthetic survival time.
    * @param tau Positive number that downweighting the synthetic dataset in the estimation process.
    *
    * @return A scalar representing the log prior for the given `coefs` using the synthetic data.
@@ -20,7 +20,7 @@ functions {
                         int syn_size,
                         matrix syn_x,
                         vector syn_time,
-                        vector syn_event,
+                        vector syn_status,
                         real hazard_constant
                         ) {
 
@@ -29,7 +29,7 @@ functions {
 
     real syn_prior = 0;
     for (i in 1:syn_size) {
-      syn_prior = syn_prior + (syn_event[i] * syn_lp[i] - exp_syn_lp[i] * syn_time[i] * hazard_constant);
+      syn_prior = syn_prior + (syn_status[i] * syn_lp[i] - exp_syn_lp[i] * syn_time[i] * hazard_constant);
     }
     return syn_prior * tau / syn_size;
   }
@@ -42,25 +42,25 @@ data {
   real c_0;  // Rate parameter for the gamma prior distribution of the baseline hazard.
 
   int<lower=0> obs_size;  // Number of observations in the dataset.
-  int<lower=0> col_num;  // Dimensionality of the covariates.
-  matrix[obs_size, col_num] obs_x;  // Matrix of covariates for the observed dataset.
+  int<lower=0> col_n;  // Dimensionality of the covariates.
+  matrix[obs_size, col_n] obs_x;  // Matrix of covariates for the observed dataset.
 
   int<lower=0> syn_size;  // Number of synthetic observations.
-  matrix[syn_size, col_num] syn_x;  // Matrix of covariates for the synthetic dataset.
+  matrix[syn_size, col_n] syn_x;  // Matrix of covariates for the synthetic dataset.
   vector[syn_size] syn_time;  // Vector of synthetic survival times.
-  vector[syn_size] syn_event;  // Vector of censoring indicator.
+  vector[syn_size] syn_status;  // Vector of censoring indicator.
 
   real<lower=0> hazard_constant;  // Customized hazard constant value.
 
   real<lower=0> tau;  // Downweighting factor for the synthetic dataset in the estimation process.
 
-  matrix[obs_size, J] adj_risk_set;  // Matrix indicating risk set minus event set for each observation across intervals.
+  matrix[obs_size, J] adj_risk_set;  // Matrix indicating risk set minus failure set for each observation across intervals.
   matrix[obs_size, J] failure_set;  // Matrix indicating which intervals an observation has an event.
 }
 
 
 parameters {
-  vector[col_num] coefs;  // regression coefficients
+  vector[col_n] coefs;  // regression coefficients
   vector<lower=0>[J] h_j;  // parameter with a gamma prior
 }
 
@@ -96,7 +96,7 @@ model {
                              syn_size,
                              syn_x,
                              syn_time,
-                             syn_event,
+                             syn_status,
                              hazard_constant);
 
   // Prior distribution for the hazard sequence based on a Gamma distribution.

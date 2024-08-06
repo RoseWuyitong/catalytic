@@ -1,9 +1,9 @@
 data {
   int<lower=1> obs_n;
   int<lower=1> syn_n;
-  int<lower=1> x_col_n;
-  matrix[obs_n, x_col_n] obs_x;
-  matrix[syn_n, x_col_n] syn_x;
+  int<lower=1> col_n;
+  matrix[obs_n, col_n] obs_x;
+  matrix[syn_n, col_n] syn_x;
   int<lower=0,upper=1> obs_y[obs_n];
   int<lower=0,upper=1> syn_y[syn_n];
   real kappa;
@@ -12,13 +12,13 @@ data {
 }
 
 parameters {
+  vector[col_n+1] coefs;
   real<lower=0> theta;
-  vector[x_col_n+1] beta;
 }
 
 model {
-  vector[obs_n] obs_mu = beta[1] + obs_x * beta[2:(x_col_n+1)];
-  vector[syn_n] syn_mu = beta[1] + syn_x * beta[2:(x_col_n+1)];
+  vector[obs_n] obs_mu = coefs[1] + obs_x * coefs[2:(col_n+1)];
+  vector[syn_n] syn_mu = coefs[1] + syn_x * coefs[2:(col_n+1)];
   real syn_weight = 1/(theta*syn_n);
 
   // Likelihood
@@ -30,6 +30,6 @@ model {
       target += syn_weight * bernoulli_logit_lpmf(syn_y[i] | syn_mu[i]);
 
   // Inverse-Gamma function
-  target += (x_col_n+alpha+1)*log(1/theta)-(1/theta)*(kappa+1/gamma);
+  target += (col_n+alpha+1)*log(1/theta)-(1/theta)*(kappa+1/gamma);
 }
 

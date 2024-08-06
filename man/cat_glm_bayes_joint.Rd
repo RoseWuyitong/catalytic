@@ -2,28 +2,78 @@
 % Please edit documentation in R/cat_glm_bayes_joint.R
 \name{cat_glm_bayes_joint}
 \alias{cat_glm_bayes_joint}
-\title{Title}
+\title{Bayesian Generalized Linear Model with Joint Tau}
 \usage{
 cat_glm_bayes_joint(
   formula,
-  family = gaussian(),
-  data_,
-  chains = 4,
-  iter = 2000,
-  warmup = 1000,
-  algorithm = "NUTS",
+  family = NULL,
+  cat_init,
   ...,
-  joint_alpha = FALSE,
+  stan_chains = 4,
+  stan_iter = 2000,
+  stan_warmup = 1000,
+  stan_algorithm = "NUTS",
   alpha = 2,
   gamma = 1,
-  use_theta = FALSE,
-  tau_lower = 0.05,
-  stan_refresh = 0.5
+  binomial_use_theta = FALSE,
+  binomial_joint_alpha = FALSE,
+  binomial_tau_lower = 0.05
 )
 }
 \arguments{
-\item{stan_refresh}{}
+\item{formula}{The model formula specifying the relationship between the response variable and predictors.
+Use format \code{RESPONSE ~ COVARIATES}. Alternatively, \code{~ COVARIATES} (e.g., \code{~ .}) can be used without specifying the response name.}
+
+\item{family}{The GLM family to use for modeling. If not provided (\code{NULL}), defaults to the family specified in \code{cat_init}.}
+
+\item{cat_init}{Initialization object created using \code{cat_glm_initialization}, containing observed and synthetic data, plus other relevant information.}
+
+\item{...}{Additional arguments passed to the \code{rstan::sampling} function for customizing the MCMC sampling process.}
+
+\item{stan_chains}{Number of Markov chains to run during MCMC sampling. Default is 4.}
+
+\item{stan_iter}{Total number of iterations per chain in the MCMC sampling process. Default is 2000.}
+
+\item{stan_warmup}{Number of warmup iterations in the MCMC sampling process, discarded as burn-in. Default is 1000.}
+
+\item{stan_algorithm}{Sampling algorithm used in \code{rstan::sampling}. Default is "NUTS" (No-U-Turn Sampler).}
+
+\item{alpha}{Alpha parameter controlling degrees of freedom for the Student's t-distribution in the joint tau approach. Default is 2.}
+
+\item{gamma}{Gamma parameter in the joint tau approach. Default is 1.}
+
+\item{binomial_use_theta}{Logical. If TRUE, use theta parameter in the binomial model. Default is FALSE.}
+
+\item{binomial_joint_alpha}{Logical. If TRUE, use joint alpha in the binomial model. Default is FALSE.}
+
+\item{binomial_tau_lower}{Lower limit for the tau parameter in the binomial model. Default is 0.05.}
+}
+\value{
+A list containing various attributes:
+\itemize{
+\item \code{function_name}: Name of the function (\code{cat_glm_bayes_joint}).
+\item \code{formula}: Full formula used for modeling.
+\item \code{family}: GLM family used for modeling.
+\item \code{cat_init}: Initialization object created from \code{cat_glm_initialization}.
+\item \code{stan_chains}: Number of MCMC chains.
+\item \code{stan_iter}: Total iterations per chain.
+\item \code{stan_warmup}: Warmup iterations.
+\item \code{stan_algorithm}: Sampling algorithm used.
+\item \code{alpha}: Alpha parameter for joint tau approach.
+\item \code{gamma}: Gamma parameter for joint tau approach.
+\item \code{binomial_use_theta}: Whether theta parameter is used in binomial model.
+\item \code{binomial_joint_alpha}: Whether joint alpha is used in binomial model.
+\item \code{binomial_tau_lower}: Lower limit for tau in binomial model.
+\item \code{tau}: Estimated tau parameter.
+\item \code{kappa_}: Calculated kappa value.
+\item \code{stan_model}: Stan model object.
+\item \code{stan_sample_model}: Result object from MCMC sampling.
+\item \code{coefficients}: Estimated coefficients from Bayesian GLM model.
+}
 }
 \description{
-Title
+Fits a Bayesian Generalized Linear Model (GLM) using a joint tau approach with Markov Chain Monte Carlo (MCMC) sampling.
+}
+\seealso{
+\code{\link{cat_glm_initialization}}
 }

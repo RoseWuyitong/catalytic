@@ -4,10 +4,10 @@
 \alias{traceplot.cat_lmm}
 \title{Title}
 \usage{
-\method{traceplot}{cat_lmm}(cat_lmm, cols_to_plot = NULL)
+\method{traceplot}{cat_lmm}(cat_lmm, pars = NULL, ...)
 }
 \arguments{
-\item{cols_to_plot}{}
+\item{pars}{}
 }
 \description{
 Title

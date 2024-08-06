@@ -6,7 +6,7 @@
 \usage{
 cat_lmm_tune(
   data_,
-  taus = NULL,
+  tau_seq = NULL,
   ...,
   discrepancy_function = "square_error",
   cv_fold_num = 5,

@@ -1,191 +1,178 @@
-#' Title
+#' Bayesian Generalized Linear Model with Joint Tau
 #'
-#' @param formula
-#' @param family
-#' @param data_
-#' @param ...
-#' @param chains
-#' @param iter
-#' @param use_theta
-#' @param algorithm
-#' @param alpha
-#' @param gamma
-#' @param tau_lower
-#' @param warmup
-#' @param stan_refresh
+#' Fits a Bayesian Generalized Linear Model (GLM) using a joint tau approach with Markov Chain Monte Carlo (MCMC) sampling.
 #'
-#' @return
+#' @param formula The model formula specifying the relationship between the response variable and predictors.
+#'   Use format `RESPONSE ~ COVARIATES`. Alternatively, `~ COVARIATES` (e.g., `~ .`) can be used without specifying the response name.
+#' @param family The GLM family to use for modeling. If not provided (`NULL`), defaults to the family specified in `cat_init`.
+#' @param cat_init Initialization object created using `cat_glm_initialization`, containing observed and synthetic data, plus other relevant information.
+#' @param ... Additional arguments passed to the `rstan::sampling` function for customizing the MCMC sampling process.
+#' @param stan_chains Number of Markov chains to run during MCMC sampling. Default is 4.
+#' @param stan_iter Total number of iterations per chain in the MCMC sampling process. Default is 2000.
+#' @param stan_warmup Number of warmup iterations in the MCMC sampling process, discarded as burn-in. Default is 1000.
+#' @param stan_algorithm Sampling algorithm used in `rstan::sampling`. Default is "NUTS" (No-U-Turn Sampler).
+#' @param alpha Alpha parameter controlling degrees of freedom for the Student's t-distribution in the joint tau approach. Default is 2.
+#' @param gamma Gamma parameter in the joint tau approach. Default is 1.
+#' @param binomial_use_theta Logical. If TRUE, use theta parameter in the binomial model. Default is FALSE.
+#' @param binomial_joint_alpha Logical. If TRUE, use joint alpha in the binomial model. Default is FALSE.
+#' @param binomial_tau_lower Lower limit for the tau parameter in the binomial model. Default is 0.05.
+#'
+#' @return A list containing various attributes:
+#' \itemize{
+#'   \item \code{function_name}: Name of the function (`cat_glm_bayes_joint`).
+#'   \item \code{formula}: Full formula used for modeling.
+#'   \item \code{family}: GLM family used for modeling.
+#'   \item \code{cat_init}: Initialization object created from `cat_glm_initialization`.
+#'   \item \code{stan_chains}: Number of MCMC chains.
+#'   \item \code{stan_iter}: Total iterations per chain.
+#'   \item \code{stan_warmup}: Warmup iterations.
+#'   \item \code{stan_algorithm}: Sampling algorithm used.
+#'   \item \code{alpha}: Alpha parameter for joint tau approach.
+#'   \item \code{gamma}: Gamma parameter for joint tau approach.
+#'   \item \code{binomial_use_theta}: Whether theta parameter is used in binomial model.
+#'   \item \code{binomial_joint_alpha}: Whether joint alpha is used in binomial model.
+#'   \item \code{binomial_tau_lower}: Lower limit for tau in binomial model.
+#'   \item \code{tau}: Estimated tau parameter.
+#'   \item \code{kappa_}: Calculated kappa value.
+#'   \item \code{stan_model}: Stan model object.
+#'   \item \code{stan_sample_model}: Result object from MCMC sampling.
+#'   \item \code{coefficients}: Estimated coefficients from Bayesian GLM model.
+#' }
+#'
 #' @export
 #'
 #' @examples
-cat_glm_bayes_joint <- function(formula,
-                                family = gaussian(),
-                                data_,
-                                chains = 4,
-                                iter = 2000,
-                                warmup = 1000,
-                                algorithm = "NUTS",
-                                ...,
-                                joint_alpha = FALSE,
-                                alpha = 2,
-                                gamma = 1,
-                                use_theta = FALSE,
-                                tau_lower = 0.05,
-                                stan_refresh = 0.5) {
-  .not_true_stop(
-    is.data_(data_),
-    paste(
-      "Please enter `data_` that generated from",
-      "catalytic::data_initialization."
+#' @seealso
+#' \code{\link{cat_glm_initialization}}
+cat_glm_bayes_joint <- function(
+    formula,
+    family = NULL,
+    cat_init,
+    ...,
+    stan_chains = 4,
+    stan_iter = 2000,
+    stan_warmup = 1000,
+    stan_algorithm = "NUTS",
+    alpha = 2,
+    gamma = 1,
+    binomial_use_theta = FALSE,
+    binomial_joint_alpha = FALSE,
+    binomial_tau_lower = 0.05) {
+  if (!is.cat_glm_init(cat_init)) {
+    stop(
+      "Please enter `cat_init` that generated from `catalytic::cat_glm_initialization`."
+    )
+  }
+
+  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
+  f_lhs <- get_formula_lhs(formula)
+  if (f_lhs != "NULL" & f_lhs != colnames(cat_init$y)) stop("Please enter the correct y name for formula.")
+
+  cat_init <- get_adjusted_data(cat_init = cat_init, formula = formula)
+
+  if (is.null(family)) family <- cat_init$family
+
+  full_formula <- as.formula(paste0(colnames(cat_init$y), f_rhs))
+
+  suppressWarnings(
+    kappa_ <- get_glm_log_density(
+      family = family,
+      X = cat_init$adj_syn_x,
+      Y = cat_init$syn_y,
+      coefs = coef(do.call(
+        stats::glm,
+        list(
+          formula = full_formula,
+          family = family,
+          data = cat_init$syn_data
+        )
+      )),
+      weights = 1 / cat_init$syn_size
     )
   )
 
-  data_ <- get_adj_data(data_ = data_, formula = formula)
-
-  validate_glm_formula(formula)
-  family <- validate_family(family)
-  fam <- get_family(family)
-
-  kappa_ <- get_log_density(fam)(
-    X = data_$adj_syn_x,
-    Y = data_$syn_y,
-    model = stats::glm(formula = formula, data = data_$syn_data, family = family),
-    weights = 1 / data_$syn_size)
-
-  data <- list(
-    obs_n = data_$obs_size,
-    syn_n = data_$syn_size,
-    x_col_n = ncol(data_$adj_x),
-    obs_x = data_$adj_obs_x,
-    obs_y = as.numeric(data_$obs_y[[1]]),
-    syn_x = data_$adj_syn_x,
-    syn_y = as.numeric(data_$syn_y[[1]]),
-    lower_ = tau_lower,
+  stan_data <- list(
+    obs_n = cat_init$obs_size,
+    syn_n = cat_init$syn_size,
+    col_n = ncol(cat_init$adj_x),
+    obs_x = cat_init$adj_obs_x,
+    syn_x = cat_init$adj_syn_x,
+    obs_y = as.vector(cat_init$obs_y),
+    syn_y = as.vector(cat_init$syn_y),
+    tau_lower = binomial_tau_lower,
     kappa = kappa_,
     alpha = alpha,
     gamma = gamma
   )
 
-  stan_model <- stan_model_selection(
-    fam = fam,
-    joint = TRUE,
-    gibbs = FALSE,
-    use_theta = use_theta,
-    joint_alpha = joint_alpha
+  stan_model <- get_stan_model(
+    type = "glm",
+    glm_family = family,
+    joint_tau = TRUE,
+    glm_binomial_joint_theta = binomial_use_theta,
+    glm_binomial_joint_alpha = binomial_joint_alpha
   )
 
-  sample_model <- rstan::sampling(
+  stan_sample_model <- rstan::sampling(
     object = stan_model,
-    data = data,
-    chains = chains,
-    iter = iter,
-    warmup = warmup,
-    algorithm = algorithm,
-    refresh = stan_refresh
+    data = stan_data,
+    chains = stan_chains,
+    iter = stan_iter,
+    warmup = stan_warmup,
+    algorithm = stan_algorithm,
+    ...
   )
 
+  give_glm_bayes_joint_suggestion(
+    family,
+    stan_iter,
+    alpha,
+    stan_sample_model,
+    binomial_use_theta,
+    binomial_joint_alpha,
+    binomial_tau_lower
+  )
 
-  if (fam == "binomial") {
-    if (use_theta) {
-      theta_inform <- rstan::summary(sample_model)$summary["theta", ]
+  coefs <- rstan::summary(stan_sample_model)$summary[
+    grep("coefs", rownames(rstan::summary(stan_sample_model)$summary)),
+    "mean"
+  ]
 
-      est_params <- stats::optim(
-        par = c(1, 1),
-        fn = function(params, percentiles, mean_) {
-          alpha <- exp(params[1])
-          beta <- exp(params[2])
-          calc_percentiles <- invgamma::qinvgamma(c(0.25, 0.5, 0.75),
-            shape = alpha,
-            scale = beta
-          )
-          error <- sum((percentiles - calc_percentiles)^2) +
-            (mean_ - (beta / (alpha - 1)))^2
-          return(error)
-        },
-        percentiles = c(
-          theta_inform["25%"],
-          theta_inform["50%"],
-          theta_inform["75%"]
-        ),
-        mean_ = theta_inform["mean"]
-      )
-
-      if (invgamma::qinvgamma(c(0.975),
-        shape = exp(est_params$par[1]),
-        scale = exp(est_params$par[2])
-      ) < theta_inform["97.5%"]) {
-        if (any(rstan::summary(sample_model)$summary[, "Rhat"] > 1.1)) {
-          warning("SUGGESTION: Please consider using more iteration (e.g.", iter + 1000, ")")
-        } else if (alpha < 5) {
-          warning("SUGGESTION: Please consider using larger alpha (e.g.", min(alpha + 0.1, 5), ")")
-        } else {
-          warning("SUGGESTION: Please consider using joint_alpha.")
-        }
-      }
-    } else {
-      tau_inform <- rstan::summary(sample_model)$summary["tau", ]
-
-      est_params <- stats::optim(
-        par = c(1, 1),
-        fn = function(params, percentiles, mean_) {
-          alpha <- exp(params[1])
-          beta <- exp(params[2])
-          calc_percentiles <- stats::qgamma(c(0.25, 0.5, 0.75),
-            shape = exp(params[1]),
-            scale = exp(params[2])
-          )
-          error <- sum((percentiles - calc_percentiles)^2) +
-            (mean_ - (alpha / beta))^2
-          return(error)
-        },
-        percentiles = c(
-          tau_inform["25%"],
-          tau_inform["50%"],
-          tau_inform["75%"]
-        ),
-        mean_ = tau_inform["mean"]
-      )
-
-      if (stats::qgamma(c(0.025),
-        shape = exp(est_params$par[1]),
-        scale = exp(est_params$par[2])
-      ) > tau_inform["2.5%"]) {
-        if (any(rstan::summary(sample_model)$summary[, "Rhat"] > 1.2)) {
-          warning("SUGGESTION: Please consider using more iteration (e.g.", iter + 1000, ")")
-        } else if (tau_lower < 1) {
-          warning("SUGGESTION: Please consider using larger tau_lower (e.g.", min(tau_lower + 0.05, 1), ")")
-        } else {
-          warning("SUGGESTION: Please consider using theta method.")
-        }
-      }
-    }
+  if (!is.null(coefs)) {
+    names(coefs) <- c("(Intercept)", colnames(cat_init$adj_x))
   }
 
-  cat_glm_obj <- list(
+  cat_glm_bayes_joint_ <- list(
     function_name = "cat_glm_bayes_joint",
-    formula = formula,
-    data_ = data_,
+    formula = full_formula,
     family = family,
-    algorithm = algorithm,
-    tau = if (use_theta) {
-      1 / rstan::summary(sample_model)$summary[
+    cat_init = cat_init,
+    stan_chains = stan_chains,
+    stan_iter = stan_iter,
+    stan_warmup = stan_warmup,
+    stan_algorithm = stan_algorithm,
+    alpha = alpha,
+    gamma = gamma,
+    binomial_use_theta = binomial_use_theta,
+    binomial_joint_alpha = binomial_joint_alpha,
+    binomial_tau_lower = binomial_tau_lower,
+    tau = if (binomial_use_theta) {
+      1 / rstan::summary(stan_sample_model)$summary[
         "theta", "mean"
       ]
     } else {
-      rstan::summary(sample_model)$summary[
+      rstan::summary(stan_sample_model)$summary[
         "tau", "mean"
       ]
     },
-    alpha = alpha,
-    gamma = gamma,
-    sample_model = sample_model,
-    coefficients = rstan::summary(sample_model)$summary[
-      grep("beta", rownames(rstan::summary(sample_model)$summary)),
-      "mean"
-    ]
+    kappa_ = kappa_,
+    stan_model = stan_model,
+    stan_sample_model = stan_sample_model,
+    coefficients = coefs,
+    ...
   )
 
-  class(cat_glm_obj) <- c(cat_glm_obj$class, "bayes", "cat_glm_bayes_joint")
+  class(cat_glm_bayes_joint_) <- c(cat_glm_bayes_joint_$class, "cat_glm_bayes_joint", "cat_glm_bayes", "bayes")
 
-  return(cat_glm_obj)
+  return(cat_glm_bayes_joint_)
 }

@@ -4,7 +4,7 @@
 \alias{print.cat_cox_tune}
 \title{Title}
 \usage{
-\method{print}{cat_cox_tune}(cat_cox_tune_model, digit = 3, detail = TRUE, ...)
+\method{print}{cat_cox_tune}(cat_cox_tune_, digit = 3, detail = TRUE, ...)
 }
 \arguments{
 \item{...}{}

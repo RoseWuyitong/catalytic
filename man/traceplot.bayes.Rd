@@ -4,10 +4,10 @@
 \alias{traceplot.bayes}
 \title{Title}
 \usage{
-\method{traceplot}{bayes}(cat_glm)
+\method{traceplot}{bayes}(bayes_, ...)
 }
 \arguments{
-\item{cat_glm_bayes}{}
+\item{...}{}
 }
 \description{
 Title

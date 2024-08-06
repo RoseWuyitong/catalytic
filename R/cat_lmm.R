@@ -12,14 +12,16 @@
 #' @export
 #'
 #' @examples
-cat_lmm <- function(data_,
-                    tau = NULL,
-                    ...,
-                    max_iter = 500,
-                    tol = 1e-08,
-                    init_sig_square = c(1, 1),
-                    init_coefficients = NULL,
-                    optimize_domain = c(0, 30)) {
+cat_lmm <- function(
+    formula,
+    data_,
+    tau = NULL,
+    ...,
+    max_iter = 500,
+    tol = 1e-08,
+    init_sig_square = c(1, 1),
+    init_coefficients = NULL,
+    optimize_domain = c(0, 30)) {
   .not_true_stop(
     is.data_lmm(data_),
     paste(
@@ -59,12 +61,6 @@ cat_lmm <- function(data_,
     U_star[(1:nrow(eigen_Z_synZ_synT$vectors)) + add_up, idx] <- eigen_Z_synZ_synT$vectors
     add_up <- add_up + nrow(eigen_Z_synZ_synT$vectors)
   }
-
-  # WEIHAO's CODE
-  # Z_synZ_synT <- tcrossprod(Z)
-  # eigen_Z_synZ_synT <- eigen(Z_synZ_synT)
-  # d_seq_star <- eigen_Z_synZ_synT$values
-  # U_star <- eigen_Z_synZ_synT$vectors
 
   iter <- 0
   coefficients_new <- if (is.null(init_coefficients)) rnorm(ncol(data_$obs_x)) else init_coefficients

@@ -2,30 +2,58 @@
 % Please edit documentation in R/cat_cox_bayes_joint.R
 \name{cat_cox_bayes_joint}
 \alias{cat_cox_bayes_joint}
-\title{Title}
+\title{Fit Bayesian Joint Cox Model with \code{cat_cox_bayes_joint}}
 \usage{
 cat_cox_bayes_joint(
   formula,
-  data_,
+  cat_init,
   ...,
+  stan_chains = 4,
+  stan_iter = 2000,
+  stan_warmup = 1000,
   alpha = 2,
   gamma = 1,
-  chains = 4,
-  iter = 2000,
-  warmup = 1000,
-  initial_values = NULL,
-  hazard_constant = NULL,
-  tol = 1e-05,
-  max_iter = 25,
   c_0 = 2,
   H_star_list = NULL
 )
 }
 \arguments{
-\item{formula}{}
+\item{formula}{A formula specifying the survival model. Must use \code{Surv} for survival analysis.}
 
-\item{c_0}{small value of c_0 corresponds to a more diffuse and less informative prior}
+\item{cat_init}{An object generated from \code{catalytic::cat_cox_initialization} containing initialization data.}
+
+\item{...}{Additional arguments passed to the \code{rstan::sampling} function.}
+
+\item{stan_chains}{Number of Markov Chains (default is 4).}
+
+\item{stan_iter}{Total number of iterations (default is 2000).}
+
+\item{stan_warmup}{Number of warmup iterations (default is 1000).}
+
+\item{alpha}{Hyperparameter for the Gamma prior (default is 2).}
+
+\item{gamma}{Hyperparameter for the Gamma prior (default is 1).}
+
+\item{c_0}{Small value of \code{c_0} corresponds to a more diffuse and less informative prior (default is 2).}
+
+\item{H_star_list}{Optional list of cumulative hazard values. If NULL, it is estimated from a Weibull regression model.}
+}
+\value{
+A list containing:
+\item{function_name}{The name of the function.}
+\item{formula}{The formula used for fitting the model.}
+\item{cat_init}{The \code{cat_init} object used for initialization.}
+\item{stan_chains}{Number of chains used in Stan sampling.}
+\item{stan_iter}{Number of iterations used in Stan sampling.}
+\item{stan_warmup}{Number of warmup iterations used in Stan sampling.}
+\item{c_0}{The prior parameter value \code{c_0}.}
+\item{H_star_list}{List of cumulative hazard values.}
+\item{stan_model}{The compiled Stan model object.}
+\item{stan_sample_model}{The fitted Stan model object.}
+\item{coefficients}{Estimated regression coefficients.}
+\item{increment_cumulative_baseline_hazard}{Estimated cumulative baseline hazard increments.}
 }
 \description{
-Title
+This function fits a Bayesian joint Cox proportional hazards model using Stan.
+The model jointly estimates the baseline hazard and regression coefficients.
 }
