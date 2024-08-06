@@ -8,7 +8,9 @@
 #'
 #' @examples
 predict.cat_glm <- function(cat_glm_, ...) {
-    stats::predict.glm(cat_glm_$model, ...)
+    stats::predict.glm(cat_glm_$model,
+                       type = if (cat_glm_$cat_init$family == "binomial") "response" else "link",
+                       ...)
   }
 
 

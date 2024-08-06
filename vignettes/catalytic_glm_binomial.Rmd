@@ -268,8 +268,7 @@ Let's check the prediction error.
 ```{r}
 cat_glm_predicted_y <- predict(
   cat_glm_2,
-  newdata = test_data,
-  type = "response"
+  newdata = test_data
 )
 
 cat(
@@ -444,8 +443,7 @@ Let's check the prediction error.
 ```{r}
 cat_glm_tune_predicted_y <- predict(
   cat_glm_tune_auto,
-  newdata = test_data,
-  type = "response"
+  newdata = test_data
 )
 
 cat(
