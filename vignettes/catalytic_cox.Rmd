@@ -37,7 +37,7 @@ The goal of the __catalytic__ package is to build framework for catalytic prior 
 
 The two steps of using catalytic package for COX Regression are
 
-1. The `cat_cox_initialization` function constructs a `cat_cox_init` object based on the formula provided by the user to generate synthetic data. The resulting `cat_cox_init` object is tailored to facilitate further analysis, and is integral for subsequent modeling steps in the `catalytic` package.
+1. The `cat_cox_initialization` function constructs a `cat_init` object based on the formula provided by the user to generate synthetic data. The resulting `cat_init` object is tailored to facilitate further analysis, and is integral for subsequent modeling steps in the `catalytic` package.
 
 2. Users have the flexibility to choose from four main functions within the catalytic package: `cat_cox`, `cat_cox_tune`, `cat_cox_bayes`, and `cat_cox_bayes_joint`. Each function serves a specific purpose in modeling with catalytic priors and offers distinct capabilities tailored to different modeling scenarios for COX Regression. This approach enables users to seamlessly incorporate synthetic data with varying weights from different method into COX Regression analyses, providing flexibility and control over the modeling process.
 
@@ -47,7 +47,7 @@ Creating a high-dimensional dataset with a low data size. This step involves inc
 
 The `get_train_idx` function randomly selects training indices amounting to 1/5 of the dataset size. 
 
-The `cox_swim` dataset is loaded and split into training (`cox_data`) and test (`cox_cox_cat_test`) datasets.
+The `cox_swim` dataset is loaded and split into training (`train_data`) and test (`cox_cox_cat_test`) datasets.
 
 ```{r}
 set.seed(1)
@@ -55,10 +55,10 @@ set.seed(1)
 library(survival)
 library(catalytic)
 
-# Utility function to get random train indices for 1/5 of the original data
+# Utility function to get random train indices for 60 of the original data
 get_train_idx <- function(cat_cox_initset) {
   n <- nrow(cat_cox_initset)
-  return(sample(1:n, floor(1 / 5 * n)))
+  return(sample(1:n, 60))
 }
 
 # Load, preprocess and split pbc dataset for Cox proportional hazards model
@@ -81,43 +81,47 @@ pbc[, -not_standarlized_index] <- scale(pbc[, -not_standarlized_index])
 
 pbc_train_idx <- get_train_idx(pbc)
 
-cox_data <- pbc[pbc_train_idx, ]
-cox_data_test <- pbc[-pbc_train_idx, ]
+train_data <- pbc[pbc_train_idx, ]
+test_data <- pbc[-pbc_train_idx, ]
 
-dim(cox_data)
+test_x = test_data[, -which(names(test_data) %in% c("time", "status"))]
+test_time = test_data$time
+test_status = test_data$status
+ 
+dim(train_data)
 
-head(cox_data)
+head(train_data)
 ```
 
-In this section, we explore the foundational steps of fitting a COX regression model (GLM) using the `survival::coxph` function with the gaussian family. 
+In this section, we explore the foundation steps of fitting a COX regression model (GLM) using the `survival::coxph` function with the gaussian family. 
 
-We then proceed to evaluate model performance using the `catalytic::get_discrepancy` function, specifically calculating the logarithmic error discrepancy. This involves comparing the actual response (`Y`) against the estimated response (`est_Y`) derived from the COX regression model fitted on the `cox_data`. 
+We then proceed to evaluate model performance using the `catalytic::get_discrepancy` function, specifically calculating the logarithmic error discrepancy. This involves comparing the actual response (`Y`) against the estimated response (`est_Y`) derived from the COX regression model fitted on the `train_data`. 
 
 Finally, we display the computed logarithmic error to assess the model's performance in predicting the response variable `mpg`.
 
 ```{r}
-# This function calculate MPLE (Marginal Partial Likelihood Estimate) prediction score of estimated coefficients minus 0 coefficients
-get_cox_prediction_score <- function(est_coefs) {
-  2 * (get_cox_partial_likelihood(
-    X = cox_data_test[, -which(names(cox_data_test) %in% c("time", "status"))],
-    time = cox_data_test$time,
-    status = cox_data_test$status,
-    coefs = est_coefs
-  ) - get_cox_partial_likelihood(
-    X = cox_data_test[, -which(names(cox_data_test) %in% c("time", "status"))],
-    time = cox_data_test$time,
-    status = cox_data_test$status,
-    coefs = rep(0, (ncol(cox_data_test) - 2))
-  ))
-}
+# Calculate MPLE (Marginal Partial Likelihood Estimate) prediction score with 0 coefficients
+MPLE_0 <- get_cox_partial_likelihood(
+    X = test_x,
+    time = test_time,
+    status = test_status,
+    coefs = rep(0, (ncol(test_x))))
 
 # Fit a COX regression model
 cox_model <- survival::coxph(
   formula = survival::Surv(time, status) ~ .,
-  data = cox_data
+  data = train_data
 )
 
-cat("MLE COX Model - Predition Score:", get_cox_prediction_score(coef(cox_model)))
+# Calculate MPLE (Marginal Partial Likelihood Estimate) prediction score of estimated coefficients minus 0 coefficients
+cat("MLE COX Model - Predition Score:", 
+    get_cox_partial_likelihood(
+    X = test_x,
+    time = test_time,
+    status = test_status,
+    coefs = coef(cox_model)
+  ) - MPLE_0
+  )
 ```
 
 # Usage of `catalytic`
@@ -148,45 +152,45 @@ Here's a breakdown of the parameters used:
 
 
 ```{r}
-cat_cox_init_1 <- cat_cox_initialization(
+cat_init_1 <- cat_cox_initialization(
   formula = survival::Surv(time, status) ~ 1,
-  data = cox_data,
+  data = train_data,
   syn_size = 100, # Default: 4 times the number of predictors
   hazard_constant = 1, # Default: calculated from observed data
-  entry_points = rep(1, nrow(cox_data)), # Default: Null, which is vector of zeros
+  entry_points = rep(1, nrow(train_data)), # Default: Null, which is vector of zeros
   x_degree = c(1, 2, rep(1, 17)), # Default: NULL, which means degrees of all predictors are 1
   resample_only = FALSE, # Default: FALSE
   na_replace = mean, # Default: stats::na.omit
   singular.ok = TRUE # Additional argument for the `survival::coxph`
 )
 
-cat_cox_init_1
+cat_init_1
 ```
 
 Here shows how users can simplify the input for `cat_cox_initialization`. User do not have to specify `syn_size` and other parameters, as they have default values, which mentioned above.
 
 ```{r}
-cat_cox_init_2 <- cat_cox_initialization(
+cat_init_2 <- cat_cox_initialization(
   formula = survival::Surv(time, status) ~ 1,
-  data = cox_data
+  data = train_data
 )
 
-cat_cox_init_2
+cat_init_2
 ```
 
 Here, let us increase the `syn_size` for better estimation later.
 
 ```{r}
-cat_cox_init <- cat_cox_initialization(
+cat_init <- cat_cox_initialization(
   formula = survival::Surv(time, status) ~ 1,
-  data = cox_data,
+  data = train_data,
   syn_size = 100
 )
 
-cat_cox_init
+cat_init
 ```
 
-This cat_cox_init object contains a list of attributes, which is typically generated from the above function [`cat_cox_initialization`]{#Initialization}. These attributes provide comprehensive information for subsequent modeling tasks or for user checks.
+This cat_init object contains a list of attributes, which is typically generated from the above function [`cat_cox_initialization`]{#Initialization}. These attributes provide comprehensive information for subsequent modeling tasks or for user checks.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -227,17 +231,17 @@ Here's a breakdown of all attributes except the input parameters:
 For more details, please check `?cat_cox_initialization`.
 
 ```{r}
-names(cat_cox_init)
+names(cat_init)
 ```
 
 And of course, user can extract items mentioned above from `cat_cox_initialization` object.
 
 ```{r}
 # The number of observations (rows) in the original dataset (`obs_data`)
-cat_cox_init$obs_size
+cat_init$obs_size
 
 # The information detailing the process of resampling synthetic data
-cat_cox_init$syn_x_resample_inform
+cat_init$syn_x_resample_inform
 ```
 
 ## Setp 2.1: Frequentist Approaches{#FrequentistApproaches}
@@ -246,7 +250,7 @@ This section explores frequentist approaches to modeling using the catalytic pac
 
 ### 2.1.1. Point Estimate{#PointEstimate}
 
-The `cat_cox` function fits a Generalized COX Model (GLM) with a catalytic prior on the regression coefficients. It utilizes information from the `cat_cox_init` object generated during the initialization step, which includes both observed and synthetic data, plus other relevant information. 
+The `cat_cox` function fits a Generalized COX Model (GLM) with a catalytic prior on the regression coefficients. It utilizes information from the `cat_init` object generated during the initialization step, which includes both observed and synthetic data, plus other relevant information. 
 
 The model is then fitted using the specified formula, family, and a single `tau`(synthetic data downweight factor). The resulting `cat_cox` object encapsulates the fitted model, including estimated coefficients and family information, facilitating further analysis.
 
@@ -275,9 +279,9 @@ Here's a breakdown of the parameters used:
 ```{r}
 cat_cox_1 <- cat_cox(
   formula = survival::Surv(time, status) ~ trt + age, # Same as `~ trt + age`
-  cat_init = cat_cox_init,
+  cat_init = cat_init,
   tau = 10, # Default: number of predictors
-  method = "CRE", # Default: CRE
+  method = "WME", # Default: CRE
   init_coefficients = rnorm(2), # Default: all zeros
   tol = 0.01, # Default: 1e-5
   max_iter = 30 # Default: 25
@@ -291,7 +295,7 @@ Here shows how users can simplify the input for `cat_cox`. User do not have to s
 ```{r}
 cat_cox_2 <- cat_cox(
   formula = ~., # Same as `survival::Surv(time, status) ~ .`
-  cat_init = cat_cox_init
+  cat_init = cat_init
 )
 
 cat_cox_2
@@ -300,10 +304,14 @@ cat_cox_2
 Let's check the prediction score. 
 
 ```{r}
-cat(
-  "Catalytic point estimate `cat_cox` - Predition Score:",
-  get_cox_prediction_score(coef(cat_cox_2))
-)
+cat("Catalytic `cat_cox` - Predition Score:", 
+    get_cox_partial_likelihood(
+    X = test_x,
+    time = test_time,
+    status = test_status,
+    coefs = coef(cat_cox_2)
+  ) - MPLE_0
+  )
 ```
 
 Both `cat_cox_1` and `cat_cox_2` objects are outputs from the `cat_cox` function, providing a list of attributes for further analysis or user inspection.
@@ -348,7 +356,7 @@ This method computes the partial likelihood across a specified range of tau valu
 
 Here's a breakdown of the parameters used:
 
-* `formula`, `cat_cox_init` and `...`(ellipsis) are same as [above](#PointEstimate).
+* `formula`, `cat_init` and `...`(ellipsis) are same as [above](#PointEstimate).
 
 * `method`: Method for fitting the model, either "CRE" (Conditional Ridge Estimation) or "WME" (Weighted Maximum Estimation). Defaults to "CRE".
 
@@ -359,45 +367,48 @@ Here's a breakdown of the parameters used:
 * `cv_fold_num`: Number of folds for cross-validation. Defaults to 5.
 
 ```{r}
-devtools::load_all()
-cat_cox_tune_cv_1 <- cat_cox_tune(
+cat_cox_tune_1 <- cat_cox_tune(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .`
-  cat_init = cat_cox_init,
+  cat_init = cat_init,
   method = "CRE", # Default: "CRE"
   likelihood_method = "cross_validation", # Default: "cross_validation"
   tau_seq = seq(1, 50, 0.5), # Default is a numeric sequence around the number of predictors
   cv_fold_num = 3 # Default: 5
 )
 
-cat_cox_tune_cv_1
+cat_cox_tune_1
 ```
 User can plot the tau_seq (x) against discrepancy error (y) using the `plot()` function. This plot will show the lowest discrepancy error at the optimal tau value.
 
 ```{r}
-plot(cat_cox_tune_cv_1, text_pos = 4)
+plot(cat_cox_tune_1, text_pos = 1, legend_pos = "bottomright")
 ```
 
 Here shows how users can simplify the input for `cat_cox_tune`. User do not have to specify `tau_seq` or some other augments, as most of the augments has default values, which mentioned above.
 
 ```{r}
-cat_cox_tune_cv_2 <- cat_cox_tune(
+cat_cox_tune_2 <- cat_cox_tune(
   formula = ~., # Same as `survival::Surv(time, status) ~ .`
-  cat_init = cat_cox_init
+  cat_init = cat_init
 )
 
-cat_cox_tune_cv_2
+cat_cox_tune_2
 ```
 
 Let's check the prediction score. 
 
 ```{r}
-cat(
-  "Catalytic frequntist `cat_cox_tune` - Predition Score:",
-  get_cox_prediction_score(coef(cat_cox_tune_cv_1))
-)
+cat("Catalytic `cat_cox_tune` - Predition Score:", 
+    get_cox_partial_likelihood(
+    X = test_x,
+    time = test_time,
+    status = test_status,
+    coefs = coef(cat_cox_tune_2)
+  ) - MPLE_0
+  )
 ```
 
-`cat_cox_tune_cv_1` and `cat_cox_tune_cv_2` objects are outputs from the `cat_cox_tune` function, providing a list of attributes for further analysis or user inspection.
+`cat_cox_tune_1` and `cat_cox_tune_2` objects are outputs from the `cat_cox_tune` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -416,17 +427,17 @@ Here's a breakdown of all attributes except the input parameters:
 For more details, please check `?cat_cox_tune`.
 
 ```{r}
-names(cat_cox_tune_cv_2)
+names(cat_cox_tune_2)
 ```
 
 User can extract items mentioned above from `cat_cox_tune` object.
 
 ```{r}
 # The method used for maximun likelihood selection
-cat_cox_tune_cv_2$likelihood_method
+cat_cox_tune_2$likelihood_method
 
 # Selected optimal tau value from `tau_seq` that maximize the likelihood
-cat_cox_tune_cv_2$tau
+cat_cox_tune_2$tau
 ```
 
 ## Setp 2.2: Bayesian Approaches{#BayesianApproches}
@@ -441,7 +452,7 @@ In this section, we explore Bayesian approaches using the `cat_cox_bayes` functi
 
 Here's a breakdown of the parameters used:
 
-* `formula` and `cat_cox_init` are same as [above](#PointEstimate).
+* `formula` and `cat_init` are same as [above](#PointEstimate).
 
 * `tau_seq`: Similar to the `tau_seq` in [`cat_cox_tune`](#Tuning). But here, you can also input only one tau value for Bayesian analysis.
 
@@ -474,7 +485,7 @@ For more details, please refer to `?cat_cox_bayes`.
 ```{r}
 cat_cox_bayes_1 <- cat_cox_bayes(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .
-  cat_init = cat_cox_init,
+  cat_init = cat_init,
   tau_seq = c(1, 2), # Default: NULL
   stan_chains = 2, # Default: 4
   stan_iter = 100, # Default: 2000
@@ -493,12 +504,12 @@ cat_cox_bayes_1 <- cat_cox_bayes(
 cat_cox_bayes_1
 ```
 
-Here shows how users can simplify the input for `cat_cox_bayes`. User do not have to specify `family`, `tau` and other attributes, as `family` can derived from `cat_cox_init` , while `tau` and other attributes have default value, which mentioned above.
+Here shows how users can simplify the input for `cat_cox_bayes`. User do not have to specify `family`, `tau` and other attributes, as `family` can derived from `cat_init` , while `tau` and other attributes have default value, which mentioned above.
 
 ```{r}
 cat_cox_bayes_2 <- cat_cox_bayes(
   formula = ~., # Same as `survival::Surv(time, status) ~ .`
-  cat_init = cat_cox_init
+  cat_init = cat_init
 )
 
 cat_cox_bayes_2
@@ -519,10 +530,14 @@ traceplot(cat_cox_bayes_2, inc_warmup = TRUE)
 Let's check the prediction score. 
 
 ```{r}
-cat(
-  "Catalytic bayesian `cat_cox_bayes` - Predition Score:",
-  get_cox_prediction_score(coef(cat_cox_bayes_2))
-)
+cat("Catalytic `cat_cox_bayes` - Predition Score:", 
+    get_cox_partial_likelihood(
+    X = test_x,
+    time = test_time,
+    status = test_status,
+    coefs = coef(cat_cox_bayes_2)
+  ) - MPLE_0
+  )
 ```
 
 Both `cat_cox_bayes_1` and `cat_cox_bayes_2` objects are outputs from the `cat_cox_bayes` function, providing a list of attributes for further analysis or user inspection.
@@ -565,7 +580,7 @@ In this section, we explore Bayesian approaches using the `cat_cox_bayes_joint` 
 
 Here's a breakdown of the parameters used:
 
-* `formula`, `family`, and `cat_cox_init` are same as [above](#PointEstimate).
+* `formula`, `family`, and `cat_init` are same as [above](#PointEstimate).
 
 * `stan_chains`, `stan_iter`, `stan_warmup` and `stan_algorithm` are same in section [Bayesian with Fixed Tau](#BayesWithFixedTau).
 
@@ -586,7 +601,7 @@ For more details, please refer to `?cat_cox_bayes_joint`.
 ```{r}
 cat_cox_bayes_joint_1 <- cat_cox_bayes_joint(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .
-  cat_init = cat_cox_init,
+  cat_init = cat_init,
   stan_chains = 2, # Default: 4
   stan_iter = 100, # Default: 2000
   stan_warmup = 50, # Default: 1000
@@ -605,7 +620,7 @@ Here shows how users can simplify the input for `cat_cox_bayes_joint`. User do n
 ```{r}
 cat_cox_bayes_joint_2 <- cat_cox_bayes_joint(
   formula = ~., # Same as `survival::Surv(time, status) ~ .`
-  cat_init = cat_cox_init
+  cat_init = cat_init
 )
 
 cat_cox_bayes_joint_2
@@ -626,10 +641,14 @@ traceplot(cat_cox_bayes_joint_2, inc_warmup = TRUE)
 Let's check the prediction score. 
 
 ```{r}
-cat(
-  "Catalytic bayesian `cat_cox_bayes_joint` - Predition Score:",
-  get_cox_prediction_score(coef(cat_cox_bayes_joint_2))
-)
+cat("Catalytic `cat_cox_bayes_joint` - Predition Score:", 
+    get_cox_partial_likelihood(
+    X = test_x,
+    time = test_time,
+    status = test_status,
+    coefs = coef(cat_cox_bayes_joint_2)
+  ) - MPLE_0
+  )
 ```
 
 Both `cat_cox_bayes_joint_1` and `cat_cox_bayes_joint_2` objects are outputs from the `cat_cox_bayes_joint` function, providing a list of attributes for further analysis or user inspection.
