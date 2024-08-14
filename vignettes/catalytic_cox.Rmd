@@ -84,10 +84,10 @@ pbc_train_idx <- get_train_idx(pbc)
 train_data <- pbc[pbc_train_idx, ]
 test_data <- pbc[-pbc_train_idx, ]
 
-test_x = test_data[, -which(names(test_data) %in% c("time", "status"))]
-test_time = test_data$time
-test_status = test_data$status
- 
+test_x <- test_data[, -which(names(test_data) %in% c("time", "status"))]
+test_time <- test_data$time
+test_status <- test_data$status
+
 dim(train_data)
 
 head(train_data)
@@ -102,10 +102,11 @@ Finally, we display the computed logarithmic error to assess the model's perform
 ```{r}
 # Calculate MPLE (Marginal Partial Likelihood Estimate) prediction score with 0 coefficients
 MPLE_0 <- get_cox_partial_likelihood(
-    X = test_x,
-    time = test_time,
-    status = test_status,
-    coefs = rep(0, (ncol(test_x))))
+  X = test_x,
+  time = test_time,
+  status = test_status,
+  coefs = rep(0, (ncol(test_x)))
+)
 
 # Fit a COX regression model
 cox_model <- survival::coxph(
@@ -114,14 +115,15 @@ cox_model <- survival::coxph(
 )
 
 # Calculate MPLE (Marginal Partial Likelihood Estimate) prediction score of estimated coefficients minus 0 coefficients
-cat("MLE COX Model - Predition Score:", 
-    get_cox_partial_likelihood(
+cat(
+  "MLE COX Model - Predition Score:",
+  get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
     coefs = coef(cox_model)
   ) - MPLE_0
-  )
+)
 ```
 
 # Usage of `catalytic`
@@ -304,14 +306,15 @@ cat_cox_2
 Let's check the prediction score. 
 
 ```{r}
-cat("Catalytic `cat_cox` - Predition Score:", 
-    get_cox_partial_likelihood(
+cat(
+  "Catalytic `cat_cox` - Predition Score:",
+  get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
     coefs = coef(cat_cox_2)
   ) - MPLE_0
-  )
+)
 ```
 
 Both `cat_cox_1` and `cat_cox_2` objects are outputs from the `cat_cox` function, providing a list of attributes for further analysis or user inspection.
@@ -398,14 +401,15 @@ cat_cox_tune_2
 Let's check the prediction score. 
 
 ```{r}
-cat("Catalytic `cat_cox_tune` - Predition Score:", 
-    get_cox_partial_likelihood(
+cat(
+  "Catalytic `cat_cox_tune` - Predition Score:",
+  get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
     coefs = coef(cat_cox_tune_2)
   ) - MPLE_0
-  )
+)
 ```
 
 `cat_cox_tune_1` and `cat_cox_tune_2` objects are outputs from the `cat_cox_tune` function, providing a list of attributes for further analysis or user inspection.
@@ -530,14 +534,15 @@ traceplot(cat_cox_bayes_2, inc_warmup = TRUE)
 Let's check the prediction score. 
 
 ```{r}
-cat("Catalytic `cat_cox_bayes` - Predition Score:", 
-    get_cox_partial_likelihood(
+cat(
+  "Catalytic `cat_cox_bayes` - Predition Score:",
+  get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
     coefs = coef(cat_cox_bayes_2)
   ) - MPLE_0
-  )
+)
 ```
 
 Both `cat_cox_bayes_1` and `cat_cox_bayes_2` objects are outputs from the `cat_cox_bayes` function, providing a list of attributes for further analysis or user inspection.
@@ -641,14 +646,15 @@ traceplot(cat_cox_bayes_joint_2, inc_warmup = TRUE)
 Let's check the prediction score. 
 
 ```{r}
-cat("Catalytic `cat_cox_bayes_joint` - Predition Score:", 
-    get_cox_partial_likelihood(
+cat(
+  "Catalytic `cat_cox_bayes_joint` - Predition Score:",
+  get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
     coefs = coef(cat_cox_bayes_joint_2)
   ) - MPLE_0
-  )
+)
 ```
 
 Both `cat_cox_bayes_joint_1` and `cat_cox_bayes_joint_2` objects are outputs from the `cat_cox_bayes_joint` function, providing a list of attributes for further analysis or user inspection.

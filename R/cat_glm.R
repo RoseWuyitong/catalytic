@@ -23,21 +23,6 @@
 #'
 #' @export
 #'
-#' @examples
-#' cat_glm_1 <- cat_glm(
-#'   formula = empyr1 ~ 1 + female + agege35,
-#'   family = binomial,
-#'   cat_init = cat_init,
-#'   tau = 10
-#' )
-#' cat_glm_1
-#'
-#' cat_glm_2 <- cat_glm(
-#'   formula = ~.,
-#'   cat_init = cat_init
-#' )
-#' cat_glm_2
-#'
 #' @seealso
 #' \code{\link{cat_glm_initialization}}}
 cat_glm <- function(formula,

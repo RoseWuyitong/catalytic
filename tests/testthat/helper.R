@@ -1,59 +1,104 @@
 set.seed(1)
 
-# ----- mock result -----
-mock_data_glm_gaussian <- function() {
-  return(as.data.frame(matrix(
-    data = rnorm(15),
-    ncol = 3,
-    dimnames = list(c(), c("y", "x1", "x2"))
-  )))
+# ---- GLM Functions ----
+
+#' Generate GLM Data for Testing
+#'
+#' This helper function generates random matrices, coefficients, and response
+#' variables for Gaussian and Binomial GLMs. It also fits the models using the
+#' generated data.
+#'
+#' @return A list containing the design matrix, coefficients, response variables,
+#'         and fitted models for Gaussian and Binomial GLMs.
+glm_data <- function() {
+  X <- matrix(rnorm(15), ncol = 3)
+  Y_gaussian <- rnorm(5)
+  Y_binomial <- rbinom(5, 1, 0.5)
+
+  coefs <- rnorm(4)
+
+  model_gaussian <- glm(Y_gaussian ~ X, family = gaussian)
+  model_binomial <- glm(Y_binomial ~ X, family = binomial)
+
+  return(list(
+    X = X,
+    coefs = coefs,
+    Y_gaussian = Y_gaussian,
+    Y_binomial = Y_binomial,
+    model_gaussian = model_gaussian,
+    model_binomial = model_binomial
+  ))
 }
 
-mock_data_glm_binomial <- function() {
-  data <- mock_data_glm_gaussian()
-  data[, "y"] <- as.integer(runif(data[, "y"]) > 0.5)
-  return(as.data.frame(data))
-}
+cox_data <- function() {
+  X <- matrix(rnorm(15), ncol = 3)
+  time <- rexp(5, rate = 0.1)
+  status <- rbinom(5, 1, 0.5)
 
-mock_data_initialization_glm_gaussian <- function() {
-  data_ <- data_initialization_glm(
-    formula = y ~ 1,
-    family = gaussian(),
-    data = mock_data_glm_gaussian()
-  )
-  return(data_)
-}
+  coefs <- rnorm(3)
 
-mock_data_initialization_glm_binomial <- function() {
-  data_ <- data_initialization_glm(
-    formula = y ~ 1,
-    family = binomial(),
-    data = mock_data_glm_binomial()
-  )
-  return(data_)
+  model <- survival::coxph(survival::Surv(time, status) ~ X)
+
+  return(list(
+    X = X,
+    coefs = coefs,
+    time = time,
+    status = status,
+    model = model
+  ))
 }
 
 
-# TODO: amend
-mock_data_initialization_cox <- function() {
-  data <- matrix(data = rnorm(15), ncol = 3, dimnames = list(c(), c("y", "x1", "x2")))
-  data[, "y"] <- as.integer(runif(data[, "y"]) > 0.5)
-  data_ <- data_initialization_cox(
-    formula = y ~ 1,
-    family = binomial(),
-    data = data
-  )
 
-  return(data_)
-}
+#
+#
+# # ----- mock result -----
+# mock_data_glm_gaussian <- function() {
+#   return(as.data.frame(matrix(
+#     data = rnorm(15),
+#     ncol = 3,
+#     dimnames = list(c(), c("y", "x1", "x2"))
+#   )))
+# }
+#
+# mock_data_glm_binomial <- function() {
+#   data <- mock_data_glm_gaussian()
+#   data[, "y"] <- as.integer(runif(data[, "y"]) > 0.5)
+#   return(as.data.frame(data))
+# }
+#
+# mock_data_initialization_glm_gaussian <- function() {
+#   data_ <- data_initialization_glm(
+#     formula = y ~ 1,
+#     family = gaussian(),
+#     data = mock_data_glm_gaussian()
+#   )
+#   return(data_)
+# }
+#
+# mock_data_initialization_glm_binomial <- function() {
+#   data_ <- data_initialization_glm(
+#     formula = y ~ 1,
+#     family = binomial(),
+#     data = mock_data_glm_binomial()
+#   )
+#   return(data_)
+# }
+#
+#
+# # TODO: amend
+# mock_data_initialization_cox <- function() {
+#   data <- matrix(data = rnorm(15), ncol = 3, dimnames = list(c(), c("y", "x1", "x2")))
+#   data[, "y"] <- as.integer(runif(data[, "y"]) > 0.5)
+#   data_ <- data_initialization_cox(
+#     formula = y ~ 1,
+#     family = binomial(),
+#     data = data
+#   )
+#
+#   return(data_)
+# }
 
-# Create a mock menu function
-mock_menu <- function(return_value) {
-  assign("menu", function(choices, title = NULL) {
-    cat(title, "\n") # Optionally print the title
-    return_value
-  }, envir = .GlobalEnv)
-}
 
 # ----- Expect function -----
 

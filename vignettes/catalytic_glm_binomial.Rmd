@@ -93,8 +93,9 @@ predicted_y <- predict(
 cat(
   "MLE GLM Binomial Model - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = predicted_y)
+    Y = real_test_y,
+    est_Y = predicted_y
+  )
 )
 ```
 
@@ -274,8 +275,9 @@ cat_glm_predicted_y <- predict(
 cat(
   "Catalytic `cat_glm` - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = cat_glm_predicted_y)
+    Y = real_test_y,
+    est_Y = cat_glm_predicted_y
+  )
 )
 ```
 
@@ -449,8 +451,9 @@ cat_glm_tune_predicted_y <- predict(
 cat(
   "Catalytic `cat_glm_tune` - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = cat_glm_tune_predicted_y)
+    Y = real_test_y,
+    est_Y = cat_glm_tune_predicted_y
+  )
 )
 ```
 
@@ -569,8 +572,9 @@ cat_glm_bayes_predicted_y <- predict(
 cat(
   "MLE GLM Binomial Model - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = cat_glm_bayes_predicted_y)
+    Y = real_test_y,
+    est_Y = cat_glm_bayes_predicted_y
+  )
 )
 ```
 
@@ -686,8 +690,9 @@ cat_glm_bayes_joint_predicted_y <- predict(
 cat(
   "Catlytic `cat_glm_bayes_joint` - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = cat_glm_bayes_joint_predicted_y)
+    Y = real_test_y,
+    est_Y = cat_glm_bayes_joint_predicted_y
+  )
 )
 ```
 
@@ -841,8 +846,9 @@ cat_glm_bayes_joint_gibbs_predicted_y <- predict(
 cat(
   "Catalytic `cat_glm_bayes_joint_gibbs` - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = cat_glm_bayes_joint_gibbs_predicted_y)
+    Y = real_test_y,
+    est_Y = cat_glm_bayes_joint_gibbs_predicted_y
+  )
 )
 ```
 
@@ -917,8 +923,9 @@ cat_glm_bayes_joint_tau_lower_predicted_y <- predict(
 cat(
   "Catalytic `cat_glm_bayes_joint_tau_lower` - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = cat_glm_bayes_joint_tau_lower_predicted_y)
+    Y = real_test_y,
+    est_Y = cat_glm_bayes_joint_tau_lower_predicted_y
+  )
 )
 ```
 
@@ -962,8 +969,9 @@ cat_glm_bayes_joint_theta_predicted_y <- predict(
 cat(
   "Catalytic `cat_glm_bayes_joint_theta` - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = cat_glm_bayes_joint_theta_predicted_y)
+    Y = real_test_y,
+    est_Y = cat_glm_bayes_joint_theta_predicted_y
+  )
 )
 ```
 
@@ -1002,8 +1010,9 @@ cat_glm_bayes_joint_alpha_predicted_y <- predict(
 cat(
   "Catalytic `cat_glm_bayes_joint_alpha` - Logarithmic Error:",
   get_discrepancy("logarithmic_error",
-                  Y = real_test_y,
-                  est_Y = cat_glm_bayes_joint_alpha_predicted_y)
+    Y = real_test_y,
+    est_Y = cat_glm_bayes_joint_alpha_predicted_y
+  )
 )
 ```
 

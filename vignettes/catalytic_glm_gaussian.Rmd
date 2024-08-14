@@ -65,7 +65,7 @@ n <- 50 # Number of observations
 p <- 10 # Number of predictors
 
 obs_x <- matrix(rnorm(n * p), ncol = p)
-real_coefs <- rnorm(p+1)
+real_coefs <- rnorm(p + 1)
 noise <- rnorm(n) * 3 # Increase noise for more response variability
 obs_y <- real_coefs[1] + obs_x %*% real_coefs[-1] + noise
 
@@ -113,13 +113,14 @@ cat(
 Let us check the scatter plot of the `predicted_y` from `glm_model` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-plot(real_test_y, 
-     predicted_y, 
-     main = "Scatter Plot of Real Y vs Predicted Y",
-     xlab = "Real Y",
-     ylab = "Predicted Y",
-     pch = 19, 
-     col = "blue")
+plot(real_test_y,
+  predicted_y,
+  main = "Scatter Plot of Real Y vs Predicted Y",
+  xlab = "Real Y",
+  ylab = "Predicted Y",
+  pch = 19,
+  col = "blue"
+)
 
 # Add a 45-degree line for reference
 abline(a = 0, b = 1, col = "red", lwd = 2)
@@ -305,13 +306,14 @@ cat(
 Let us check the scatter plot of the `cat_glm_predicted_y` from `cat_glm_2` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-plot(real_test_y, 
-     cat_glm_predicted_y,
-     main = "Scatter Plot of Real Y vs Predicted Y (cat_glm)",
-     xlab = "Real Y",
-     ylab = "Predicted Y (cat_glm)",
-     pch = 19, 
-     col = "blue")
+plot(real_test_y,
+  cat_glm_predicted_y,
+  main = "Scatter Plot of Real Y vs Predicted Y (cat_glm)",
+  xlab = "Real Y",
+  ylab = "Predicted Y (cat_glm)",
+  pch = 19,
+  col = "blue"
+)
 
 # Add a 45-degree line for reference
 abline(a = 0, b = 1, col = "red", lwd = 2)
@@ -491,12 +493,13 @@ cat(
 Let us check the scatter plot of the `cat_glm_tune_predicted_y` from `cat_glm_tune_auto` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-plot(real_test_y, cat_glm_tune_predicted_y, 
-     main = "Scatter Plot of Real Y vs Predicted Y (cat_glm_tune)",
-     xlab = "Real Y",
-     ylab = "Predicted Y (cat_glm_tune)",
-     pch = 19, 
-     col = "blue")
+plot(real_test_y, cat_glm_tune_predicted_y,
+  main = "Scatter Plot of Real Y vs Predicted Y (cat_glm_tune)",
+  xlab = "Real Y",
+  ylab = "Predicted Y (cat_glm_tune)",
+  pch = 19,
+  col = "blue"
+)
 
 # Add a 45-degree line for reference
 abline(a = 0, b = 1, col = "red", lwd = 2)
@@ -621,12 +624,13 @@ cat(
 Let us check the scatter plot of the `cat_glm_bayes_predicted_y` from `cat_glm_bayes` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-plot(real_test_y, cat_glm_bayes_predicted_y, 
-     main = "Scatter Plot of Real Y vs Predicted Y (cat_glm_bayes)",
-     xlab = "Real Y",
-     ylab = "Predicted Y (cat_glm_bayes)",
-     pch = 19, 
-     col = "blue")
+plot(real_test_y, cat_glm_bayes_predicted_y,
+  main = "Scatter Plot of Real Y vs Predicted Y (cat_glm_bayes)",
+  xlab = "Real Y",
+  ylab = "Predicted Y (cat_glm_bayes)",
+  pch = 19,
+  col = "blue"
+)
 
 # Add a 45-degree line for reference
 abline(a = 0, b = 1, col = "red", lwd = 2)
@@ -748,13 +752,14 @@ cat(
 Let us check the scatter plot of the `predicted_y` from `glm_model` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-plot(real_test_y, 
-     cat_glm_bayes_joint_predicted_y, 
-     main = "Scatter Plot of Real Y vs Predicted Y (cat_glm_bayes_joint)",
-     xlab = "Real Y",
-     ylab = "Predicted Y (cat_glm_bayes_joint)",
-     pch = 19, 
-     col = "blue")
+plot(real_test_y,
+  cat_glm_bayes_joint_predicted_y,
+  main = "Scatter Plot of Real Y vs Predicted Y (cat_glm_bayes_joint)",
+  xlab = "Real Y",
+  ylab = "Predicted Y (cat_glm_bayes_joint)",
+  pch = 19,
+  col = "blue"
+)
 
 # Add a 45-degree line for reference
 abline(a = 0, b = 1, col = "red", lwd = 2)

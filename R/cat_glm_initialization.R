@@ -77,9 +77,19 @@ cat_glm_initialization <- function(formula,
 
 
   family <- get_glm_family(family)
+  if (!(family %in% c("binomial", "gaussian"))) {
+    stop(
+      paste0(
+        "The provided family should be only `binomial` or `gaussian`. <",
+        family,
+        "> is invalid."
+      )
+    )
+  }
 
   # Extract the column name of response
   y_col_name <- get_formula_lhs(formula)
+  if (y_col_name == "NULL") stop(paste0("The provided formula <",get_formula_string(formula),">is invalid."))
 
   # Extract and standardize observation covariate and response
   data <- get_standardized_data(
@@ -94,7 +104,12 @@ cat_glm_initialization <- function(formula,
   obs_data <- cbind(obs_x, obs_y)
 
   if (is.null(x_degree)) x_degree <- rep(1, ncol(obs_x))
-  if (is.null(syn_size)) syn_size <- ncol(obs_x) * 4
+  if (length(x_degree) != ncol(obs_x) | any(x_degree<= 0)) stop(paste0(
+    "The provided x_degree should be a vector of positive values with ",
+    "the number of columns of covariances. <",paste(x_degree, collapse = ","),">is invalid."))
+
+  syn_size <- if (is.null(syn_size)) ncol(obs_x) * 4 else as.integer(syn_size)
+  if (syn_size < 0) stop(paste0("The provided syn_size should be positive integer larger than 1. <",syn_size,">is invalid."))
 
   # Generate synthetic covariate by resampling observation covariate
   syn_x_inform <- get_resampled_data(
@@ -121,24 +136,25 @@ cat_glm_initialization <- function(formula,
       type = if (family == "binomial") "response" else "link"
     )
 
-    syn_y <- as.data.frame(get_glm_sample_data(
+    syn_y <- get_glm_sample_data(
       family = family,
       n = length(prob),
       mean = prob
-    ))
+    )
 
-    obs_y <- apply(obs_y, 2, function(x) as.integer(as.character(x)))
-    syn_y <- apply(syn_y, 2, function(x) as.integer(as.character(x)))
+    obs_y <- as.data.frame(apply(obs_y, 2, function(x) as.integer(x)))
+    syn_y <- as.integer(syn_y)
   } else {
-    syn_y <- as.data.frame(stats::predict(
+    syn_y <- stats::predict(
       simple_model,
       syn_x
-    ))
+    )
 
-    obs_y <- apply(obs_y, 2, function(x) as.numeric(as.character(x)))
-    syn_y <- apply(syn_y, 2, function(x) as.numeric(as.character(x)))
+    obs_y <- as.data.frame(apply(obs_y, 2, function(x) as.numeric(x)))
+    syn_y <- as.numeric(syn_y)
   }
 
+  syn_y <- as.data.frame(syn_y)
   colnames(syn_y) <- y_col_name
 
   cat_init <- list(
