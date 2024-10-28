@@ -1,137 +1,171 @@
 #' Title
 #'
-#' @param data_
+#' @param cat_init
 #' @param tau
 #' @param ...
 #' @param max_iter
 #' @param tol
-#' @param init_sig_square
-#' @param init_coefficients
+#' @param variance_params_0
+#' @param coefs_0
 #'
 #' @return
 #' @export
 #'
 #' @examples
 cat_lmm <- function(
-    formula,
-    data_,
+    cat_init,
     tau = NULL,
-    ...,
+    residual_variance_0 = 1,
+    random_effect_variance_0 = 1,
+    coefs_0 = NULL,
+    optimize_domain = c(0, 30),
     max_iter = 500,
-    tol = 1e-08,
-    init_sig_square = c(1, 1),
-    init_coefficients = NULL,
-    optimize_domain = c(0, 30)) {
-  .not_true_stop(
-    is.data_lmm(data_),
-    paste(
-      "Please enter `data_` that generated from",
-      "catalytic::data_initialization_lmm."
-    )
+    tol = 1e-08) {
+  # Validate Input Parameters
+  validate_lmm_input(
+    cat_init = cat_init,
+    tau = tau,
+    residual_variance_0 = residual_variance_0,
+    random_effect_variance_0 = random_effect_variance_0,
+    coefs_0 = coefs_0,
+    optimize_domain = optimize_domain,
+    max_iter = max_iter,
+    tol = tol
   )
 
-  tau <- if (is.null(tau)) ncol(data_$obs_x) / 4 else tau
+  if (is.null(tau)) tau <- ncol(cat_init$obs_x) / 4
 
-  ZZT <- tcrossprod(as.matrix(data_$obs_z))
-  eigen_ZZT <- eigen(ZZT)
-  d_seq <- eigen_ZZT$values
-  U <- eigen_ZZT$vectors
+  # Sort synthetic data by group
+  sorted_syn_data <- cbind(
+    cat_init$syn_x,
+    setNames(as.data.frame(cat_init$syn_y), cat_init$y_col),
+    cat_init$syn_z,
+    setNames(as.data.frame(cat_init$syn_group), cat_init$group_col)
+  )[order(cat_init$syn_group), ]
 
-  # Adapt CODE 14 May wait for check
-  combined_df <- data.frame(
-    syn_x = I(data_$syn_x),
-    syn_y = I(data_$syn_y),
-    syn_z = I(data_$syn_z),
-    syn_group_col = I(data_$syn_group_col)
-  )
-  sorted_df <- combined_df[order(combined_df$syn_group_col), ]
-  data_$syn_x <- sorted_df$syn_x
-  data_$syn_y <- sorted_df$syn_y
-  data_$syn_z <- sorted_df$syn_z
+  cat_init$syn_data <- sorted_syn_data
+  cat_init$syn_x <- sorted_syn_data$syn_x
+  cat_init$syn_y <- sorted_syn_data$syn_y
+  cat_init$syn_z <- sorted_syn_data$syn_z
+  cat_init$syn_group <- sorted_syn_data$syn_group
 
+  # Calculates the eigenvalues and eigenvectors of obs_z
+  obs_z_eigen <- eigen(tcrossprod(as.matrix(cat_init$obs_z)))
+  obs_z_eigenvalues <- obs_z_eigen$values
+  obs_z_eigenvectors <- obs_z_eigen$vectors
 
-  d_seq_star <- c(rep(0, data_$syn_size))
-  U_star <- matrix(0, ncol = data_$syn_size, nrow = data_$syn_size)
-  add_up <- 0
-  for (g in unique(data_$group_col)) {
-    idx <- which(data_$syn_group_col == g)
-    Z_synZ_synT <- tcrossprod(data_$syn_z[idx, ])
-    eigen_Z_synZ_synT <- eigen(Z_synZ_synT)
-    d_seq_star[idx] <- eigen_Z_synZ_synT$values
-    U_star[(1:nrow(eigen_Z_synZ_synT$vectors)) + add_up, idx] <- eigen_Z_synZ_synT$vectors
-    add_up <- add_up + nrow(eigen_Z_synZ_synT$vectors)
+  # Calculates the eigenvalues and eigenvectors of syb_z
+  syn_z_eigenvalues <- c(rep(0, cat_init$syn_size))
+  syn_z_eigenvectors <- matrix(0, ncol = cat_init$syn_size, nrow = cat_init$syn_size)
+  row_offset <- 0
+
+  for (g in unique(cat_init$group)) {
+    group_idx <- which(cat_init$syn_group == g)
+
+    syn_z_eigen <- eigen(tcrossprod(cat_init$syn_z[group_idx, ]))
+    syn_z_eigenvalues[group_idx] <- syn_z_eigen$values
+    syn_z_eigenvectors[((1:nrow(syn_z_eigen$vectors)) + row_offset), group_idx] <- syn_z_eigen$vectors
+
+    row_offset <- row_offset + nrow(syn_z_eigen$vectors)
   }
+
+  coefs <- if (is.null(coefs_0)) rnorm(ncol(cat_init$obs_x)) else coefs_0
+  residual_variance <- residual_variance_0
+  random_effect_variance <- random_effect_variance_0
+
+  iteration_log <- matrix(
+    data = c(residual_variance, random_effect_variance, coefs),
+    ncol = (2 + length(coefs))
+  )
+
+  colnames(iteration_log) <- c(
+    "residual_variance",
+    "random_effect_variance",
+    paste0("prev_coefs[", 1:length(coefs), "]")
+  )
 
   iter <- 0
-  coefficients_new <- if (is.null(init_coefficients)) rnorm(ncol(data_$obs_x)) else init_coefficients
-  sig_square_par_new <- init_sig_square
+  parameters_converged <- FALSE
 
-  parameter_diff <- TRUE
+  while ((iter < max_iter) & (!parameters_converged)) {
+    prev_coefs <- coefs
+    prev_residual_variance <- residual_variance
+    prev_random_effect_variance <- random_effect_variance
 
-  iter_collect <- matrix(
-    data = c(sig_square_par_new, coefficients_new),
-    ncol = (2 + length(coefficients_new))
-  )
-  colnames(iter_collect) <- c("sigma_square", "sigma_u_square", paste0("beta[", 1:length(coefficients_new), "]"))
-
-  while ((iter < max_iter) & (parameter_diff)) {
-    coefficients_old <- coefficients_new
-    V_inv <- quadform::quad.tform(
-      diag(1 / (sig_square_par_new[1] + sig_square_par_new[2] * d_seq)), U
+    obs_z_inv <- quadform::quad.tform(
+      diag(1 / (residual_variance + random_effect_variance * obs_z_eigenvalues)),
+      obs_z_eigenvectors
     )
-    V_star_inv <- quadform::quad.tform(
-      diag(1 / (sig_square_par_new[1] + sig_square_par_new[2] * d_seq_star)), U_star
+
+    syn_z_inv <- quadform::quad.tform(
+      diag(1 / (residual_variance + random_effect_variance * syn_z_eigenvalues)),
+      syn_z_eigenvectors
     )
-    coefficients_new <- MASS::ginv(tau / data_$syn_size * quadform::quad.form(V_star_inv, data_$syn_x) +
-      quadform::quad.form(V_inv, data_$obs_x)) %*% (
-      quadform::quad.3form(V_inv, data_$obs_x, data_$obs_y) +
-        tau / data_$syn_size * quadform::quad.3form(V_star_inv, data_$syn_x, data_$syn_y))
-    q <- t(U) %*% (data_$obs_y - data_$obs_x %*% coefficients_new)
-    q_star <- t(U_star) %*% (data_$syn_y - data_$syn_x %*% coefficients_new)
-    sig_square_par_old <- sig_square_par_new
-    sigma_square_old <- sig_square_par_new[1]
-    sigma_u_square_new <- stats::optimize(update_sigma_square_cat,
+
+    # Update coefficients using generalized inverse and current parameter estimates
+    coefs <- MASS::ginv(
+      (tau / cat_init$syn_size) * quadform::quad.form(syn_z_inv, cat_init$syn_x) +
+        quadform::quad.form(obs_z_inv, cat_init$obs_x)
+    ) %*% (
+      quadform::quad.3form(obs_z_inv, cat_init$obs_x, cat_init$obs_y) +
+        tau / cat_init$syn_size * quadform::quad.3form(syn_z_inv, cat_init$syn_x, cat_init$syn_y))
+
+    obs_adjusted_residuals <- t(obs_z_eigenvectors) %*% (cat_init$obs_y - cat_init$obs_x %*% coefs)
+    syn_adjusted_residuals <- t(syn_z_eigenvectors) %*% (cat_init$syn_y - cat_init$syn_x %*% coefs)
+
+    random_effect_variance <- stats::optimize(update_lmm_variance,
       optimize_domain,
-      sigma_square = sigma_square_old,
-      d_seq = d_seq,
-      d_seq_star = d_seq_star,
-      q = q,
-      q_star = q_star,
+      residual_variance = prev_residual_variance,
+      obs_z_eigenvalues = obs_z_eigenvalues,
+      syn_z_eigenvalues = syn_z_eigenvalues,
+      obs_adjusted_residuals = obs_adjusted_residuals,
+      syn_adjusted_residuals = syn_adjusted_residuals,
       tau = tau
     )$minimum
-    sigma_square_new <- stats::optimize(update_sigma_square_cat,
+
+    residual_variance <- stats::optimize(update_lmm_variance,
       optimize_domain,
-      sigma_u_square = sigma_u_square_new,
-      d_seq = d_seq,
-      d_seq_star = d_seq_star,
-      q = q,
-      q_star = q_star,
+      random_effect_variance = random_effect_variance,
+      obs_z_eigenvalues = obs_z_eigenvalues,
+      syn_z_eigenvalues = syn_z_eigenvalues,
+      obs_adjusted_residuals = obs_adjusted_residuals,
+      syn_adjusted_residuals = syn_adjusted_residuals,
       tau = tau
     )$minimum
-    sig_square_par_new <- c(sigma_square_new, sigma_u_square_new)
 
-    if ((norm(sig_square_par_new - sig_square_par_old, "2") < tol) & (norm(coefficients_new - coefficients_old, "2") < tol)) {
-      parameter_diff <- FALSE
+    if ((norm(
+      c(residual_variance, random_effect_variance) -
+        c(prev_residual_variance, prev_random_effect_variance),
+      "2"
+    ) < tol) & (norm(coefs - prev_coefs, "2") < tol)) {
+      parameters_converged <- TRUE
     }
+
     iter <- iter + 1
-    iter_collect <- rbind(iter_collect, c(sig_square_par_new, coefficients_new))
+    iteration_log <- rbind(
+      iteration_log,
+      c(residual_variance, random_effect_variance, coefs)
+    )
   }
 
-
-  cat_lmer_obj <- list(
+  # Finalize Setup and Output
+  cat_model <- list(
     function_name = "cat_lmm",
-    data_ = data_,
-    var_par = sig_square_par_new,
-    coefficients = as.numeric(coefficients_new),
+    ## Input/Processed parameters
+    cat_init = cat_init,
     tau = tau,
-    iter_collect = iter_collect,
+    residual_variance_0 = residual_variance_0,
+    random_effect_variance_0 = random_effect_variance_0,
+    coefs_0 = coefs_0,
+    optimize_domain = optimize_domain,
     max_iter = max_iter,
     tol = tol,
-    optimize_domain = optimize_domain
+    ## Result
+    coefficients = as.numeric(coefs),
+    iteration_log = iteration_log,
   )
 
-  class(cat_lmer_obj) <- c(cat_lmer_obj$class, "lmm", "cat_lmm")
+  class(cat_model) <- c(cat_model$class, "cat_lmm")
 
-
-  return(cat_lmer_obj)
+  return(cat_model)
 }

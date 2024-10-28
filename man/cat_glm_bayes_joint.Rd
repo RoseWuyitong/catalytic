@@ -6,29 +6,34 @@
 \usage{
 cat_glm_bayes_joint(
   formula,
-  family = NULL,
   cat_init,
-  ...,
-  stan_chains = 4,
-  stan_iter = 2000,
-  stan_warmup = 1000,
-  stan_algorithm = "NUTS",
-  alpha = 2,
-  gamma = 1,
-  binomial_use_theta = FALSE,
+  tau_alpha = 2,
+  tau_gamma = 1,
+  binomial_tau_lower = 0.05,
+  binomial_joint_theta = FALSE,
   binomial_joint_alpha = FALSE,
-  binomial_tau_lower = 0.05
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  algorithm = "NUTS",
+  ...
 )
 }
 \arguments{
 \item{formula}{The model formula specifying the relationship between the response variable and predictors.
 Use format \code{RESPONSE ~ COVARIATES}. Alternatively, \code{~ COVARIATES} (e.g., \code{~ .}) can be used without specifying the response name.}
 
-\item{family}{The GLM family to use for modeling. If not provided (\code{NULL}), defaults to the family specified in \code{cat_init}.}
-
 \item{cat_init}{Initialization object created using \code{cat_glm_initialization}, containing observed and synthetic data, plus other relevant information.}
 
+\item{binomial_tau_lower}{Lower limit for the tau parameter in the binomial model. Default is 0.05.}
+
+\item{binomial_joint_theta}{Logical. If TRUE, use theta parameter in the binomial model. Default is FALSE.}
+
+\item{binomial_joint_alpha}{Logical. If TRUE, use joint alpha in the binomial model. Default is FALSE.}
+
 \item{...}{Additional arguments passed to the \code{rstan::sampling} function for customizing the MCMC sampling process.}
+
+\item{family}{The GLM family to use for modeling. If not provided (\code{NULL}), defaults to the family specified in \code{cat_init}.}
 
 \item{stan_chains}{Number of Markov chains to run during MCMC sampling. Default is 4.}
 
@@ -41,12 +46,6 @@ Use format \code{RESPONSE ~ COVARIATES}. Alternatively, \code{~ COVARIATES} (e.g
 \item{alpha}{Alpha parameter controlling degrees of freedom for the Student's t-distribution in the joint tau approach. Default is 2.}
 
 \item{gamma}{Gamma parameter in the joint tau approach. Default is 1.}
-
-\item{binomial_use_theta}{Logical. If TRUE, use theta parameter in the binomial model. Default is FALSE.}
-
-\item{binomial_joint_alpha}{Logical. If TRUE, use joint alpha in the binomial model. Default is FALSE.}
-
-\item{binomial_tau_lower}{Lower limit for the tau parameter in the binomial model. Default is 0.05.}
 }
 \value{
 A list containing various attributes:
@@ -61,7 +60,7 @@ A list containing various attributes:
 \item \code{stan_algorithm}: Sampling algorithm used.
 \item \code{alpha}: Alpha parameter for joint tau approach.
 \item \code{gamma}: Gamma parameter for joint tau approach.
-\item \code{binomial_use_theta}: Whether theta parameter is used in binomial model.
+\item \code{binomial_joint_theta}: Whether theta parameter is used in binomial model.
 \item \code{binomial_joint_alpha}: Whether joint alpha is used in binomial model.
 \item \code{binomial_tau_lower}: Lower limit for tau in binomial model.
 \item \code{tau}: Estimated tau parameter.

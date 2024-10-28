@@ -6,46 +6,40 @@
 \usage{
 cat_glm_bayes_joint_gibbs(
   formula,
-  family = NULL,
   cat_init,
-  gibbs_iter = 1000,
-  gibbs_warmup = 500,
-  ...,
-  coefficients_iter = 5,
-  init_tau = NULL,
-  init_coefficients = NULL,
-  alpha = 2,
-  gamma = 1,
-  stan_refresh = 0,
-  gibbs_refresh = TRUE
+  iter = 1000,
+  warmup = 500,
+  coefs_iter = 5,
+  tau_0 = NULL,
+  tau_alpha = 2,
+  tau_gamma = 1,
+  refresh = TRUE
 )
 }
 \arguments{
 \item{formula}{The model formula specifying the response variable and predictors.}
 
-\item{family}{GLM family to use. Defaults inferred from \code{cat_init}).}
-
 \item{cat_init}{Initialized data object from \code{catalytic::cat_glm_initialization}.}
 
-\item{gibbs_iter}{Total number of Gibbs sampling iterations. Defaults to 2000.}
+\item{iter}{Total number of Gibbs sampling iterations. Defaults to 2000.}
+
+\item{coefs_iter}{Number of iterations in the HMC sampling for coefs. Defaults to 5.}
+
+\item{tau_0}{Initial value for tau (downweighting factor for synthetic data). Defaults to one forth of the number of predictors.}
+
+\item{tau_alpha}{Shape parameter for the tau_gamma distribution used in tau sampling. Defaults to 2.}
+
+\item{tau_gamma}{Rate parameter for the tau_gamma distribution used in tau sampling. Defaults to 1.}
+
+\item{refresh}{Logical flag indicating whether to print progress in Gibbs sampling. Defaults to TRUE.}
+
+\item{family}{GLM family to use. Defaults inferred from \code{cat_init}).}
 
 \item{gibbs_warmup}{Number of warmup iterations in Gibbs sampling. Defaults to 1000.}
 
 \item{...}{Additional arguments passed to \code{stats:glm}, for generating \code{init_coefficients}}
 
-\item{coefficients_iter}{Number of iterations in the HMC sampling for coefficients. Defaults to 5.}
-
-\item{init_tau}{Initial value for tau (downweighting factor for synthetic data). Defaults to one forth of the number of predictors.}
-
-\item{init_coefficients}{Initial coefficients for the GLM model. Defaults to simple glm model within function.}
-
-\item{alpha}{Shape parameter for the gamma distribution used in tau sampling. Defaults to 2.}
-
-\item{gamma}{Rate parameter for the gamma distribution used in tau sampling. Defaults to 1.}
-
-\item{stan_refresh}{Refresh rate for the Stan sampling. Defaults to 0.}
-
-\item{gibbs_refresh}{Logical flag indicating whether to print progress in Gibbs sampling. Defaults to TRUE.}
+\item{init_coefficients}{Initial coefs for the GLM model. Defaults to simple glm model within function.}
 }
 \value{
 An object of class \code{cat_glm_bayes_joint_gibbs} containing:
@@ -53,37 +47,37 @@ An object of class \code{cat_glm_bayes_joint_gibbs} containing:
 \item{formula}{Formula used for modeling.}
 \item{family}{GLM family used for modeling.}
 \item{cat_init}{Initialized data object from \code{cat_glm_initialization}.}
-\item{gibbs_iter}{Total number of Gibbs sampling iterations.}
+\item{iter}{Total number of Gibbs sampling iterations.}
 \item{gibbs_warmup}{Number of warmup iterations for Gibbs sampling.}
-\item{coefficients_iter}{Number of iterations for updating coefficients in the HMC step.}
-\item{init_tau}{Initial value for tau used in modeling.}
-\item{init_coefficients}{Initial coefficients used in HMC (if provided).}
-\item{alpha}{Shape parameter for the gamma distribution in Gibbs sampling.}
-\item{gamma}{Rate parameter for the gamma distribution in Gibbs sampling.}
+\item{coefs_iter}{Number of iterations for updating coefs in the HMC step.}
+\item{tau_0}{Initial value for tau used in modeling.}
+\item{init_coefficients}{Initial coefs used in HMC (if provided).}
+\item{tau_alpha}{Shape parameter for the tau_gamma distribution in Gibbs sampling.}
+\item{tau_gamma}{Rate parameter for the tau_gamma distribution in Gibbs sampling.}
 \item{sys_time}{Timestamp of the sampling process completion.}
-\item{coefs_tau_model}{Fitted GLM model object using adjusted data and tau.}
+\item{tau_model}{Fitted GLM model object using adjusted data and tau.}
 \item{inform_df}{Summary statistics of the Gibbs sampling output.}
-\item{gibbs_collect}{Matrix containing the Gibbs sampling results for tau and coefficients.}
+\item{gibbs_collect}{Matrix containing the Gibbs sampling results for tau and coefs.}
 \item{tau}{Mean of sampled value of tau.}
-\item{coefficients}{Mean of sampled coefficients from the posterior distribution.}
+\item{coefs}{Mean of sampled coefs from the posterior distribution.}
 }
 \description{
 Fits a Bayesian generalized linear model (GLM) using a combination of Gibbs sampling
-and Hamiltonian Monte Carlo (HMC) for sampling tau and coefficients.
+and Hamiltonian Monte Carlo (HMC) for sampling tau and coefs.
 }
 \details{
 This function fits a Bayesian GLM using Gibbs sampling to update tau and Hamiltonian
-Monte Carlo (HMC) for updating coefficients. It supports logistic regression models
+Monte Carlo (HMC) for updating coefs. It supports logistic regression models
 (\code{binomial} family) and is designed to handle synthetic data in a Bayesian framework.
 
-Gibbs sampling iteratively updates tau and HMC samples coefficients by simulating
+Gibbs sampling iteratively updates tau and HMC samples coefs by simulating
 Hamiltonian dynamics. The function provides flexibility in specifying initial values,
 sampling iterations, and control over the sampling algorithms used.
 }
 \note{
 \itemize{
 \item This function assumes \code{cat_init} is created using \code{catalytic::cat_glm_initialization}.
-\item Ensure \code{gibbs_iter} is greater than \code{gibbs_warmup} to ensure proper sampling.
+\item Ensure \code{iter} is greater than \code{gibbs_warmup} to ensure proper sampling.
 }
 }
 \references{

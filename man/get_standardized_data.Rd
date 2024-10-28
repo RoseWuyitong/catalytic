@@ -2,30 +2,31 @@
 % Please edit documentation in R/misc.R
 \name{get_standardized_data}
 \alias{get_standardized_data}
-\title{Standardize and preprocess a data frame}
+\title{Standardize Data}
 \usage{
 get_standardized_data(data, na_replace = stats::na.omit)
 }
 \arguments{
-\item{data}{A data frame containing numeric or categorical data.}
+\item{data}{A data frame to be standardized.}
 
-\item{na_replace}{Function or value to replace NA values. Default is \code{stats::na.omit}.}
+\item{na_replace}{A function or numeric value used to replace NA values. If a function, it should take a vector and return a replacement value.
+If a numeric value, it is used directly to replace NA values in continuous columns.
+The default is \code{stats::na.omit}, which omits rows with NA values (used as an indicator here, not the actual replacement value).}
 }
 \value{
-A standardized data frame with converted columns and replaced NA values.
+A data frame where columns have been converted to numeric or factor types, and NA values have been replaced according to the method specified.
 }
 \description{
-This function converts columns in a data frame to numeric or factor types,
-and replaces missing values with either a specified value or the mode of the column.
+This function standardizes a dataset by converting columns to numeric or factor types and replacing NA values.
+For continuous variables, NA values are replaced with either a specific numeric value or a computed statistic.
+For categorical variables, NA values are replaced with the mode of the column.
 }
 \examples{
 data <- data.frame(
-  x1 = c(1, 2, NA, 4),
-  x2 = c("A", "B", NA, "A")
+  numeric_col = c(1, 2, NA, 4),
+  factor_col = factor(c("A", "B", "A", NA)),
+  stringsAsFactors = FALSE
 )
-standardized_data_omit <- get_standardized_data(data)
-print(standardized_data_omit)
-
-standardized_data_mean <- get_standardized_data(data, mean)
-print(standardized_data_mean)
+standardized_data <- get_standardized_data(data, na_replace = 0)
+standardized_data
 }

@@ -7,20 +7,25 @@
 cat_cox_bayes_joint(
   formula,
   cat_init,
-  ...,
-  stan_chains = 4,
-  stan_iter = 2000,
-  stan_warmup = 1000,
-  alpha = 2,
-  gamma = 1,
-  c_0 = 2,
-  H_star_list = NULL
+  hazard_beta = 2,
+  tau_alpha = 2,
+  tau_gamma = 1,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  ...
 )
 }
 \arguments{
 \item{formula}{A formula specifying the survival model. Must use \code{Surv} for survival analysis.}
 
 \item{cat_init}{An object generated from \code{catalytic::cat_cox_initialization} containing initialization data.}
+
+\item{hazard_beta}{Small value of \code{hazard_beta} corresponds to a more diffuse and less informative prior (default is 2).}
+
+\item{tau_alpha}{Hyperparameter for the Gamma prior (default is 2).}
+
+\item{tau_gamma}{Hyperparameter for the Gamma prior (default is 1).}
 
 \item{...}{Additional arguments passed to the \code{rstan::sampling} function.}
 
@@ -29,12 +34,6 @@ cat_cox_bayes_joint(
 \item{stan_iter}{Total number of iterations (default is 2000).}
 
 \item{stan_warmup}{Number of warmup iterations (default is 1000).}
-
-\item{alpha}{Hyperparameter for the Gamma prior (default is 2).}
-
-\item{gamma}{Hyperparameter for the Gamma prior (default is 1).}
-
-\item{c_0}{Small value of \code{c_0} corresponds to a more diffuse and less informative prior (default is 2).}
 
 \item{H_star_list}{Optional list of cumulative hazard values. If NULL, it is estimated from a Weibull regression model.}
 }
@@ -46,7 +45,7 @@ A list containing:
 \item{stan_chains}{Number of chains used in Stan sampling.}
 \item{stan_iter}{Number of iterations used in Stan sampling.}
 \item{stan_warmup}{Number of warmup iterations used in Stan sampling.}
-\item{c_0}{The prior parameter value \code{c_0}.}
+\item{hazard_beta}{The prior parameter value \code{hazard_beta}.}
 \item{H_star_list}{List of cumulative hazard values.}
 \item{stan_model}{The compiled Stan model object.}
 \item{stan_sample_model}{The fitted Stan model object.}

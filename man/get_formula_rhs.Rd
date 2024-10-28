@@ -2,25 +2,24 @@
 % Please edit documentation in R/misc.R
 \name{get_formula_rhs}
 \alias{get_formula_rhs}
-\title{Get Formula Right-hand Side (RHS) Representation}
+\title{Extract the Right-Hand Side of a Formula}
 \usage{
 get_formula_rhs(formula, with_tilde = FALSE)
 }
 \arguments{
-\item{formula}{A formula object.}
+\item{formula}{A formula object from which to extract the RHS.}
 
-\item{with_tilde}{Logical; if TRUE, includes the tilde (~) symbol before the RHS (default is FALSE).}
+\item{with_tilde}{Logical, indicating whether to include a tilde (\code{~}) at the beginning of the RHS.
+Defaults to \code{FALSE}.}
 }
 \value{
-A character string representing the right-hand side of the formula.
+A character string representing the right-hand side of the formula. If \code{with_tilde} is \code{TRUE},
+the string includes a leading tilde.
 }
 \description{
-Extracts the right-hand side of a formula as a compact string representation.
+This function extracts the right-hand side (RHS) of a formula and returns it as a character string.
+Optionally, it can include a tilde (\code{~}) at the beginning of the RHS.
 }
 \examples{
-f <- y ~ x1 + x2
-get_formula_rhs(f)
-
-g <- z ~ w
-get_formula_rhs(g, with_tilde = TRUE)
+#
 }

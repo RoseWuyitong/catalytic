@@ -17,7 +17,7 @@ print.cat_initialization <- function(cat_init,
 
   cat("\n formula:           ", get_formula_string(cat_init$formula))
   if (cat_init$function_name == "data_initilization_glm") {
-    cat("\n family:            ", get_glm_family(cat_init$family, with_link = TRUE))
+    cat("\n family:            ", get_glm_family_string(cat_init$family, with_link = TRUE))
   }
   cat("\n size:              ", extract_size(cat_init))
 
@@ -82,31 +82,31 @@ print.cat_initialization <- function(cat_init,
 #' @export
 #'
 #' @examples
-print.cat_glm <- function(cat_glm_,
+print.cat_glm <- function(cat_model,
                           digit = 3,
                           detail = TRUE) {
-  cat(cat_glm_$function_name)
-  cat("\n family:            ", get_glm_family(cat_glm_$family, with_link = TRUE))
-  cat("\n formula:           ", get_formula_string(cat_glm_$formula))
-  cat("\n size:              ", extract_size(cat_glm_$cat_init))
-  cat("\n tau:               ", cat_glm_$tau)
+  cat(cat_model$function_name)
+  cat("\n family:            ", get_glm_family_string(cat_model$family, with_link = TRUE))
+  cat("\n formula:           ", get_formula_string(cat_model$formula))
+  cat("\n size:              ", extract_size(cat_model$cat_init))
+  cat("\n tau:               ", cat_model$tau)
 
   cat("\n------\n")
   cat("coefficients' information:\n\n")
 
-  print(extract_coefs(cat_glm_, digit), quote = FALSE)
+  print(extract_coefs(cat_model, digit), quote = FALSE)
 
   if (detail) {
     cat("\n------\n")
     cat("* For help interpreting the printed output see ?print.cat_glm\n")
   }
 
-  invisible(cat_glm_)
+  invisible(cat_model)
 }
 
 #' Title
 #'
-#' @param cat_glm_tune_
+#' @param cat_model
 #' @param digit
 #' @param detail
 #'
@@ -114,37 +114,37 @@ print.cat_glm <- function(cat_glm_,
 #' @export
 #'
 #' @examples
-print.cat_glm_tune <- function(cat_glm_tune_,
+print.cat_glm_tune <- function(cat_model,
                                digit = 3,
                                detail = TRUE) {
-  cat(cat_glm_tune_$function_name)
-  cat("\n family:                    ", get_glm_family(cat_glm_tune_$family, with_link = TRUE))
-  cat("\n formula:                   ", get_formula_string(cat_glm_tune_$formula))
-  cat("\n size:                      ", extract_size(cat_glm_tune_$cat_init))
-  cat("\n risk estimate method:      ", cat_glm_tune_$risk_estimate_method)
-  cat("\n discrepancy function:      ", cat_glm_tune_$discrepancy_method)
+  cat(cat_model$function_name)
+  cat("\n family:                    ", get_glm_family_string(cat_model$cat_init$family, with_link = TRUE))
+  cat("\n formula:                   ", get_formula_string(cat_model$formula))
+  cat("\n size:                      ", extract_size(cat_model$cat_init))
+  cat("\n risk estimate method:      ", cat_model$risk_estimate_method)
+  cat("\n discrepancy function:      ", cat_model$discrepancy_method)
 
-  if (cat_glm_tune_$risk_estimate_method == "parametric_bootstrap") {
-    cat("\n bootstrap iteration times: ", cat_glm_tune_$bootstrap_iteration_times)
-  } else if (cat_glm_tune_$risk_estimate_method == "cross_validation") {
-    cat("\n cross validation folds:    ", cat_glm_tune_$cv_fold_num)
+  if (cat_model$risk_estimate_method == "parametric_bootstrap") {
+    cat("\n bootstrap iteration times: ", cat_model$parametric_bootstrap_iteration_times)
+  } else if (cat_model$risk_estimate_method == "cross_validation") {
+    cat("\n cross validation folds:    ", cat_model$cross_validation_fold_num)
   }
-  cat("\n tau_seq:                   ", extract_tau_seq(cat_glm_tune_, digit))
+  cat("\n tau_seq:                   ", extract_tau_seq(cat_model, digit))
   cat("\n")
-  cat("\n optimal tau:               ", round(cat_glm_tune_$tau, digit))
-  cat("\n minimun risk estimate:     ", round(cat_glm_tune_$min_risk_estimate, digit))
+  cat("\n optimal tau:               ", round(cat_model$tau, digit))
+  cat("\n minimun risk estimate:     ", round(min(cat_model$risk_estimate_list), digit))
 
   cat("\n------\n")
   cat("coefficients' information:\n\n")
 
-  print(extract_coefs(cat_glm_tune_, digit), quote = FALSE)
+  print(extract_coefs(cat_model, digit), quote = FALSE)
 
   if (detail) {
     cat("\n------\n")
     cat("* For help interpreting the printed output see ?print.cat_glm_tune\n")
   }
 
-  invisible(cat_glm_tune_)
+  invisible(cat_model)
 }
 
 #' Title
@@ -162,7 +162,7 @@ print.cat_glm_bayes <- function(cat_glm_bayes_,
                                 digit = 3,
                                 detail = TRUE, ...) {
   cat(cat_glm_bayes_$function_name)
-  cat("\n family:            ", get_glm_family(cat_glm_bayes_$family))
+  cat("\n family:            ", get_glm_family_string(cat_glm_bayes_$family))
   cat("\n formula:           ", get_formula_string(cat_glm_bayes_$formula))
   cat("\n size:              ", extract_size(cat_glm_bayes_$cat_init))
   if (cat_glm_bayes_$function_name == "cat_glm_bayes") {
@@ -198,7 +198,7 @@ print.cat_glm_bayes <- function(cat_glm_bayes_,
 #' @examples
 print.cat_glm_bayes_joint_gibbs <- function(cat_glm_bayes_joint_gibbs_, digit = 2, detail = TRUE, ...) {
   cat(cat_glm_bayes_joint_gibbs_$function_name)
-  cat("\n family:            ", get_glm_family(cat_glm_bayes_joint_gibbs_$family))
+  cat("\n family:            ", get_glm_family_string(cat_glm_bayes_joint_gibbs_$family))
   cat("\n formula:           ", get_formula_string(cat_glm_bayes_joint_gibbs_$formula))
   cat("\n size:              ", extract_size(cat_glm_bayes_joint_gibbs_$cat_init))
 

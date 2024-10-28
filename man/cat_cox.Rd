@@ -9,7 +9,6 @@ cat_cox(
   cat_init,
   tau = NULL,
   method = c("CRE", "WME"),
-  ...,
   init_coefficients = NULL,
   tol = 1e-05,
   max_iter = 25
@@ -24,13 +23,13 @@ cat_cox(
 
 \item{method}{The method for fitting the Cox model, either "CRE" (Cox Regression Estimator) or "WME" (Weighted Mean Estimator). Default is "CRE".}
 
-\item{...}{Additional arguments passed to the Cox model function.}
-
 \item{init_coefficients}{Initial coefficients for the Cox model. Default is \code{NULL}.}
 
 \item{tol}{The tolerance for convergence. Default is 1e-5.}
 
 \item{max_iter}{The maximum number of iterations for convergence. Default is 25.}
+
+\item{...}{Additional arguments passed to the Cox model function.}
 }
 \value{
 A list containing the fitted Cox model and various fitting details:

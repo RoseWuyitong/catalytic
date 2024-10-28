@@ -19,7 +19,7 @@
 #'   \item{method}{The method used for fitting the model.}
 #'   \item{likelihood_method}{The method used for evaluating model likelihood.}
 #'   \item{cv_fold_num}{The number of cross-validation folds.}
-#'   \item{likelihood_collect}{The collected likelihood values for each tau.}
+#'   \item{likelihood_list}{The collected likelihood values for each tau.}
 #'   \item{tau}{The optimal tau value.}
 #'   \item{model}{The fitted Cox model object.}
 #'   \item{coefficients}{The coefficients of the fitted model.}
@@ -37,54 +37,27 @@ cat_cox_tune <- function(
     formula,
     cat_init,
     method = c("CRE", "WME"),
-    likelihood_method = "cross_validation",
     tau_seq = NULL,
-    ...,
-    cv_fold_num = 5) {
-  if (!is.cat_cox_init(cat_init)) {
-    stop(
-      "Please enter `cat_init` that generated from `catalytic::cat_cox_initialization`."
-    )
-  }
+    cross_validation_fold_num = 5,
+    ...) {
+  method <- match.arg(method)
 
+  # Validate Input Parameters
+  validate_cox_input(
+    formula = formula,
+    cat_init = cat_init,
+    tau_seq = tau_seq,
+    cross_validation_fold_num = cross_validation_fold_num,
+    ...
+  )
+
+  # Update cat_init with adjusted data based on the formula's right-hand side
   f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
-  # Extract time, status and other columns(x) from `data`
-  f_lhs <- get_formula_lhs(formula)
-  if (f_lhs != "NULL" & !is.formula_surv(formula)) {
-    stop("Please use `Surv` for formula.")
 
-    f_lhs <- get_formula_lhs(formula)
-
-    time_col_name <- gsub(
-      "`",
-      "",
-      regmatches(
-        f_lhs,
-        regexec(
-          "\\(([^,]+),",
-          f_lhs
-        )
-      )[[1]][2]
-    )
-    status_col_name <- gsub(
-      "`",
-      "",
-      regmatches(
-        f_lhs,
-        regexec(
-          ",\\s*([^\\)]+)\\)",
-          f_lhs
-        )
-      )[[1]][2]
-    )
-
-    if (time_col_name == cat_init$time_col_name &
-      status_col_name == cat_init$status_col_name) {
-      stop("Please use same time and status column name for formula")
-    }
-  }
-
-  cat_init <- get_adjusted_data(cat_init = cat_init, formula = formula)
+  cat_init <- get_adjusted_cat_init(
+    cat_init = cat_init,
+    formula_rhs = f_rhs
+  )
 
   if (is.null(tau_seq)) {
     tau_seq <- seq(
@@ -93,32 +66,35 @@ cat_cox_tune <- function(
     )
   }
 
-  method <- match.arg(method)
-
-  likelihood_collect <- do.call(
-    paste0(likelihood_method, "_cox"),
+  # Calcualte Likelihood Using the Specified Method (Cross-validation) and Processed Parameters
+  likelihood_list <- do.call(
+    "cross_validation_cox",
     list(
       formula = formula,
       cat_init = cat_init,
       method = method,
       tau_seq = tau_seq,
-      cv_fold_num = cv_fold_num,
+      cross_validation_fold_num = cross_validation_fold_num,
       ...
     )
   )
 
-  optimal_tau <- tau_seq[which.max(likelihood_collect)]
+  # Fit the Optimal Model Using the Optimal tau
+  optimal_tau <- tau_seq[which.max(likelihood_list)]
+  optimal_model <- do.call(
+    cat_cox,
+    list(
+      formula = formula,
+      cat_init = cat_init,
+      method = method,
+      tau = optimal_tau,
+      ...
+    )
+  )
 
-  optimal_model <- do.call(cat_cox, list(
-    formula = formula,
-    cat_init = cat_init,
-    method = method,
-    tau = optimal_tau,
-    ...
-  ))
-
-  cat_cox_tune_ <- list(
+  cat_model <- list(
     function_name = "cat_cox_tune",
+    ## Input/Processed parameters
     formula = as.formula(paste0(
       "survival::Surv(",
       cat_init$time_col_name,
@@ -130,66 +106,68 @@ cat_cox_tune <- function(
     cat_init = cat_init,
     tau_seq = tau_seq,
     method = method,
-    likelihood_method = likelihood_method,
-    cv_fold_num = cv_fold_num,
-    likelihood_collect = likelihood_collect,
+    cross_validation_fold_num = cross_validation_fold_num,
+    ...,
+    ## Result
     tau = optimal_tau,
     model = optimal_model,
     coefficients = coef(optimal_model),
-    max_likelihood = max(likelihood_collect),
-    ...
+    likelihood_list = likelihood_list
   )
 
-  class(cat_cox_tune_) <- c(cat_cox_tune_$class, "cat_cox_tune", "cat_tune")
+  class(cat_model) <- c(cat_model$class, "cat_cox_tune", "cat_tune", "cat_cox")
 
-  return(cat_cox_tune_)
+  return(cat_model)
 }
 
 cross_validation_cox <- function(formula,
                                  cat_init,
                                  method,
                                  tau_seq,
-                                 ...,
-                                 discrepancy_function = "square_error",
-                                 cv_fold_num = 5) {
-  random_sample <- sample(1:cat_init$obs_size)
+                                 cross_validation_fold_num,
+                                 ...) {
+  random_idxs <- sample(1:cat_init$obs_size)
+  likelihood_list <- rep(0, length(tau_seq))
 
-  likelihood_collect <- rep(0, length(tau_seq))
+  # The perform of cross-validation
+  for (fold in seq_len(cross_validation_fold_num)) {
+    not_incl_idx <- random_idxs[
+      (cat_init$obs_size * (fold - 1) / cross_validation_fold_num + 1):
+      (cat_init$obs_size * fold / cross_validation_fold_num)
+    ]
 
-  for (fold in 1:cv_fold_num) {
-    idx <- random_sample[(cat_init$obs_size * (fold - 1) / cv_fold_num + 1):(cat_init$obs_size * fold / cv_fold_num)]
+    train_x <- cat_init$obs_x[-not_incl_idx, , drop = FALSE]
+    train_time <- cat_init$obs_time[-not_incl_idx]
+    train_status <- cat_init$obs_status[-not_incl_idx]
 
-    train_x <- cat_init$obs_x[-idx, ]
-    train_time <- cat_init$obs_time[-idx, ]
-    train_status <- cat_init$obs_status[-idx, ]
-
+    # Create a specific cat_init from train data
     cv_cat_init <- cat_init
     cv_cat_init$obs_size <- nrow(train_x)
-    cv_cat_init$obs_x <- as.matrix(train_x)
-
-    cv_cat_init$obs_time <- matrix(train_time,
-      ncol = 1,
-      dimnames = list(NULL, cat_init$time_col_name)
-    )
-
-    cv_cat_init$obs_status <- matrix(train_status,
-      ncol = 1,
-      dimnames = list(NULL, cat_init$status_col_name)
-    )
-
+    cv_cat_init$obs_x <- train_x
+    cv_cat_init$obs_time <- train_time
+    cv_cat_init$obs_status <- train_status
     cv_cat_init$obs_data <- cbind(
       cv_cat_init$obs_x,
-      cv_cat_init$obs_time,
-      cv_cat_init$obs_status
+      setNames(
+        data.frame(cv_cat_init$obs_time),
+        cat_init$time_col_name
+      ),
+      setNames(
+        data.frame(cv_cat_init$obs_status),
+        cat_init$status_col_name
+      )
     )
 
+    cv_cat_init$data <- rbind(cv_cat_init$obs_data, cv_cat_init$syn_data)
     cv_cat_init$x <- rbind(cv_cat_init$obs_x, cv_cat_init$syn_x)
-    cv_cat_init$time <- rbind(cv_cat_init$obs_time, cv_cat_init$syn_time)
-    cv_cat_init$status <- rbind(cv_cat_init$obs_status, cv_cat_init$syn_status)
+    cv_cat_init$time <- c(cv_cat_init$obs_time, cv_cat_init$syn_time)
+    cv_cat_init$status <- c(cv_cat_init$obs_status, cv_cat_init$syn_status)
     cv_cat_init$size <- cv_cat_init$obs_size + cv_cat_init$syn_size
-    cv_cat_init$entry_points <- cv_cat_init$entry_points[-idx]
+    cv_cat_init$entry_points <- cv_cat_init$entry_points[-not_incl_idx]
 
-    likelihood_collect_tau <- c()
+    likelihood_list_fold <- c()
+
+    # The iteration over the tau sequence for estimation
     for (tau in tau_seq) {
       cv_model <- do.call(
         cat_cox,
@@ -204,8 +182,8 @@ cross_validation_cox <- function(formula,
 
       cox_partial_likelihood <- get_cox_partial_likelihood(
         X = cat_init$obs_x,
-        time = cat_init$obs_time[, 1],
-        status = cat_init$obs_status[, 1],
+        time = cat_init$obs_time,
+        status = cat_init$obs_status,
         coefs = cv_model$coefficients,
         entry_points = cat_init$entry_points
       ) - get_cox_partial_likelihood(
@@ -215,14 +193,15 @@ cross_validation_cox <- function(formula,
         coefs = cv_model$coefficients,
         entry_points = cv_cat_init$entry_points
       )
-      likelihood_collect_tau <- c(
-        likelihood_collect_tau,
-        cox_partial_likelihood / cv_fold_num
+
+      likelihood_list_fold <- c(
+        likelihood_list_fold,
+        cox_partial_likelihood
       )
     }
 
-    likelihood_collect <- likelihood_collect + likelihood_collect_tau
+    likelihood_list <- likelihood_list + likelihood_list_fold
   }
 
-  return(likelihood_collect)
+  return(likelihood_list / cross_validation_fold_num)
 }

@@ -9,18 +9,18 @@ functions {
    * @param coefs Vector of model coefficients.
    * @param syn_x Matrix of synthetic covariates.
    * @param syn_time Vector of synthetic survival times.
-   * @param syn_status Vector of synthetic status indicators.
-   * @param hazard_constant Customized hazard constant values evaluated at each synthetic survival time.
+   * @param syn_status Vector of synthetic event indicators.
+   * @param syn_time_hazard_constant Customized hazard constant values evaluated at each synthetic survival time.
    * @param tau Positive number that downweighting the synthetic dataset in the estimation process.
    *
    * @return A scalar representing the log prior for the given `coefs` using the synthetic data.
    */
-  real log_of_cat_prior(vector coefs,
-                        real tau,
-                        int syn_size,
+  real log_of_cat_prior(int syn_size,
                         matrix syn_x,
                         vector syn_time,
                         vector syn_status,
+                        vector coefs,
+                        real tau,
                         real hazard_constant
                         ) {
 
@@ -37,31 +37,32 @@ functions {
 
 
 data {
-  int<lower=0> J;  // Number of time intervals.
-  vector[J] alpha_of_h_j_list;  // Shape parameters for the gamma prior distribution of the baseline hazard.
-  real c_0;  // Rate parameter for the gamma prior distribution of the baseline hazard.
+  int<lower=0> obs_size;
+  int<lower=0> syn_size;
+  int<lower=0> col_n;
+  matrix[obs_size, col_n] obs_x;
+  matrix[syn_size, col_n] syn_x;
+  vector[syn_size] syn_time;
+  vector[syn_size] syn_status;
 
-  int<lower=0> obs_size;  // Number of observations in the dataset.
-  int<lower=0> col_n;  // Dimensionality of the covariates.
-  matrix[obs_size, col_n] obs_x;  // Matrix of covariates for the observed dataset.
+  int<lower=0> time_interval_num;  // Number of time intervals.
+  matrix[obs_size, time_interval_num] adj_risk_set;  // Matrix indicating risk set minus failure set for each observation across intervals.
+  matrix[obs_size, time_interval_num] failure_set;  // Matrix indicating which intervals an observation has an event.
 
-  int<lower=0> syn_size;  // Number of synthetic observations.
-  matrix[syn_size, col_n] syn_x;  // Matrix of covariates for the synthetic dataset.
-  vector[syn_size] syn_time;  // Vector of synthetic survival times.
-  vector[syn_size] syn_status;  // Vector of censoring indicator.
+  real<lower=0> hazard_constant;
+  vector[time_interval_num] hazard_alpha_list;  // Shape parameters for the tau_gamma prior distribution of the baseline hazard.
+  real hazard_beta;  // Rate parameter for the tau_gamma prior distribution of the baseline hazard.
 
-  real<lower=0> hazard_constant;  // Customized hazard constant value.
-
-  real<lower=0> tau;  // Downweighting factor for the synthetic dataset in the estimation process.
-
-  matrix[obs_size, J] adj_risk_set;  // Matrix indicating risk set minus failure set for each observation across intervals.
-  matrix[obs_size, J] failure_set;  // Matrix indicating which intervals an observation has an event.
+  real kappa;
+  real<lower=0> tau_alpha;
+  real<lower=0> tau_gamma;
 }
 
 
 parameters {
-  vector[col_n] coefs;  // regression coefficients
-  vector<lower=0>[J] h_j;  // parameter with a gamma prior
+  vector[col_n] coefs;
+  vector<lower=0>[time_interval_num] h_j;  // parameter with a gamma prior
+  real<lower=0> tau; // downweighting factor for synthetic data
 }
 
 model {
@@ -74,13 +75,13 @@ model {
    *
    * The total target log posterior (unnormalized) is updated with contributions from both the likelihood and the prior.
    */
-  vector[J] adj_risk_set_sum;  // Vector to store the summation terms for the risk set minus event set.
-  vector[J] event_set_sum;  // Vector to store the summation terms for the event set.
-  matrix[obs_size, J] exp_obs_lp = rep_matrix(exp(obs_x * coefs), J);  // Matrix where each column is the exponential of obs_x multiplied by coefs.
-  matrix[obs_size, J] h_seq = rep_matrix(h_j', obs_size);  // Replicating the hazard sequence across `obs_size` rows.
-  matrix[obs_size, J] h_seq_exp_obs_lp = -h_seq .* exp_obs_lp;  // Matrix storing product of hazard sequence and the exponential transformation of obs_x and coefs.
+  vector[time_interval_num] adj_risk_set_sum;  // Vector to store the summation terms for the risk set minus event set.
+  vector[time_interval_num] event_set_sum;  // Vector to store the summation terms for the event set.
+  matrix[obs_size, time_interval_num] exp_obs_lp = rep_matrix(exp(obs_x * coefs), time_interval_num);  // Matrix where each column is the exponential of obs_x multiplied by coefs.
+  matrix[obs_size, time_interval_num] h_seq = rep_matrix(h_j', obs_size);  // Replicating the hazard sequence across `obs_size` rows.
+  matrix[obs_size, time_interval_num] h_seq_exp_obs_lp = -h_seq .* exp_obs_lp;  // Matrix storing product of hazard sequence and the exponential transformation of obs_x and coefs.
 
-  for (j in 1:J) {
+  for (j in 1:time_interval_num) {
     // Summing over the adjusted risk set for the `j-th` interval.
     adj_risk_set_sum[j] = sum(exp_obs_lp[, j] .* adj_risk_set[, j]);
     // Summing over the event set for the `j-th` interval using the log1m_exp transformation.
@@ -91,16 +92,19 @@ model {
   target += sum(-h_j .* adj_risk_set_sum + event_set_sum);
 
   // Update the target log posterior with the log of catalytic prior component.
-  target += log_of_cat_prior(coefs,
-                             tau,
-                             syn_size,
+  target += log_of_cat_prior(syn_size,
                              syn_x,
                              syn_time,
                              syn_status,
+                             coefs,
+                             tau,
                              hazard_constant);
 
+  // Update the target log posterior with the log of tau likelihood
+  target += (col_n+tau_alpha-1)*log(tau)-(kappa+1/tau_gamma)*tau;
+
   // Prior distribution for the hazard sequence based on a Gamma distribution.
-  h_j ~ gamma(alpha_of_h_j_list, c_0);
+  h_j ~ gamma(hazard_alpha_list, hazard_beta);
 }
 
 

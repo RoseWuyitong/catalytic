@@ -4,7 +4,7 @@
 \alias{print.cat_glm_tune}
 \title{Title}
 \usage{
-\method{print}{cat_glm_tune}(cat_glm_tune_, digit = 3, detail = TRUE)
+\method{print}{cat_glm_tune}(cat_model, digit = 3, detail = TRUE)
 }
 \arguments{
 \item{detail}{}

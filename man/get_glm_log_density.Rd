@@ -2,33 +2,34 @@
 % Please edit documentation in R/misc.R
 \name{get_glm_log_density}
 \alias{get_glm_log_density}
-\title{Calculate the Log Density for a GLM}
+\title{Compute Log Density Based on GLM Family}
 \usage{
-get_glm_log_density(family, X, Y, coefs, weights = 1)
+get_glm_log_density(family_string, X, Y, coefs, weights = 1)
 }
 \arguments{
-\item{family}{A character string naming a family function, a family function, or the result of a call to a family function.}
+\item{X}{Matrix. The design matrix (predictors) for the GLM.}
 
-\item{X}{A numeric matrix or data frame of predictor variables.}
+\item{Y}{Vector or data frame. The response variable for the GLM. If a data frame, it is converted to a numeric vector.}
 
-\item{Y}{A numeric vector of response variables.}
+\item{coefs}{Numeric vector. The coefficients for the GLM.}
 
-\item{coefs}{A numeric vector of coefficients.}
+\item{weights}{Numeric vector. Weights for the observations. Default is \code{1} (no weighting).}
 
-\item{weights}{A numeric vector of weights (optional, default is 1).}
+\item{family}{Character. The GLM family to use. Options are \code{"binomial"} or \code{"gaussian"}.}
 }
 \value{
-A numeric value representing the log density of the response variable.
+Numeric. The computed log density of the response variable based on the specified family.
 }
 \description{
-This function calculates the log density of the response variable for a given generalized linear model (GLM) based on the family type, predictor variables, coefficients, and weights.
+This function calculates the log density of the response variable given a generalized linear model (GLM)
+based on the specified family. The log density is computed differently for binomial and gaussian families.
 }
 \examples{
-X <- matrix(1:6, ncol = 2)
-Y <- c(0, 1, 0)
-coefs <- c(0.5, 0.5)
-get_glm_log_density(binomial(), X, Y, coefs)
+X <- matrix(rnorm(15), ncol = 3)
+Y <- rbinom(5, 1, 0.5)
+coefs <- rnorm(4)
 
-coefs_with_intercept <- c(1, 0.5, 0.5)
-get_glm_log_density("gaussian", X, Y, coefs_with_intercept)
+# Compute log density for a binomial family
+log_density_binomial <- get_glm_log_density("binomial", X, Y, coefs)
+log_density_binomial
 }

@@ -2,29 +2,32 @@
 % Please edit documentation in R/misc.R
 \name{get_cox_risk_and_failure_sets}
 \alias{get_cox_risk_and_failure_sets}
-\title{Compute Risk and Failure Sets for Survival Analysis}
+\title{Calculate Risk and Failure Sets for Cox Proportional Hazards Model}
 \usage{
 get_cox_risk_and_failure_sets(time_vector, status_vector, indicator_vector)
 }
 \arguments{
-\item{time_vector}{A numeric vector representing the time-to-status or censoring time for each observation.}
+\item{time_vector}{A numeric vector of time-to-event data for each subject.}
 
-\item{status_vector}{A numeric vector indicating whether an status occurred (1) or the data is censored (0).}
+\item{status_vector}{A numeric vector indicating event occurrence (1 = event, 0 = censored).}
 
-\item{indicator_vector}{A numeric vector of times at which to evaluate the risk and failure sets.}
+\item{indicator_vector}{A numeric vector representing the indicator times used to define risk and failure sets.}
 }
 \value{
-A list containing two matrices: \code{risk_set} and \code{failure_set}, representing the risk and failure sets at each time point.
+A list containing two elements:
+\item{risk_set}{A matrix indicating which subjects are at risk at each time point.}
+\item{failure_set}{A matrix indicating which subjects experienced an event at each time point.}
 }
 \description{
-This function computes the risk and failure sets for a given time vector, status vector, and a sequence of times (indicator_vector).
-It identifies the times at which statuss occur or subjects are censored.
+This function calculates the risk and failure sets for subjects in a Cox proportional hazards model based on their time-to-event data, status, and an indicator vector.
 }
 \examples{
-time_vector <- c(5, 8, 12, 18, 22)
-status_vector <- c(1, 0, 1, 1, 0)
-indicator_vector <- seq(1, 25, by = 1)
-result <- get_risk_and_failure_sets(time_vector, status_vector, s)
-print(result$risk_set)
-print(result$failure_set)
+time_vector <- rexp(10)
+status_vector <- rbinom(10, 1, 0.5)
+indicator_vector <- sort(unique(c(time_vector, time_vector + rexp(10))))
+
+# Calculate risk and failure sets
+sets <- get_cox_risk_and_failure_sets(time_vector, status_vector, indicator_vector)
+sets$risk_set
+sets$failure_set
 }

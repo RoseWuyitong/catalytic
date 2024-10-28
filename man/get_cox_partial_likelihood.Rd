@@ -2,38 +2,35 @@
 % Please edit documentation in R/misc.R
 \name{get_cox_partial_likelihood}
 \alias{get_cox_partial_likelihood}
-\title{Compute the Partial Likelihood for a Cox Proportional Hazards Model}
+\title{Compute the Partial Likelihood for the Cox Proportional Hazards Model}
 \usage{
-get_cox_partial_likelihood(X, time, status, coefs, entry_points = NULL)
+get_cox_partial_likelihood(X, time, status, coefs, entry_points)
 }
 \arguments{
-\item{X}{A numeric matrix or data frame of predictor variables. Each row represents an observation,
-and each column represents a predictor variable.}
+\item{X}{A matrix of covariates with rows representing observations and columns representing features.}
 
-\item{time}{A numeric vector representing the time-to-status or censoring time for each observation.}
+\item{time}{A vector of time-to-event data.}
 
-\item{status}{A numeric vector indicating whether an status occurred (1) or the data is censored (0).}
+\item{status}{A vector indicating the event status (1 for event occurred, 0 for censored).}
 
-\item{coefs}{A numeric vector of coefficients for the predictor variables.}
+\item{coefs}{A vector of regression coefficients.}
 
-\item{entry_points}{An optional numeric vector representing the entry times for each observation. Default is NULL.}
+\item{entry_points}{A vector of entry points (optional). Defaults to NULL, in which case a vector of zeros is used.}
 }
 \value{
-A numeric value representing the partial likelihood for the Cox proportional hazards model.
+A numeric scalar representing the partial likelihood of the Cox model.
 }
 \description{
-This function calculates the partial likelihood for a Cox proportional hazards model
-using the provided predictor variables, time-to-status data, status indicators, and coefficients.
+This function calculates the partial likelihood for the Cox proportional hazards model. The partial likelihood is computed for the censored observations in the dataset.
 }
 \examples{
-# Example data
-X <- matrix(rnorm(50), nrow = 10)
-time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
-status <- c(1, 0, 1, 1, 0, 1, 0, 1, 1, 1)
-coefs <- rnorm(ncol(X))
-entry_points <- NULL
+X <- matrix(rnorm(20), ncol = 4)
+time <- runif(5, 0, 10)
+status <- sample(0:1, 5, replace = TRUE)
+coefs <- rnorm(4)
+entry_points <- rep(0, 5)
 
 # Compute partial likelihood
 pl <- get_cox_partial_likelihood(X, time, status, coefs, entry_points)
-print(pl)
+pl
 }

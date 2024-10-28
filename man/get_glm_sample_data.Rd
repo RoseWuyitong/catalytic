@@ -2,29 +2,37 @@
 % Please edit documentation in R/misc.R
 \name{get_glm_sample_data}
 \alias{get_glm_sample_data}
-\title{Generate Simulated Data}
+\title{Generate Sample Data for GLM}
 \usage{
-get_glm_sample_data(family = gaussian, n = 10, mean = 0, sd = 1)
+get_glm_sample_data(
+  family_string = c("gaussian", "binomial"),
+  n = 10,
+  mean = 0,
+  sd = 1
+)
 }
 \arguments{
-\item{family}{The family distribution of the data. Defaults to 'gaussian'.}
+\item{n}{Integer. The number of samples to generate.}
 
-\item{n}{The number of observations to generate. Defaults to 10.}
+\item{mean}{Numeric. The mean of the distribution (used for both binomial and Gaussian).}
 
-\item{mean}{The mean value for the distribution. Defaults to 0.}
+\item{sd}{Numeric. The standard deviation of the distribution (used only for Gaussian).}
 
-\item{sd}{The standard deviation for the distribution. Defaults to 1.}
+\item{family}{Character. The family of the GLM. Options are \code{"binomial"} or \code{"gaussian"}.}
 }
 \value{
-A numeric vector of simulated data.
+Numeric vector of generated sample data.
 }
 \description{
-This function generates simulated data based on the specified family distribution.
+This function generates sample data for a specified GLM family. It can generate
+binomial or Gaussian distributed data based on the provided parameters.
 }
 \examples{
-# Generate 10 observations from a Gaussian distribution
-get_sample_data()
+# Generate sample data for binomial family
+binomial_data <- get_glm_sample_data(family = "binomial", n = 10, mean = 0.5)
+binomial_data
 
-# Generate 20 observations from a binomial distribution with mean 0.5
-get_sample_data(family = "binomial", n = 20, mean = 0.5)
+# Generate sample data for Gaussian family
+gaussian_data <- get_glm_sample_data(family = "gaussian", n = 10, mean = 0, sd = 1)
+gaussian_data
 }

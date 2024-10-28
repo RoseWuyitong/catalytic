@@ -8,6 +8,72 @@ context("misc")
 glm_data <- glm_data
 cox_data <- cox_data
 
+
+# ----- GLMs -----
+
+
+# ----- COX -----
+
+
+# ----- General -----
+
+test_that("is.continuous works correctly", {
+  # Test with continuous numeric vector
+  continuous_vector <- c(1, 2, 3, 4, 5)
+  expect_true(is.continuous(continuous_vector))
+
+  # Test with categorical vector
+  categorical_vector <- c("A", "B", "A", "B")
+  expect_false(is.continuous(categorical_vector))
+
+  # Test with binary numeric vector
+  binary_vector <- c(0, 1, 1, 0)
+  expect_false(is.continuous(binary_vector))
+
+  # Test with a numeric vector with only two unique values
+  two_unique_vector <- c(1, 1, 2, 2)
+  expect_false(is.continuous(two_unique_vector))
+
+  # Test with numeric vector with more than two unique values
+  mixed_numeric_vector <- c(1, 2, 3, 4, 5, 6)
+  expect_true(is.continuous(mixed_numeric_vector))
+})
+
+test_that("get_standardized_data works correctly", {
+  # Test with numeric and factor columns
+  data <- data.frame(
+    numeric_col = c(2, 3, NA, 4),
+    factor_col = factor(c("A", "B", "A", NA)),
+    stringsAsFactors = FALSE
+  )
+
+  # Test with numeric NA replacement
+  standardized_data <- get_standardized_data(data, na_replace = 0)
+  expect_equal(standardized_data$numeric_col, c(2, 3, 0, 4))
+  expect_equal(standardized_data$factor_col, factor(c("A", "B", "A", "A")))
+
+  # Test with mode replacement for factors
+  standardized_data <- get_standardized_data(data, na_replace = mean)
+  expect_equal(standardized_data$numeric_col, c(2, 2, 3, 4))
+
+  # Test with NA omission
+  data_with_na_omit <- get_standardized_data(data, na_replace = stats::na.omit)
+  expect_equal(nrow(data_with_na_omit), 2)
+  expect_equal(ncol(data_with_na_omit), 2)
+
+  # Test with no NA values
+  data_no_na <- data.frame(
+    numeric_col = c(1, 2, 4),
+    factor_col = factor(c("A", "B", "A")),
+    stringsAsFactors = FALSE
+  )
+  standardized_data_no_na <- get_standardized_data(data_no_na)
+  expect_equal(standardized_data_no_na, data_no_na)
+})
+
+
+
+##############
 # ---- GLM Functions ----
 
 test_that("get_glm_lambda works correctly", {
@@ -692,38 +758,6 @@ test_that("get_resampling_methods works correctly", {
 })
 
 
-test_that("get_standardized_data works correctly", {
-  # Test with numeric and factor columns
-  data <- data.frame(
-    numeric_col = c(1, 2, NA, 4),
-    factor_col = factor(c("A", "B", "A", NA)),
-    stringsAsFactors = FALSE
-  )
-
-  # Test with numeric NA replacement
-  standardized_data <- get_standardized_data(data, na_replace = 0)
-  expect_equal(standardized_data$numeric_col, c(1, 2, 0, 4))
-  expect_equal(standardized_data$factor_col, factor(c("A", "B", "A", "A")))
-
-  # Test with mode replacement for factors
-  standardized_data <- get_standardized_data(data, na_replace = mean)
-  expect_equal(standardized_data$numeric_col, c(1, 2, 2.3333333, 4))
-
-  # Test with NA omission
-  data_with_na_omit <- get_standardized_data(data, na_replace = stats::na.omit)
-  expect_equal(nrow(data_with_na_omit), 2)
-  expect_equal(ncol(data_with_na_omit), 2)
-
-  # Test with no NA values
-  data_no_na <- data.frame(
-    numeric_col = c(1, 2, 4),
-    factor_col = factor(c("A", "B", "A")),
-    stringsAsFactors = FALSE
-  )
-  standardized_data_no_na <- get_standardized_data(data_no_na)
-  expect_equal(standardized_data_no_na, data_no_na)
-})
-
 test_that("get_linear_predictor works correctly", {
   # Test with no intercept
   X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
@@ -847,27 +881,6 @@ test_that("get_discrepancy works correctly", {
 
 # ---- Identification Functions ----
 
-test_that("is.continuous works correctly", {
-  # Test with continuous numeric vector
-  continuous_vector <- c(1, 2, 3, 4, 5)
-  expect_true(is.continuous(continuous_vector))
-
-  # Test with categorical vector
-  categorical_vector <- c("A", "B", "A", "B")
-  expect_false(is.continuous(categorical_vector))
-
-  # Test with binary numeric vector
-  binary_vector <- c(0, 1, 1, 0)
-  expect_false(is.continuous(binary_vector))
-
-  # Test with a numeric vector with only two unique values
-  two_unique_vector <- c(1, 1, 2, 2)
-  expect_false(is.continuous(two_unique_vector))
-
-  # Test with numeric vector with more than two unique values
-  mixed_numeric_vector <- c(1, 2, 3, 4, 5, 6)
-  expect_true(is.continuous(mixed_numeric_vector))
-})
 
 test_that("is.formula works correctly", {
   # Test with a formula object

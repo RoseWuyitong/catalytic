@@ -2,38 +2,34 @@
 % Please edit documentation in R/misc.R
 \name{get_stan_model}
 \alias{get_stan_model}
-\title{Memoized Function to Retrieve Stan Models}
+\title{Get a Stan model}
 \usage{
 get_stan_model(
   type = c("glm", "cox"),
-  glm_family = NULL,
+  glm_family_string = NULL,
   joint_tau = FALSE,
   glm_binomial_joint_theta = FALSE,
   glm_binomial_joint_alpha = FALSE,
-  glm_binomial_gibbs = FALSE
+  glm_binomial_gibbs = FALSE,
+  glm_gaussian_known_variance = FALSE
 )
 }
 \arguments{
-\item{type}{A character string specifying the type of Stan model, choose from c("glm", "cox").}
+\item{type}{A character string specifying the model type. Choices are "glm" or "cox".}
 
-\item{glm_family}{A character string specifying the family for GLM models. Default is NULL.}
+\item{joint_tau}{Logical indicating if joint tau is used.}
 
-\item{joint_tau}{Logical indicating joint modeling for tau parameter. Default is FALSE.}
+\item{glm_binomial_joint_theta}{Logical indicating if joint theta is used for binomial GLM.}
 
-\item{glm_binomial_joint_theta}{Logical indicating joint modeling for theta parameter in binomial GLMs. Default is FALSE.}
+\item{glm_binomial_joint_alpha}{Logical indicating if joint alpha is used for binomial GLM.}
 
-\item{glm_binomial_joint_alpha}{Logical indicating joint modeling for alpha parameter in binomial GLMs. Default is FALSE.}
+\item{glm_binomial_gibbs}{Logical indicating if Gibbs sampling is used for binomial GLM.}
 
-\item{glm_binomial_gibbs}{Logical indicating whether Gibbs sampling is used in binomial GLMs. Default is FALSE.}
+\item{glm_family}{Optional character string specifying the GLM family (e.g., "binomial").}
 }
 \value{
-A compiled Stan model object.
+A Stan model object.
 }
 \description{
-This function memoizes the creation of a Stan model based on the specified model type
-and optional parameters for specific methods like GLMs. It returns a compiled Stan model object.
-}
-\examples{
-# Retrieve a Stan model for binomial logistic regression with joint theta
-model <- get_stan_model("glm", glm_family = "binomial", glm_binomial_joint_theta = TRUE)
+This function loads and returns a Stan model based on specified parameters.
 }

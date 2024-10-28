@@ -2,28 +2,33 @@
 % Please edit documentation in R/misc.R
 \name{get_glm_mean}
 \alias{get_glm_mean}
-\title{Calculate the Mean for a GLM}
+\title{Compute Mean Based on GLM Family}
 \usage{
-get_glm_mean(family, X, coefs)
+get_glm_mean(family_string, X, coefs)
 }
 \arguments{
-\item{family}{A character string naming a family function, a family function, or the result of a call to a family function.}
+\item{X}{Matrix. The design matrix (predictors) for the GLM.}
 
-\item{X}{A numeric matrix or data frame of predictor variables.}
+\item{coefs}{Numeric vector. The coefficients for the GLM.}
 
-\item{coefs}{A numeric vector of coefficients.}
+\item{family}{Character. The GLM family to use. Options are \code{"binomial"} or \code{"gaussian"}.}
 }
 \value{
-A numeric vector representing the mean of the response variable.
+Numeric vector. The computed mean of the response variable based on the specified family.
 }
 \description{
-This function calculates the mean of the response variable for a given generalized linear model (GLM) based on the family type, predictor variables, and coefficients.
+This function calculates the mean of the response variable for a generalized linear model (GLM)
+based on the specified family. The calculation depends on whether the family is binomial or gaussian.
 }
 \examples{
-X <- matrix(1:6, ncol = 2)
-coefs <- c(0.5, 0.5)
-get_glm_mean(gaussian(), X, coefs)
+X <- matrix(rnorm(15), ncol = 3)
+coefs <- rnorm(4)
 
-coefs_with_intercept <- c(1, 0.5, 0.5)
-get_glm_mean("binomial", X, coefs_with_intercept)
+# Compute mean for a binomial family
+mean_binomial <- get_glm_mean("binomial", X, coefs)
+mean_binomial
+
+# Compute mean for a gaussian family
+mean_gaussian <- get_glm_mean("gaussian", X, coefs)
+mean_gaussian
 }

@@ -2,25 +2,29 @@
 % Please edit documentation in R/misc.R
 \name{is.continuous}
 \alias{is.continuous}
-\title{Check if a List is Continuous}
+\title{Check if a Variable is Continuous}
 \usage{
 is.continuous(lst)
 }
 \arguments{
-\item{lst}{A list or vector to be checked.}
+\item{lst}{A vector to be checked.}
 }
 \value{
-TRUE if the list is continuous, FALSE otherwise.
+A logical value indicating whether the input vector is considered continuous. Returns \code{TRUE} if the vector is numeric and has more than two unique values; otherwise, returns \code{FALSE}.
 }
 \description{
-This function checks if a given list is continuous. A list is considered
-continuous if it is numeric and contains more than two unique values.
+This function checks whether a given vector represents a continuous variable. A continuous variable is numeric and has more than two unique values.
 }
 \examples{
-# Should return TRUE
-is.continuous(c(1, 2, 3))
+# Example with a continuous variable
+continuous_vector <- c(1, 2, 3, 4, 5)
+is.continuous(continuous_vector) # TRUE
 
-# Should return FALSE
-is.continuous(c(1, 1, 1))
-is.continuous(c("a", "b", "c"))
+# Example with a categorical variable
+categorical_vector <- c("A", "B", "A", "B")
+is.continuous(categorical_vector) # FALSE
+
+# Example with a binary variable
+binary_vector <- c(0, 1, 1, 0)
+is.continuous(binary_vector) # FALSE
 }

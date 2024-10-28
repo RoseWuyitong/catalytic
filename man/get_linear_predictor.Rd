@@ -2,29 +2,28 @@
 % Please edit documentation in R/misc.R
 \name{get_linear_predictor}
 \alias{get_linear_predictor}
-\title{Calculate the Linear Predictor}
+\title{Compute Linear Predictor}
 \usage{
 get_linear_predictor(X, coefs)
 }
 \arguments{
-\item{X}{A numeric matrix or data frame of predictor variables.}
+\item{X}{A matrix of predictor variables.}
 
-\item{coefs}{A numeric vector of coefficients.
-If the length of \code{coefs} is one more than the number of columns in \code{X},
-the first element of \code{coefs} is treated as the intercept.}
+\item{coefs}{A vector of coefficients. It should be either the same length as the number of columns in X
+(for models without an intercept) or one more than the number of columns in X (for models with an intercept).}
 }
 \value{
-A numeric vector representing the linear predictor.
+A vector of linear predictor values.
 }
 \description{
-This function calculates the linear predictor (linear combination of predictors
-and coefficients) for a given set of predictors and coefficients.
+This function computes the linear predictor from a matrix of predictor variables and a vector of coefficients.
+It handles cases with and without an intercept term.
 }
 \examples{
-X <- matrix(1:6, ncol = 2)
-coefs <- c(0.5, 0.5)
+X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
+coefs <- c(0.5, 1.5)
 get_linear_predictor(X, coefs)
 
-coefs_with_intercept <- c(1, 0.5, 0.5)
+coefs_with_intercept <- c(1, 0.5, 1.5)
 get_linear_predictor(X, coefs_with_intercept)
 }

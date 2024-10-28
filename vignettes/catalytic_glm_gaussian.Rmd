@@ -61,12 +61,12 @@ get_train_idx <- function(data_set) {
 
 # Mock dataset for gaussian analysis
 
-n <- 50 # Number of observations
+n <- 180 # Number of observations
 p <- 10 # Number of predictors
 
 obs_x <- matrix(rnorm(n * p), ncol = p)
 real_coefs <- rnorm(p + 1)
-noise <- rnorm(n) * 3 # Increase noise for more response variability
+noise <- rnorm(n) * 2 # Increase noise for more response variability
 obs_y <- real_coefs[1] + obs_x %*% real_coefs[-1] + noise
 
 obs_data <- as.data.frame(cbind(obs_x, obs_y))

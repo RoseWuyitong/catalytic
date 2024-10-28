@@ -6,10 +6,11 @@ data {
   matrix[syn_n, col_n] syn_x;
   int<lower=0,upper=1> obs_y[obs_n];
   int<lower=0,upper=1> syn_y[syn_n];
-  real tau_lower;
+  real<lower=0> tau_lower;
   real kappa;
-  real alpha;
-  real gamma;
+  real<lower=0> tau_alpha;
+  real<lower=0> tau_gamma;
+  real<lower=0> sigma;
 }
 
 parameters {
@@ -31,6 +32,6 @@ model {
       target += syn_weight * bernoulli_logit_lpmf(syn_y[i] | syn_mu[i]);
 
   // Gamma function
-  target += (col_n+alpha-1)*log(tau)-(tau)*(kappa+1/gamma);
+  target += (col_n+tau_alpha-1)*log(tau)-(tau)*(kappa+1/tau_gamma);
 }
 

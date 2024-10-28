@@ -4,7 +4,7 @@
 \alias{print.cat_glm}
 \title{Title}
 \usage{
-\method{print}{cat_glm}(cat_glm_, digit = 3, detail = TRUE)
+\method{print}{cat_glm}(cat_model, digit = 3, detail = TRUE)
 }
 \arguments{
 \item{detail}{}

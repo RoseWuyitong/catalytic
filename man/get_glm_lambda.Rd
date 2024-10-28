@@ -2,7 +2,7 @@
 % Please edit documentation in R/misc.R
 \name{get_glm_lambda}
 \alias{get_glm_lambda}
-\title{Calculate GLM Lambda Based on Discrepancy Method}
+\title{Compute Lambda Based on Discrepancy Method}
 \usage{
 get_glm_lambda(
   discrepancy_method = c("square_error", "classification_error", "logistic_deviance"),
@@ -11,23 +11,26 @@ get_glm_lambda(
 )
 }
 \arguments{
-\item{discrepancy_method}{Character. The method used to calculate the discrepancy.
-One of "square_error", "classification_error", or "logistic_deviance".}
+\item{discrepancy_method}{Character. A string specifying the type of discrepancy method
+to use. Options are \code{"square_error"}, \code{"classification_error"}, or \code{"logistic_deviance"}.
+Default is \code{"square_error"}.}
 
-\item{X}{A matrix of predictor variables.}
+\item{X}{Matrix. The design matrix (predictors) for the GLM.}
 
-\item{coefs}{A numeric vector of coefficients.}
+\item{coefs}{Numeric vector. The coefficients for the GLM.}
 }
 \value{
-Numeric value of the calculated GLM lambda.
+Numeric. The computed lambda value based on the selected discrepancy method.
 }
 \description{
-This function calculates the GLM lambda based on the specified discrepancy method.
+This function calculates a lambda value based on the selected discrepancy method
+for a generalized linear model (GLM). The discrepancy method determines the
+type of error or deviance used in the calculation.
 }
 \examples{
-X <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3)
-coefs <- c(0.5, 0.2)
-get_glm_lambda("square_error", X, coefs)
-get_glm_lambda("classification_error", X, coefs)
-get_glm_lambda("logistic_deviance", X, coefs)
+X <- matrix(rnorm(15), ncol = 3)
+coefs <- rnorm(4)
+
+lambda <- get_glm_lambda(discrepancy_method = "square_error", X, coefs)
+lambda
 }

@@ -49,12 +49,11 @@ test_that("cat_glm_initialization fails when data is a matrix", {
 
 test_that("cat_glm_initialization handles invalid values", {
   expect_error(cat_glm_initialization(
-    formula = ~ 1,
+    formula = ~1,
     family = binomial,
     data = swim_data,
     syn_size = 1000
-  ), "The provided formula <`~1`>is invalid."
-  )
+  ), "The provided formula <`~1`>is invalid.")
 
   expect_error(cat_glm_initialization(
     formula = empyr1 ~ 1,
@@ -83,7 +82,7 @@ test_that("cat_glm_initialization handles invalid values", {
     family = binomial,
     data = swim_data,
     syn_size = 1000,
-    x_degree = c(-1, rep(1, p-1))
+    x_degree = c(-1, rep(1, p - 1))
   ), "The provided x_degree should be a vector of positive values with the number of columns of covariances. <-1,1,1,1,1,1,1,1,1,1,1,1>is invalid.")
 
   expect_error(cat_glm_initialization(

@@ -2,7 +2,7 @@
 % Please edit documentation in R/misc.R
 \name{is.formula}
 \alias{is.formula}
-\title{Check if an object is a formula.}
+\title{Check if an Object is a Formula}
 \usage{
 is.formula(f)
 }
@@ -10,17 +10,21 @@ is.formula(f)
 \item{f}{An object to be checked.}
 }
 \value{
-\code{TRUE} if \code{f} is a formula (contains '~'), otherwise \code{FALSE}.
+A logical value indicating whether the input object is a formula. Returns \code{TRUE} if the object contains the tilde (\code{~}) character; otherwise, returns \code{FALSE}.
 }
 \description{
-This function checks whether the provided object \code{f} is a formula by
-searching for the tilde (\code{~}) symbol in its deparsed form.
+This function checks whether a given object is a formula by looking for the presence of the tilde (\code{~}) character, which is a standard indicator of formulas in R.
 }
 \examples{
-# should return TRUE
-is.formula(~ x + y)
-is.formula(y ~ x)
+# Example with a formula
+formula_obj <- y ~ x + z
+is.formula(formula_obj) # TRUE
 
-# should return FALSE
-is.formula("x + y")
+# Example with a non-formula object
+non_formula_obj <- c(1, 2, 3)
+is.formula(non_formula_obj) # FALSE
+
+# Example with a formula string
+formula_string <- "y ~ x + z"
+is.formula(formula_string) # TRUE
 }

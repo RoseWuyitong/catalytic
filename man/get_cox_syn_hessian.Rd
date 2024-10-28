@@ -7,30 +7,32 @@
 get_cox_syn_hessian(X, time, coefs, hazard_constant)
 }
 \arguments{
-\item{X}{A numeric matrix or data frame of predictor variables. Each row represents an observation,
-and each column represents a predictor variable.}
+\item{X}{A matrix of covariates (design matrix) for the Cox model.}
 
-\item{time}{A numeric vector representing the time-to-status or censoring time for each observation.}
+\item{time}{A numeric vector of event times.}
 
-\item{coefs}{A numeric vector of coefficients for the predictor variables.}
+\item{coefs}{A numeric vector of coefficients for the Cox model.}
 
-\item{hazard_constant}{A numeric constant representing the hazard.}
+\item{hazard_constant}{A numeric value representing the hazard constant.}
 }
 \value{
-A numeric matrix representing the synthetic Hessian matrix.
+A matrix representing the synthetic Hessian of the Cox model.
 }
 \description{
-This function calculates the synthetic Hessian matrix for a Cox proportional hazards model,
-using the provided predictor variables, time-to-status data, coefficients, and a hazard constant.
+Compute the Synthetic Hessian Matrix for Cox Proportional Hazards Model
+}
+\details{
+This function computes the synthetic Hessian matrix for the Cox proportional hazards model.
+The Hessian is calculated by summing the contributions from each individual observation, scaled by
+the hazard constant and the time of the event.
 }
 \examples{
-# Example data
-X <- matrix(rnorm(50), nrow = 10)
-time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
-coefs <- rnorm(ncol(X))
-hazard_constant <- 0.1
+X <- matrix(rnorm(15), ncol = 3)
+time <- rexp(5, rate = 0.1)
+coefs <- rnorm(3)
+hazard_constant <- 1
 
-# Compute synthetic Hessian matrix
-hessian_matrix <- get_cox_syn_gradient(X, time, coefs, hazard_constant)
-print(hessian_matrix)
+# Compute the synthetic Hessian matrix
+hessian_matrix <- get_cox_syn_hessian(X, time, coefs, hazard_constant)
+hessian_matrix
 }

@@ -10,14 +10,14 @@
 plot.cat_tune <- function(cat_tune, digit = 2, legend_pos = "topright", text_pos = 3) {
   if (cat_tune$function_name == "cat_glm_tune") {
     y_lab <- paste0("discrepancy error (", cat_tune$discrepancy_method, ")")
-    y_plot <- cat_tune$risk_estimate_collect
+    y_plot <- cat_tune$risk_estimate_list
     main <- paste0("Plot of Risk Estimates from cat_glm_tune \n(", cat_tune$risk_estimate_method, ")")
-    mark_point <- cat_tune$min_risk_estimate
+    mark_point <- min(cat_tune$risk_estimate_list)
   } else {
     y_lab <- "likelihood score"
-    y_plot <- cat_tune$likelihood_collect
+    y_plot <- cat_tune$likelihood_list
     main <- paste0("Plot of Likelihood Scores from cat_cox_tune \n(", cat_tune$likelihood_method, ")")
-    mark_point <- cat_tune$max_likelihood
+    mark_point <- max(cat_tune$likelihood_list)
   }
 
 
@@ -184,11 +184,11 @@ traceplot <- function(cat_, ...) {
 #                                x,
 #                                y,
 #                                bin=15) {
-#   extract <- rstan::extract(cat_glm$sample_model)
-#   df <- data.frame(x=as.double(extract[[x]]),y=as.double(extract[[y]]))
+# extract <- rstan::extract(cat_glm$sample_model)
+# df <- data.frame(x=as.double(extract[[x]]),y=as.double(extract[[y]]))
 #
-#   ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
-#     ggplot2::geom_density_2d(bins = bin)
+# ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
+#   ggplot2::geom_density_2d(bins = bin)
 #
 # }
 

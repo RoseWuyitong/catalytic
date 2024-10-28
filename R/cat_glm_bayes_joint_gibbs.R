@@ -1,40 +1,39 @@
 #' Bayesian GLM with Gibbs and HMC Sampling
 #'
 #' Fits a Bayesian generalized linear model (GLM) using a combination of Gibbs sampling
-#' and Hamiltonian Monte Carlo (HMC) for sampling tau and coefficients.
+#' and Hamiltonian Monte Carlo (HMC) for sampling tau and coefs.
 #'
 #' @param formula The model formula specifying the response variable and predictors.
 #' @param family GLM family to use. Defaults inferred from `cat_init`).
 #' @param cat_init Initialized data object from `catalytic::cat_glm_initialization`.
-#' @param gibbs_iter Total number of Gibbs sampling iterations. Defaults to 2000.
+#' @param iter Total number of Gibbs sampling iterations. Defaults to 2000.
 #' @param gibbs_warmup Number of warmup iterations in Gibbs sampling. Defaults to 1000.
-#' @param ... Additional arguments passed to `stats:glm`, for generating `init_coefficients`
-#' @param coefficients_iter Number of iterations in the HMC sampling for coefficients. Defaults to 5.
-#' @param init_tau Initial value for tau (downweighting factor for synthetic data). Defaults to one forth of the number of predictors.
-#' @param init_coefficients Initial coefficients for the GLM model. Defaults to simple glm model within function.
-#' @param alpha Shape parameter for the gamma distribution used in tau sampling. Defaults to 2.
-#' @param gamma Rate parameter for the gamma distribution used in tau sampling. Defaults to 1.
-#' @param stan_refresh Refresh rate for the Stan sampling. Defaults to 0.
-#' @param gibbs_refresh Logical flag indicating whether to print progress in Gibbs sampling. Defaults to TRUE.
+#' @param ... Additional arguments passed to `stats:glm`, for generating `coefs_0`
+#' @param coefs_iter Number of iterations in the HMC sampling for coefs. Defaults to 5.
+#' @param tau_0 Initial value for tau (downweighting factor for synthetic data). Defaults to one forth of the number of predictors.
+#' @param coefs_0 Initial coefs for the GLM model. Defaults to simple glm model within function.
+#' @param tau_alpha Shape parameter for the tau_gamma distribution used in tau sampling. Defaults to 2.
+#' @param tau_gamma Rate parameter for the tau_gamma distribution used in tau sampling. Defaults to 1.
+#' @param refresh Logical flag indicating whether to print progress in Gibbs sampling. Defaults to TRUE.
 #'
 #' @return An object of class `cat_glm_bayes_joint_gibbs` containing:
 #'   \item{function_name}{Function name (`cat_glm_bayes_joint_gibbs`).}
 #'   \item{formula}{Formula used for modeling.}
 #'   \item{family}{GLM family used for modeling.}
 #'   \item{cat_init}{Initialized data object from `cat_glm_initialization`.}
-#'   \item{gibbs_iter}{Total number of Gibbs sampling iterations.}
+#'   \item{iter}{Total number of Gibbs sampling iterations.}
 #'   \item{gibbs_warmup}{Number of warmup iterations for Gibbs sampling.}
-#'   \item{coefficients_iter}{Number of iterations for updating coefficients in the HMC step.}
-#'   \item{init_tau}{Initial value for tau used in modeling.}
-#'   \item{init_coefficients}{Initial coefficients used in HMC (if provided).}
-#'   \item{alpha}{Shape parameter for the gamma distribution in Gibbs sampling.}
-#'   \item{gamma}{Rate parameter for the gamma distribution in Gibbs sampling.}
+#'   \item{coefs_iter}{Number of iterations for updating coefs in the HMC step.}
+#'   \item{tau_0}{Initial value for tau used in modeling.}
+#'   \item{coefs_0}{Initial coefs used in HMC (if provided).}
+#'   \item{tau_alpha}{Shape parameter for the tau_gamma distribution in Gibbs sampling.}
+#'   \item{tau_gamma}{Rate parameter for the tau_gamma distribution in Gibbs sampling.}
 #'   \item{sys_time}{Timestamp of the sampling process completion.}
-#'   \item{coefs_tau_model}{Fitted GLM model object using adjusted data and tau.}
+#'   \item{tau_model}{Fitted GLM model object using adjusted data and tau.}
 #'   \item{inform_df}{Summary statistics of the Gibbs sampling output.}
-#'   \item{gibbs_collect}{Matrix containing the Gibbs sampling results for tau and coefficients.}
+#'   \item{gibbs_iteration_log}{Matrix containing the Gibbs sampling results for tau and coefs.}
 #'   \item{tau}{Mean of sampled value of tau.}
-#'   \item{coefficients}{Mean of sampled coefficients from the posterior distribution.}
+#'   \item{coefs}{Mean of sampled coefs from the posterior distribution.}
 #'
 #' @export
 #'
@@ -44,111 +43,84 @@
 #'
 #' @details
 #' This function fits a Bayesian GLM using Gibbs sampling to update tau and Hamiltonian
-#' Monte Carlo (HMC) for updating coefficients. It supports logistic regression models
+#' Monte Carlo (HMC) for updating coefs. It supports logistic regression models
 #' (`binomial` family) and is designed to handle synthetic data in a Bayesian framework.
 #'
-#' Gibbs sampling iteratively updates tau and HMC samples coefficients by simulating
+#' Gibbs sampling iteratively updates tau and HMC samples coefs by simulating
 #' Hamiltonian dynamics. The function provides flexibility in specifying initial values,
 #' sampling iterations, and control over the sampling algorithms used.
 #'
 #' @note
 #' - This function assumes `cat_init` is created using `catalytic::cat_glm_initialization`.
-#' - Ensure `gibbs_iter` is greater than `gibbs_warmup` to ensure proper sampling.
+#' - Ensure `iter` is greater than `gibbs_warmup` to ensure proper sampling.
 #'
 #' @seealso \code{\link{HMC}}, \code{\link{cat_glm_initialization}}
 cat_glm_bayes_joint_gibbs <- function(formula,
-                                      family = NULL,
                                       cat_init,
-                                      gibbs_iter = 1000,
-                                      gibbs_warmup = 500,
-                                      ...,
-                                      coefficients_iter = 5,
-                                      init_tau = NULL,
-                                      init_coefficients = NULL,
-                                      alpha = 2,
-                                      gamma = 1,
-                                      stan_refresh = 0,
-                                      gibbs_refresh = TRUE) {
-  if (!is.cat_glm_init(cat_init)) {
-    stop(
-      "Please enter `cat_init` that generated from `catalytic::cat_glm_initialization`."
-    )
-  }
-
-  if (gibbs_iter <= gibbs_warmup) {
-    stop(
-      "Please note that gibbs_iter should be larger than gibbs_warmup."
-    )
-  }
-
-  if (coefficients_iter > 10) {
-    response <- menu(c("YES", "NO"), title = paste0(
-      "Please note that large stan iteration times can",
-      "slow down gibb's sampling process.",
-      "\nDo you want to continue?\n"
-    ))
-
-    if (response == 2) {
-      stop("Process terminated by user.", call. = FALSE)
-    }
-  }
-
-
-  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
-  f_lhs <- get_formula_lhs(formula)
-  if (f_lhs != "NULL" & f_lhs != colnames(cat_init$y)) stop("Please enter the correct y name for formula.")
-
-  cat_init <- get_adjusted_data(cat_init = cat_init, formula = formula)
-
-  if (is.null(family)) family <- cat_init$family
-  tau <- if (is.null(init_tau)) ncol(cat_init$adj_x) / 4 else init_tau
-  if (tau < 0) stop("Please enter non-negative `tau` value.")
-
-  full_formula <- as.formula(paste0(colnames(cat_init$y), f_rhs))
-
-  if (get_glm_family(family) != "binomial") {
-    stop(
-      "Please note that only logistic regression can use `cat_glm_bayes_joint_gibbs`."
-    )
-  }
-
-  suppressWarnings(
-    kappa_ <- get_glm_log_density(
-      family = family,
-      X = cat_init$adj_syn_x,
-      Y = cat_init$syn_y,
-      coefs = coef(do.call(
-        stats::glm,
-        list(
-          formula = full_formula,
-          family = family,
-          data = cat_init$syn_data
-        )
-      )),
-      weights = 1 / cat_init$syn_size
-    )
+                                      iter = 1000,
+                                      warmup = 500,
+                                      coefs_iter = 5,
+                                      tau_0 = NULL,
+                                      tau_alpha = 2,
+                                      tau_gamma = 1,
+                                      refresh = TRUE) {
+  # Validate Input Parameters
+  validate_glm_input(
+    formula = formula,
+    cat_init = cat_init,
+    gibbs_iter = iter,
+    gibbs_warmup = warmup,
+    coefs_iter = coefs_iter,
+    tau_0 = tau_0,
+    tau_alpha = tau_alpha,
+    tau_gamma = tau_gamma,
   )
 
-  tau <- if (is.null(init_tau)) ncol(cat_init$adj_x) / 4 else init_tau
+  # Update cat_init with adjusted data based on the formula's right-hand side
+  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
+  full_formula <- as.formula(paste0(cat_init$y_col_name, f_rhs))
 
-  suppressWarnings(coefs_tau_model <- do.call(stats::glm, list(
-    formula = full_formula,
-    family = family,
-    data = cat_init$data,
-    weights = c(
-      rep(1, cat_init$obs_size),
-      rep(tau / cat_init$syn_size, cat_init$syn_size)
+  cat_init <- get_adjusted_cat_init(
+    cat_init = cat_init,
+    formula_rhs = f_rhs
+  )
+
+  tau <- ifelse(is.null(tau_0), ncol(cat_init$adj_x) / 4, tau_0)
+
+  kappa_ <- get_glm_log_density(
+    family_string = cat_init$family,
+    X = cat_init$adj_syn_x,
+    Y = cat_init$syn_y,
+    coefs = coef(do.call(
+      stats::glm,
+      list(
+        formula = full_formula,
+        family = cat_init$family,
+        data = cat_init$syn_data
+      )
+    )),
+    weights = 1 / cat_init$syn_size
+  )
+
+  # Fit GLM to obtain initial coefficients
+  coefs <- coef(do.call(
+    stats::glm,
+    list(
+      formula = full_formula,
+      family = cat_init$family,
+      data = cat_init$data,
+      weights = c(
+        rep(1, cat_init$obs_size),
+        rep(tau / cat_init$syn_size, cat_init$syn_size)
+      )
     )
-  )))
+  ))
 
-  hmc_scale <- sqrt(get_glm_diag_approx_cov(cat_init$adj_x, coefs_tau_model))
+  # Initialize a matrix to collect samples
+  gibbs_iteration_log <- matrix(ncol = (1 + length(coefs)))
+  colnames(gibbs_iteration_log) <- c("(Intercept)", colnames(cat_init$adj_x), "tau")
 
-  coefficients <- if (is.null(init_coefficients)) coefs_tau_model$coefficients else init_coefficients
-
-  gibbs_collect <- matrix(ncol = (1 + length(coefficients)))
-  colnames(gibbs_collect) <- c("(Intercept)", colnames(cat_init$x), "tau")
-
-  if (gibbs_refresh) {
+  if (refresh) {
     cat(
       "\nSAMPLING FROM GIBB'S NOW",
       "\nGibb's sampling:",
@@ -156,305 +128,180 @@ cat_glm_bayes_joint_gibbs <- function(formula,
     )
   }
 
+  # Define print boundaries for progress reporting
+  print_boundary <- ifelse(
+    iter >= 10,
+    c(1, round(seq(0.1, 1, 0.1) * iter)),
+    seq(1, iter)
+  )
 
-  print_boundary <- if (gibbs_iter >= 10) {
-    c(
-      1,
-      round(seq(0.1, 1, 0.1) *
-        gibbs_iter)
-    )
-  } else {
-    seq(1, gibbs_iter)
-  }
-
-
-  sampling_start_flag <- TRUE
+  # Initialize flags and timers for tracking progress
+  sampling_start_flag <- FALSE
   warmup_start_time <- Sys.time()
 
-  for (gibbs in 1:gibbs_iter) {
-    # Update tau
-
+  for (gibbs_i in 1:iter) {
+    # Update tau by using the gamma distribution
     tau <- rgamma(
       n = 1,
-      shape = ncol(cat_init$adj_x) + alpha,
-      scale = kappa_ + 1 / gamma - get_glm_log_density(
+      shape = ncol(cat_init$adj_x) + tau_alpha,
+      scale = kappa_ + 1 / tau_gamma - get_glm_log_density(
         family = family,
         X = cat_init$adj_syn_x,
         Y = cat_init$syn_y,
-        coefs = coefficients,
+        coefs = coefs,
         weights = 1 / cat_init$syn_size
       )
     )
 
-
-    # Update coefficients
-    suppressWarnings(coefs_tau_model <- do.call(stats::glm, list(
+    tau_model <- stats::glm(
       formula = full_formula,
       family = family,
       data = cat_init$data,
       weights = c(
         rep(1, cat_init$obs_size),
         rep(tau / cat_init$syn_size, cat_init$syn_size)
-      ),
-      ...
-    )))
+      )
+    )
 
-    hmc_scale <- sqrt(get_glm_diag_approx_cov(cat_init$adj_x, coefs_tau_model))
+    # Compute diagonal approximation for HMC
+    hmc_scale <- sqrt(get_glm_diag_approx_cov(cat_init$adj_x, tau_model))
 
-    weights <- c(
+    tau_weights <- c(
       rep(1, cat_init$obs_size),
       rep(tau / cat_init$syn_size, cat_init$syn_size)
     )
 
-    coefficients <- hmc_mcmc(
-      neg_log_den_func = function(coefficients) {
+    # Update coefs by performing HMC sampling
+    coefs <- get_hmc_mcmc_result(
+      neg_log_den_func = function(coefs) {
         return(
           -get_glm_log_density(
-            family = family,
+            family = cat_init$family,
             X = cat_init$adj_x,
             Y = cat_init$y,
-            coefs = coefficients,
-            weights = weights
+            coefs = coefs,
+            weights = tau_weights
           )
         )
       },
-      neg_log_den_grad_func = function(coefficients) {
+      neg_log_den_grad_func = function(coefs) {
         return(
           -get_glm_log_density_grad(
-            family = family,
+            family = cat_init$family,
             X = cat_init$adj_x,
             Y = cat_init$y,
-            coefs = coefficients,
-            weights = weights
+            coefs = coefs,
+            weights = tau_weights
           )
         )
       },
-      init_coefficients = coefficients,
-      iter = coefficients_iter,
+      coefs_0 = coefs,
+      iter = coefs_iter,
       hmc_scale = hmc_scale
     )
 
+    gibbs_iteration_log[gibbs_i, ] <- c(coefs, tau)
 
+    # Print progress updates
+    if (((gibbs_i %in% print_boundary) | gibbs_i == warmup) & refresh) {
+      print_str <- paste("Gibb's sampling:", gibbs_i, " / ", iter, "[", round(gibbs_i / iter * 100), "%]")
 
-    if (gibbs > gibbs_warmup) {
-      gibbs_collect <- rbind(gibbs_collect, c(coefficients, tau))
-
-      if (sampling_start_flag) {
-        sampling_start_time <- Sys.time()
-        sampling_start_flag <- FALSE
+      if (gibbs_i <= warmup) {
+        cat(print_str, " (Warmup)\n")
+      } else {
+        if (!sampling_start_flag) {
+          sampling_start_time <- Sys.time()
+          sampling_start_flag <- TRUE
+        }
+        cat(print_str, " (Sampling)\n")
       }
-
-      if (gibbs %in% print_boundary & gibbs_refresh) {
-        cat(
-          "Gibb's sampling: ",
-          gibbs,
-          "/",
-          gibbs_iter,
-          " [",
-          round(gibbs / gibbs_iter * 100),
-          "%] ",
-          " (Sampling)\n"
-        )
-      }
-    } else if (((gibbs < gibbs_warmup & (gibbs %in% print_boundary)) | gibbs == gibbs_warmup) & gibbs_refresh) {
-      cat(
-        "Gibb's sampling: ",
-        gibbs,
-        "/",
-        gibbs_iter,
-        " [",
-        round(gibbs / gibbs_iter * 100),
-        "%] ",
-        " (Warmup)\n"
-      )
     }
   }
 
   sampling_end_time <- Sys.time()
-  gibbs_collect <- gibbs_collect[-1, ]
 
-  cat_glm_bayes_joint_gibbs_ <- list(
-    function_name = "cat_glm_bayes_joint_gibbs",
-    formula = formula,
-    family = family,
-    cat_init = cat_init,
-    gibbs_iter = gibbs_iter,
-    gibbs_warmup = gibbs_warmup,
-    coefficients_iter = coefficients_iter,
-    init_tau = init_tau,
-    init_coefficients = init_coefficients,
-    alpha = alpha,
-    gamma = gamma,
-    sys_time = sampling_end_time,
-    coefs_tau_model = coefs_tau_model,
-    gibbs_collect = gibbs_collect,
-    inform_df = tryCatch(
-      {
-        t(apply(
-          gibbs_collect,
-          2,
-          function(x) {
-            c(
-              mean = mean(x),
-              se_mean = sd(x) / sqrt(length(x)),
-              sd = sd(x),
-              quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
-              n_eff = as.double(coda::effectiveSize(coda::as.mcmc(x)))
-            )
-          }
-        ))
-      },
-      error = function(err) {
-        t(sapply(
-          gibbs_collect,
-          function(x) {
-            c(
-              mean = mean(x), se_mean = NA, sd = NA,
-              quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)), n_eff = 0
-            )
-          }
-        ))
-      }
-    ),
-    ...
-  )
+  # Print elapsed times for warmup and sampling
+  if (refresh) {
+    cat(paste0(
+      "Gibb's sampling: \n",
+      "Gibb's sampling:",
+      "  Elapsed Time: ",
+      round(difftime(
+        sampling_start_time,
+        warmup_start_time,
+        units = "secs"
+      ), 3),
+      " seconds ",
+      "(Warm-up)\n",
+      "Gibb's sampling:                ",
+      round(difftime(
+        sampling_end_time,
+        sampling_start_time,
+        units = "secs"
+      ), 3),
+      " seconds ",
+      "(Sampling)\n",
+      "Gibb's sampling:                ",
+      round(difftime(
+        sampling_end_time,
+        warmup_start_time,
+        units = "secs"
+      ), 3),
+      " seconds ",
+      "(Total)\n",
+      "Gibb's sampling: \n"
+    ))
 
-  cat_glm_bayes_joint_gibbs_$tau <- cat_glm_bayes_joint_gibbs_$inform_df[(length(coefficients) + 1), "mean"]
-  cat_glm_bayes_joint_gibbs_$coefficients <- cat_glm_bayes_joint_gibbs_$inform_df[1:length(coefficients), "mean"]
+    # Finalize Setup and Output
+    cat_model <- list(
+      function_name = "cat_glm_bayes_joint_gibbs",
+      ## Input/Processed parameters
+      formula = formula,
+      cat_init = cat_init,
+      iter = iter,
+      warmup = warmup,
+      coefs_iter = coefs_iter,
+      tau_0 = tau_0,
+      tau_alpha = tau_alpha,
+      tau_gamma = tau_gamma,
+      refresh = refresh,
+      sys_time = sampling_end_time,
+      ## Result
+      gibbs_iteration_log = gibbs_iteration_log,
+      inform_df = tryCatch(
+        {
+          t(apply(
+            gibbs_iteration_log,
+            2,
+            function(x) {
+              c(
+                mean = mean(x),
+                se_mean = sd(x) / sqrt(length(x)),
+                sd = sd(x),
+                quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
+                n_eff = as.double(coda::effectiveSize(coda::as.mcmc(x)))
+              )
+            }
+          ))
+        },
+        error = function(err) {
+          t(sapply(
+            gibbs_iteration_log,
+            function(x) {
+              c(
+                mean = mean(x), se_mean = NA, sd = NA,
+                quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)), n_eff = 0
+              )
+            }
+          ))
+        }
+      )
+    )
 
-  class(cat_glm_bayes_joint_gibbs_) <- c(cat_glm_bayes_joint_gibbs_$class, "cat_glm_bayes_joint_gibbs", "bayes")
+    cat_model$tau <- cat_model$inform_df[(length(coefs) + 1), "mean"]
+    cat_model$coefficients <- cat_model$inform_df[1:length(coefs), "mean"]
 
-  cat(paste0(
-    "Gibb's sampling: \n",
-    "Gibb's sampling:",
-    "  Elapsed Time: ",
-    round(difftime(sampling_start_time,
-      warmup_start_time,
-      units = "secs"
-    ), 3),
-    " seconds ",
-    "(Warm-up)\n",
-    "Gibb's sampling:                ",
-    round(difftime(sampling_end_time,
-      sampling_start_time,
-      units = "secs"
-    ), 3),
-    " seconds ",
-    "(Sampling)\n",
-    "Gibb's sampling:                ",
-    round(difftime(sampling_end_time,
-      warmup_start_time,
-      units = "secs"
-    ), 3),
-    " seconds ",
-    "(Total)\n",
-    "Gibb's sampling: \n"
-  ))
-
-  return(cat_glm_bayes_joint_gibbs_)
-}
-
-
-hmc_mcmc <- function(neg_log_den_func,
-                     neg_log_den_grad_func,
-                     init_coefficients,
-                     iter = 5,
-                     hmc_scale = 0.01,
-                     hmc_steps = 5,
-                     ...,
-                     return_only_last = TRUE) {
-  mc_collect <- matrix(0, iter + 1, length(init_coefficients))
-  mc_collect[1, ] <- init_coefficients
-
-  for (i in 1:iter) {
-    mc_collect[i + 1, ] <- HMC(
-      U = neg_log_den_func,
-      grad_U = neg_log_den_grad_func,
-      # add random value to epsilon to overcome poor performance
-      epsilon = rbeta(1, 0.5, 0.5) * hmc_scale / hmc_steps,
-      L = hmc_steps,
-      current_q = mc_collect[i, ]
-    )[[1]]
+    class(cat_model) <- c(cat_model$class, "cat_glm_bayes_joint_gibbs", "bayes")
   }
-
-  if (return_only_last) {
-    return(mc_collect[iter + 1, ])
-  }
-  return(mc_collect[-1, ])
-}
-
-
-# SIMPLE IMPLEMENTATION OF HAMILTONIAN MONTE CARLO.
-#
-# Radford M. Neal, 2010.
-#
-# This program appears in Figure 2 of "MCMC using Hamiltonian dynamics",
-# to appear in the Handbook of Markov Chain Monte Carlo.
-#
-# The arguments to the HMC function are as follows:
-#
-#   U          A function to evaluate minus the log of the density of the
-#              distribution to be sampled, plus any constant - ie, the
-#              "potential energy".
-#
-#   grad_U     A function to evaluate the gradient of U.
-#
-#   epsilon    The stepsize to use for the leapfrog steps.
-#
-#   L          The number of leapfrog steps to do to propose a new state.
-#
-#   current_q  The current state (position variables only).
-#
-# Momentum variables are sampled from independent standard normal
-# distributions within this function.  The value return is the vector
-# of new position variables (equal to current_q if the endpoint of the
-# trajectory was rejected).
-#
-# This function was written for illustrative purposes.  More elaborate
-# implementations of this basic HMC method and various variants of HMC
-# are available from my web page, http://www.cs.utoronto.ca/~radford/
-HMC <- function(U, grad_U, epsilon, L, current_q) {
-  q <- current_q
-  p <- rnorm(length(q), 0, 1) # independent standard normal variates
-  current_p <- p
-
-  # Make a half step for momentum at the beginning
-  p <- p - epsilon * grad_U(q) / 2
-
-  # Alternate full steps for position and momentum
-
-  for (i in 1:L)
-  {
-    # Make a full step for the position
-
-    q <- q + epsilon * p
-
-    # Make a full step for the momentum, except at end of trajectory
-
-    if (i != L) p <- p - epsilon * grad_U(q)
-  }
-
-  # Make a half step for momentum at the end.
-
-  p <- p - epsilon * grad_U(q) / 2
-
-  # Negate momentum at end of trajectory to make the proposal symmetric
-
-  p <- -p
-
-  # Evaluate potential and kinetic energies at start and end of trajectory
-
-  current_U <- U(current_q)
-  current_K <- sum(current_p^2) / 2
-  proposed_U <- U(q)
-  proposed_K <- sum(p^2) / 2
-
-  # Accept or reject the state at end of trajectory, returning either
-  # the position at the end of the trajectory or the initial position
-
-  if (runif(1) < exp(current_U - proposed_U + current_K - proposed_K)) {
-    return(list(q, proposed_U, accept = 1)) # accept
-  } else {
-    return(list(current_q, current_U, accept = 0)) # reject
-  }
+  return(cat_model)
 }

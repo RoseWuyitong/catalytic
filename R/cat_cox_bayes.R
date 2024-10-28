@@ -15,7 +15,7 @@
 #' @param tune_initial_values Initial values for the parameters in the Stan model. Default is NULL.
 #' @param tune_tol Tolerance for the optimization process. Default is 1e-5.
 #' @param tune_max_iter Maximum number of iterations for the optimization process. Default is 25.
-#' @param c_0 Hyperparameter for the prior distribution of the baseline hazard. Default is 2.
+#' @param hazard_beta Hyperparameter for the prior distribution of the baseline hazard. Default is 2.
 #' @param H_star_list Initial values for the cumulative baseline hazard. Default is NULL.
 #'
 #' @return A list object containing the fitted Bayesian Cox model and related information:
@@ -34,7 +34,7 @@
 #'   \item{tune_initial_values}{Initial values for the parameters in the Stan model.}
 #'   \item{tune_tol}{Tolerance for the optimization process.}
 #'   \item{tune_max_iter}{Maximum number of iterations for the optimization process.}
-#'   \item{c_0}{Hyperparameter for the prior distribution of the baseline hazard.}
+#'   \item{hazard_beta}{Hyperparameter for the prior distribution of the baseline hazard.}
 #'   \item{H_star_list}{Initial values for the cumulative baseline hazard.}
 #'   \item{stan_model}{The Stan model object.}
 #'   \item{stan_sample_model}{The sampled model from Stan.}
@@ -54,85 +54,32 @@
 cat_cox_bayes <- function(
     formula,
     cat_init,
-    tau_seq = NULL,
-    ...,
-    stan_chains = 4,
-    stan_iter = 2000,
-    stan_warmup = 1000,
-    tune_method = c("CRE", "WME"),
-    tune_likelihood_method = "cross_validation",
-    tune_cv_fold_num = 5,
-    tune_initial_values = NULL,
-    tune_tol = 1e-5,
-    tune_max_iter = 25,
-    c_0 = 2,
-    H_star_list = NULL) {
-  if (!is.cat_cox_init(cat_init)) {
-    stop(
-      "Please enter `cat_init` that generated from `catalytic::cat_cox_initialization`."
-    )
-  }
+    tau = NULL,
+    hazard_beta = 2,
+    chains = 4,
+    iter = 2000,
+    warmup = 1000,
+    ...) {
+  # Validate Input Parameters
+  validate_cox_input(
+    formula = formula,
+    cat_init = cat_init,
+    tau = tau,
+    hazard_beta = hazard_beta
+  )
 
+  if (is.null(tau)) tau <- ncol(cat_init$adj_x)
+
+  # Update cat_init with adjusted data based on the formula's right-hand side
   f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
-  # Extract time, status and other columns(x) from `data`
-  f_lhs <- get_formula_lhs(formula)
-  if (f_lhs != "NULL" & !is.formula_surv(formula)) {
-    stop("Please use `Surv` for formula.")
 
-    f_lhs <- get_formula_lhs(formula)
-
-    time_col_name <- gsub(
-      "`",
-      "",
-      regmatches(
-        f_lhs,
-        regexec(
-          "\\(([^,]+),",
-          f_lhs
-        )
-      )[[1]][2]
-    )
-    status_col_name <- gsub(
-      "`",
-      "",
-      regmatches(
-        f_lhs,
-        regexec(
-          ",\\s*([^\\)]+)\\)",
-          f_lhs
-        )
-      )[[1]][2]
-    )
-
-    if (time_col_name == cat_init$time_col_name &
-      status_col_name == cat_init$status_col_name) {
-      stop("Please use same time and status column name for formula")
-    }
-  }
-
-  cat_init <- get_adjusted_data(cat_init = cat_init, formula = formula)
-
-  if (length(tau_seq) == 1) {
-    tau <- tau_seq
-  } else {
-    cat_tune <- do.call(cat_cox_tune, list(
-      formula = formula,
-      cat_init = cat_init,
-      tau_seq = tau_seq,
-      method = match.arg(tune_method),
-      likelihood_method = tune_likelihood_method,
-      cv_fold_num = tune_cv_fold_num,
-      tol = tune_tol,
-      max_iter = tune_max_iter,
-      initial_values = tune_initial_values
-    ))
-
-    tau <- cat_tune$tau
-    tau_seq <- cat_tune$tau_seq
-  }
+  cat_init <- get_adjusted_cat_init(
+    cat_init = cat_init,
+    formula_rhs = f_rhs
+  )
 
   # Get unique times from sorted observed status times and a value larger than the maximum observed time
-  unique_observed_status_times_and_beyond <- unique(c(
+  unique_observed_status_times <- unique(c(
     # Sort the times where event occurred, status = 1
     sort(cat_init$obs_time[cat_init$obs_status == 1]),
     # Create a value larger than the maximum observed time
@@ -142,74 +89,76 @@ cat_cox_bayes <- function(
 
   # get risk set and failure set
   risk_and_failure_sets <- get_cox_risk_and_failure_sets(
-    time_vector = cat_init$obs_time[, 1],
-    status_vector = cat_init$obs_status[, 1],
-    indicator_vector = unique_observed_status_times_and_beyond
+    time_vector = cat_init$obs_time,
+    status_vector = cat_init$obs_status,
+    indicator_vector = unique_observed_status_times
   )
 
-  if (is.null(H_star_list)) {
-    # Get the initial guess of H_0 from the intercept-only weibull regression model based on observation data
-    surv_weibull_model <- do.call(
-      survival::survreg,
-      list(
-        formula = survival::Surv(cat_init$obs_time[, 1], cat_init$obs_status[, 1]) ~ 1,
-        dist = "weibull"
-      )
+  # Get the initial guess of H_0 from the intercept-only weibull regression model based on observation data
+  weibull_model <- do.call(
+    survival::survreg,
+    list(
+      formula = survival::Surv(cat_init$obs_time, cat_init$obs_status) ~ 1,
+      dist = "weibull"
     )
-    # Extracts the shape and scale parameters of the Weibull distribution
-    weibull_shape <- as.numeric(1 / surv_weibull_model$scale)
-    weibull_scale <- as.numeric(exp(coef(surv_weibull_model)))
+  )
 
-    # Calculates the cumulative hazard values for the risk_and_failure_sets
-    H_star_list <- (unique_observed_status_times_and_beyond / weibull_scale)^(weibull_shape)
-  }
+  # Extracts the shape and scale parameters of the Weibull distribution
+  weibull_shape <- as.numeric(1 / weibull_model$scale)
+  weibull_scale <- as.numeric(exp(coef(weibull_model)))
 
-  # List of alpha_0 value
-  alpha_0_list <- c_0 * H_star_list
+  # Calculates the cumulative hazard values for the risk_and_failure_sets
+  H_star_list <- (unique_observed_status_times / weibull_scale)^(weibull_shape)
 
-  # List of alpha value from each h_j ~ Gamma(alpha_j, c_0), where alpha_j = alpha_0[j] - alpha_0[j-1]
-  alpha_of_h_j_list <- diff(c(0, alpha_0_list))
+  # List of alpha value from each h_j ~ Gamma(alpha_j, hazard_beta), where alpha_j = alpha_0[j] - alpha_0[j-1]
+  hazard_alpha_list <- diff(c(0, hazard_beta * H_star_list))
+
+  stan_data <- list(
+    obs_size = cat_init$obs_size,
+    syn_size = cat_init$syn_size,
+    col_n = ncol(cat_init$adj_x),
+    obs_x = cat_init$adj_obs_x,
+    syn_x = cat_init$adj_syn_x,
+    syn_time = cat_init$syn_time,
+    syn_status = cat_init$syn_status,
+    tau = tau,
+    time_interval_num = length(unique_observed_status_times),
+    adj_risk_set = risk_and_failure_sets$risk_set - risk_and_failure_sets$failure_set,
+    failure_set = risk_and_failure_sets$failure_set,
+    hazard_constant = cat_init$hazard_constant,
+    hazard_alpha_list = hazard_alpha_list,
+    hazard_beta = hazard_beta
+  )
 
   stan_model <- get_stan_model(
     type = "cox",
     joint_tau = FALSE
   )
 
-  stan_data <- list(
-    J = length(unique_observed_status_times_and_beyond),
-    alpha_of_h_j_list = alpha_of_h_j_list,
-    c_0 = c_0,
-    obs_size = cat_init$obs_size,
-    col_n = ncol(cat_init$adj_x),
-    obs_x = cat_init$adj_obs_x,
-    syn_size = cat_init$syn_size,
-    syn_x = cat_init$adj_syn_x,
-    syn_time = as.vector(cat_init$syn_time[, 1]),
-    syn_status = as.vector(cat_init$syn_status[, 1]),
-    tau = tau,
-    adj_risk_set = risk_and_failure_sets$risk_set - risk_and_failure_sets$failure_set,
-    failure_set = risk_and_failure_sets$failure_set,
-    hazard_constant = cat_init$hazard_constant
-  )
-
-  # Stan model and sampling
+  # Perform Bayesian Sampling via RStan
   stan_sample_model <- rstan::sampling(
     object = stan_model,
     data = stan_data,
-    chains = stan_chains,
-    iter = stan_iter,
-    warmup = stan_warmup,
+    chains = chains,
+    iter = iter,
+    warmup = warmup,
     ...
   )
 
+  ## Extract the mean of coefs from the stan sampling model
   coefs <- rstan::summary(stan_sample_model)$summary[
     grep("coefs", rownames(rstan::summary(stan_sample_model)$summary)),
     "mean"
   ]
-  names(coefs) <- colnames(cat_init$adj_x)
 
-  cat_cox_bayes_ <- list(
+  if (!is.null(coefs)) {
+    names(coefs) <- colnames(cat_init$adj_x)
+  }
+
+  # Finalize Setup and Output
+  cat_model <- list(
     function_name = "cat_cox_bayes",
+    ## Input/Processed parameters
     formula = as.formula(paste0(
       "survival::Surv(",
       cat_init$time_col_name,
@@ -220,30 +169,23 @@ cat_cox_bayes <- function(
     )),
     cat_init = cat_init,
     tau = tau,
-    tau_seq = tau_seq,
-    stan_chains = stan_chains,
-    stan_iter = stan_iter,
-    stan_warmup = stan_warmup,
-    tune_method = tune_method,
-    tune_likelihood_method = tune_likelihood_method,
-    tune_cv_fold_num = tune_cv_fold_num,
-    tune_initial_values = tune_initial_values,
-    tune_tol = tune_tol,
-    tune_max_iter = tune_max_iter,
-    c_0 = c_0,
-    H_star_list = H_star_list,
-    stan_model = stan_model,
-    stan_sample_model = stan_sample_model,
+    hazard_beta = hazard_beta,
+    chains = chains,
+    iter = iter,
+    warmup = warmup,
+    ...,
+    ## Result
+    model = stan_model,
+    sample_model = stan_sample_model,
     coefficients = coefs,
     increment_cumulative_baseline_hazard = rstan::summary(stan_sample_model)$summary[
       grep("h_j", rownames(rstan::summary(stan_sample_model)$summary)),
       "mean"
-    ],
-    ...
+    ]
   )
 
-  class(cat_cox_bayes_) <- c(cat_cox_bayes_$class, "cat_cox_bayes", "bayes")
+  class(cat_model) <- c(cat_model$class, "cat_cox_bayes", "bayes")
 
 
-  return(cat_cox_bayes_)
+  return(cat_model)
 }

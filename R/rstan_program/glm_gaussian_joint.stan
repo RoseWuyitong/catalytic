@@ -7,8 +7,10 @@ data {
   vector[obs_n] obs_y;
   vector[syn_n] syn_y;
   real kappa;
-  real alpha;
-  real gamma;
+  real<lower=0> tau_alpha;
+  real<lower=0> tau_gamma;
+  real<lower=0> variance_alpha;
+  real<lower=0> variance_beta;
 }
 
 parameters {
@@ -31,5 +33,9 @@ model {
       target += syn_weight * normal_lpdf(syn_y[i] | syn_mu[i], sigma);
 
   // Gamma function for tau
-  target += ((col_n+alpha)/2-1)*log(tau)-tau*(kappa+1/gamma);
+  target += ((col_n+tau_alpha)/2-1)*log(tau)-tau*(kappa+1/tau_gamma);
+
+  // Variance Prior
+  target += inv_gamma_lpdf(pow(sigma, 2) | variance_alpha, variance_beta);
+
 }

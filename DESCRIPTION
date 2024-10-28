@@ -2,11 +2,11 @@ Package: catalytic
 Title: Catalytic Prior Distribution 
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Dongming", "Huang", , "huang.dongming@nus.edu.sg", role = c("aut", "cre"),
+    person("Dongming", "Huang", , "huang.dongming@nus.edu.sg", role = c("aut"),
             comment = c(ORCID = "0000-0003-4265-7708")),
     person("Weihao", "Li", , "weihao.li@u.nus.edu", role = c("aut", "cre"),
             comment = c(ORCID = "")),
-    person("Yitong", "Wu", , "wuy@nus.edu.sg", role = c("aut", "cre"),
+    person("Yitong", "Wu", , "wuy@nus.edu.sg", role = c("aut"),
             comment = c(ORCID = "0009-0000-8683-5129")))
 Description: Catalytic priors stabilize complex models 
     with limited data by adding a small amount of 

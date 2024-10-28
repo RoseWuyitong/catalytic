@@ -57,7 +57,7 @@ library(catalytic)
 # Utility function to get random train indices for 1/80 of the original data
 get_train_idx <- function(data_set) {
   n <- nrow(data_set)
-  return(sample(1:n, floor(1 / 80 * n)))
+  return(sample(1:n, floor(1 / 50 * n)))
 }
 
 # Load and split the binomial_swim dataset for binomial analysis
@@ -150,7 +150,7 @@ Here shows how users can simplify the input for `cat_glm_initialization`. User d
 ```{r}
 cat_init_2 <- cat_glm_initialization(
   formula = empyr1 ~ 1,
-  family = gaussian,
+  family = binomial,
   data = train_data
 )
 

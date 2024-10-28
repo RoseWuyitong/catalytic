@@ -16,7 +16,7 @@
 #' @param ... Additional arguments passed to `stats::glm` for model fitting.
 #' @param tau_0 Initial tau value used for discrepancy calculation in risk estimation. Defaults to one fourth of the number of predictors for binomial and 1 for gaussian.
 #' @param bootstrap_iteration_times Number of bootstrap iterations for "parametric_bootstrap" risk estimation. Defaults to 100.
-#' @param cv_fold_num Number of folds for cross-validation. Defaults to 5.
+#' @param cross_validation_fold_num Number of folds for cross-validation. Defaults to 5.
 #'
 #' @return An object of class `cat_glm_tune` containing:
 #'   \item{function_name}{Function name.}
@@ -28,11 +28,11 @@
 #'   \item{tau_seq}{Vector of tau values used for tuning.}
 #'   \item{tau_0}{Initial tau value used for discrepancy calculation.}
 #'   \item{bootstrap_iteration_times}{Number of bootstrap iterations used.}
-#'   \item{cv_fold_num}{Number of folds used in cross-validation.}
+#'   \item{cross_validation_fold_num}{Number of folds used in cross-validation.}
 #'   \item{tau}{Optimal tau value determined through tuning.}
 #'   \item{model}{Fitted GLM model object with optimal `tau`.}
 #'   \item{coefficients}{Estimated coefficients from the `model`.}
-#'   \item{risk_estimate_collect}{Collected risk estimates for each tau.}
+#'   \item{risk_estimate_list}{Collected risk estimates for each tau.}
 #'   \item{min_risk_estimate}{Minimum risk estimate value.}
 #'
 #' @export
@@ -42,12 +42,11 @@
 #' \code{\link{cat_glm_initialization}}
 cat_glm_tune <- function(
     formula,
-    family = NULL,
     cat_init,
     risk_estimate_method = c(
       "parametric_bootstrap",
       "cross_validation",
-      "mallows_estimate",
+      "mallowian_estimate",
       "steinian_estimate"
     ),
     discrepancy_method = c(
@@ -56,392 +55,505 @@ cat_glm_tune <- function(
       "logistic_deviance"
     ),
     tau_seq = NULL,
-    ...,
     tau_0 = NULL,
-    bootstrap_iteration_times = 100,
-    cv_fold_num = 5) {
-  if (!is.cat_glm_init(cat_init)) {
-    stop(
-      "Please enter `cat_init` that generated from `catalytic::cat_glm_initialization`."
+    parametric_bootstrap_iteration_times = 100,
+    cross_validation_fold_num = 5) {
+  if (missing(risk_estimate_method)) {
+    risk_estimate_method <- ifelse(
+      cat_init$obs_size > 200,
+      "cross_validation",
+      "parametric_bootstrap"
     )
   }
-
-  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
-  f_lhs <- get_formula_lhs(formula)
-  if (f_lhs != "NULL" & f_lhs != colnames(cat_init$y)) stop("Please enter the correct y name for formula.")
-
-  cat_init <- get_adjusted_data(cat_init = cat_init, formula = formula)
-
-  if (is.null(family)) family <- cat_init$family
-  if (is.null(tau_seq)) tau_seq <- seq(max(0, ncol(cat_init$adj_x) / 4 - 2), ncol(cat_init$adj_x) / 4 + 2, 0.5)
-  if (is.null(tau_0)) tau_0 <- if (get_glm_family(family) == "gaussian") 1 else ncol(cat_init$adj_x) / 4
-
-  if (tau_0 < 0) stop("Please enter non-negative `tau_0` value.")
-  if (length(tau_seq) <= 1) stop("Please enter at least 2 values for `tau_seq` vector")
-
-
-  if (missing(risk_estimate_method)) {
-    risk_estimate_method <- ifelse(cat_init$obs_size > 200, "cross_validation", "parametric_bootstrap")
-  }
-
   if (missing(discrepancy_method)) {
-    discrepancy_method <- ifelse(get_glm_family(family) == "binomial", "logistic_deviance", "square_error")
+    discrepancy_method <- ifelse(
+      cat_init$family == "gaussian",
+      "square_error",
+      "logistic_deviance"
+    )
   }
 
   risk_estimate_method <- match.arg(risk_estimate_method)
   discrepancy_method <- match.arg(discrepancy_method)
-  check_glm_tune_size_and_risk_estimate_method(cat_init$obs_size, risk_estimate_method)
 
-  full_formula <- as.formula(paste0(colnames(cat_init$y), f_rhs))
+  # Validate Input Parameters
+  validate_glm_input(
+    formula = formula,
+    cat_init = cat_init,
+    tau_seq = tau_seq,
+    tau_0 = tau_0,
+    parametric_bootstrap_iteration_times = parametric_bootstrap_iteration_times,
+    cross_validation_fold_num = cross_validation_fold_num,
+    risk_estimate_method = risk_estimate_method,
+    discrepancy_method = discrepancy_method
+  )
 
-  risk_estimate_collect <- do.call(
+  # Update cat_init with adjusted data based on the formula's right-hand side
+  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
+  full_formula <- as.formula(paste0(cat_init$y_col_name, f_rhs))
+
+  cat_init <- get_adjusted_cat_init(
+    cat_init = cat_init,
+    formula_rhs = f_rhs
+  )
+
+  if (is.null(tau_seq)) {
+    tau_seq <- if (cat_init$family == "gaussian") {
+      seq(max(0, ncol(cat_init$adj_x) / 4 - 2), ncol(cat_init$adj_x) / 4 + 2, 0.5)
+    } else {
+      seq(max(0, ncol(cat_init$adj_x) - 2), ncol(cat_init$adj_x) + 2, 0.5)
+    }
+  }
+
+  if (is.null(tau_0)) {
+    tau_0 <- ifelse(
+      cat_init$family == "gaussian",
+      1,
+      ncol(cat_init$adj_x) / 4
+    )
+  }
+  # Estimate Risk Using the Specified Method and Processed Parameters
+  risk_estimate_list <- do.call(
     risk_estimate_method,
     list(
       formula = full_formula,
-      family = family,
       cat_init = cat_init,
       discrepancy_method = discrepancy_method,
       tau_seq = tau_seq,
       tau_0 = tau_0,
-      bootstrap_iteration_times = bootstrap_iteration_times,
-      cv_fold_num = cv_fold_num
+      parametric_bootstrap_iteration_times = parametric_bootstrap_iteration_times,
+      cross_validation_fold_num = cross_validation_fold_num
     )
   )
 
-
-  optimal_tau <- tau_seq[which.min(risk_estimate_collect)]
-
-  optimal_model <- suppressWarnings(do.call(stats::glm, list(
+  # Fit the Optimal Model Using the Optimal tau
+  optimal_tau <- tau_seq[which.min(risk_estimate_list)]
+  optimal_model <- do.call(stats::glm, list(
     formula = full_formula,
-    family = family,
-    data = as.data.frame(cat_init$data),
+    family = cat_init$family,
+    data = cat_init$data,
     weights = c(
       rep(1, cat_init$obs_size),
       rep(optimal_tau / cat_init$syn_size, cat_init$syn_size)
     )
-  )))
+  ))
 
-  cat_glm_tune_ <- list(
+  # Finalize Setup and Output
+  cat_model <- list(
     function_name = "cat_glm_tune",
+    ## Input/Processed parameters
     formula = full_formula,
-    family = family,
     cat_init = cat_init,
     risk_estimate_method = risk_estimate_method,
     discrepancy_method = discrepancy_method,
     tau_seq = tau_seq,
     tau_0 = tau_0,
-    bootstrap_iteration_times = bootstrap_iteration_times,
-    cv_fold_num = cv_fold_num,
+    parametric_bootstrap_iteration_times = parametric_bootstrap_iteration_times,
+    cross_validation_fold_num = cross_validation_fold_num,
+    ## Result
     tau = optimal_tau,
     model = optimal_model,
-    coefficients = optimal_model$coefficients,
-    risk_estimate_collect = risk_estimate_collect,
-    min_risk_estimate = min(risk_estimate_collect),
-    ...
+    coefficients = coef(optimal_model),
+    risk_estimate_list = risk_estimate_list
   )
 
-  class(cat_glm_tune_) <- c(cat_glm_tune_$class, "cat_glm_tune", "cat_tune", "cat_glm")
+  class(cat_model) <- c(cat_model$class, "cat_glm_tune", "cat_tune", "cat_glm")
 
-  return(cat_glm_tune_)
+  return(cat_model)
 }
 
 
-parametric_bootstrap <- function(formula,
-                                 family = gaussian(),
-                                 cat_init,
-                                 tau_seq,
-                                 ...,
-                                 discrepancy_method = "square_error",
-                                 tau_0 = 1,
-                                 bootstrap_iteration_times = 100) {
-  risk_estimate_collect <- c()
-  for (tau in tau_seq) {
-    coefs_tau_model <- suppressWarnings(do.call(stats::glm, list(
+parametric_bootstrap <- function(
+    formula,
+    cat_init,
+    tau_seq,
+    tau_0,
+    discrepancy_method,
+    parametric_bootstrap_iteration_times,
+    ...) {
+  # The Preliminary Estimate Model from Using Initial Value tau_0
+  tau_0_model <- do.call(
+    stats::glm,
+    list(
       formula = formula,
-      family = family,
+      family = cat_init$family,
+      data = cat_init$data,
+      weights = c(
+        rep(1, cat_init$obs_size),
+        rep(tau_0 / cat_init$syn_size, cat_init$syn_size)
+      )
+    )
+  )
+
+  # The Mean from the Preliminary Estimate Model for Generating Bootstrap Response Samples
+  boots_mean_Y <- get_glm_mean(
+    family = cat_init$family,
+    X = cat_init$adj_obs_x,
+    coefs = coef(tau_0_model)
+  )
+
+  # The Standard Deviance for Generating Bootstrap Response Samples
+  boots_sd_Y <- sqrt(
+    ifelse(
+      (is.null(cat_init$custom_variance)),
+      get_glm_custom_var(
+        cat_init = cat_init,
+        tau = ncol(cat_init$adj_x), # Specifying tau as the number of predictors for variance adjustment
+        formula = formula
+      ),
+      cat_init$custom_variance
+    )
+  )
+
+  cat("\nboots_sd_Y:", boots_sd_Y)
+  # The data.frame that Contains All Vectors of Bootstrap Response Samples for Each Bootstrap Iterations
+  boots_Y_df <- as.data.frame(
+    lapply(
+      1:parametric_bootstrap_iteration_times,
+      function(.) {
+        get_glm_sample_data(
+          family_string = cat_init$family,
+          n = cat_init$obs_size,
+          mean = boots_mean_Y,
+          sd = boots_sd_Y
+        )
+      }
+    )
+  )
+
+  # The Deviations of Bootstrap Response Samples from Their Means
+  boots_dev_df <- sweep(boots_Y_df, 1, rowMeans(boots_Y_df))
+
+  risk_estimate_list <- c()
+
+  for (tau in tau_seq) {
+    # The tau Model
+    tau_model <- do.call(stats::glm, list(
+      formula = formula,
+      family = cat_init$family,
       data = cat_init$data,
       weights = c(
         rep(1, cat_init$obs_size),
         rep(tau / cat_init$syn_size, cat_init$syn_size)
       )
-    )))
+    ))
 
+    # The In-sample Prediction Error from the tau Model
     D <- get_discrepancy(
       discrepancy_method = discrepancy_method,
-      family = family,
+      family_string = cat_init$family,
       X = cat_init$adj_obs_x,
       Y = cat_init$obs_y,
-      coefs = coef(coefs_tau_model)
+      est_coefs = coef(tau_model)
+    )
+    boots_lambda_mu_df <- do.call(
+      cbind,
+      lapply(
+        seq_len(parametric_bootstrap_iteration_times),
+        function(boots_i) {
+          # The Bootstrap Model from Replacing the Observation Response by Bootstrap Response Samples
+          boots_model <- do.call(stats::glm, list(
+            formula = formula,
+            family = cat_init$family,
+            data = cbind(
+              cat_init$x,
+              setNames(
+                data.frame(c(
+                  boots_Y_df[[boots_i]],
+                  cat_init$syn_y
+                )),
+                cat_init$y_col_name
+              )
+            ),
+            weights = c(
+              rep(1, cat_init$obs_size),
+              rep(tau / cat_init$syn_size, cat_init$syn_size)
+            )
+          ))
+
+          # Return Lambda(mu) values
+          return(get_glm_lambda(
+            discrepancy_method = discrepancy_method,
+            X = cat_init$adj_obs_x,
+            coefs = coef(boots_model)
+          ))
+        }
+      )
     )
 
+    risk_estimate_list <- c(
+      risk_estimate_list,
+      # The In-sample Prediction Error + Covariance Penalty Approximation Using Weighted Deviations Across Bootstrap Iterations
+      D + sum(boots_dev_df * boots_lambda_mu_df) / parametric_bootstrap_iteration_times
+    )
+  }
 
-    hat_tau_0_coefs_model <- suppressWarnings(do.call(
+  return(risk_estimate_list)
+}
+
+steinian_estimate <- function(
+    formula,
+    cat_init,
+    tau_seq,
+    tau_0 = 1,
+    ...) {
+  # The Preliminary Estimate Model from Using Initial Value tau_0
+  tau_0_model <- do.call(
+    stats::glm,
+    list(
+      formula = formula,
+      family = cat_init$family,
+      data = cat_init$data,
+      weights = c(
+        rep(1, cat_init$obs_size),
+        rep(tau_0 / cat_init$syn_size, cat_init$syn_size)
+      )
+    )
+  )
+
+  # The Mean from the Preliminary Estimate Model for Generating Bootstrap Response Samples
+  tau_0_mean <- get_glm_mean(
+    family_string = cat_init$family,
+    X = cat_init$adj_obs_x,
+    coefs = coef(tau_0_model)
+  )
+
+  # The Variance Estimates for the Preliminary Estimate Model
+  tau_0_varience <- tau_0_mean * (1 - tau_0_mean)
+
+  risk_estimate_list <- c()
+
+  for (tau in tau_seq) {
+    # The tau Model
+    tau_model <- stats::glm(
+      formula = formula,
+      family = "binoimal",
+      data = cat_init$data,
+      weights = c(
+        rep(1, cat_init$obs_size),
+        rep(tau / cat_init$syn_size, cat_init$syn_size)
+      )
+    )
+
+    # The In-sample Prediction Error from the tau Model
+    D <- get_discrepancy(
+      discrepancy_method = "logistic_deviance",
+      family_string = "binomial",
+      X = cat_init$adj_obs_x,
+      Y = cat_init$obs_y,
+      coefs = coef(tau_model)
+    )
+
+    lambda_mu_tau_df <- get_glm_lambda(
+      discrepancy_method = "logistic_deviance",
+      X = cat_init$adj_x,
+      coefs = coef(tau_model)
+    )
+
+    steinian_penalty_sum <- 0
+
+    for (obs_i in seq_len(cat_init$obs_size)) {
+      # The Triangle Response by Inverting One Observation
+      triangle_obs_y <- cat_init$obs_y
+      triangle_obs_y[obs_i] <- 1 - cat_init$obs_y[obs_i]
+
+      # The Triangle Model Fitted from Triangle Response
+      triangle_tau_model <- stats::glm(
+        formula = formula,
+        family = "binomial",
+        data = cbind(
+          cat_init$adj_x,
+          setNames(
+            data.frame(c(
+              triangle_obs_y,
+              cat_init$syn_y
+            )),
+            cat_init$y_col_name
+          )
+        ),
+        weights = c(
+          rep(1, cat_init$obs_size),
+          rep(tau / cat_init$syn_size, cat_init$syn_size)
+        )
+      )
+
+      steinian_penalty_sum <- steinian_penalty_sum +
+        tau_0_varience[obs] * (
+          2 * cat_init$obs_y[obs] - 1) * (
+          lambda_mu_tau_df - get_glm_lambda(
+            discrepancy_method = "logistic_deviance",
+            X = cat_init$adj_x,
+            coefs = coef(triangle_tau_model)
+          )
+        )
+    }
+    browser()
+    risk_estimate_list <- c(
+      risk_estimate_list,
+      # The In-sample Prediction Error + Steinian Covariance Penalty
+      D + steinian_penalty_sum / cat_init$obs_size # TODO: CHECK the calculation
+    )
+  }
+
+  return(risk_estimate_list)
+}
+
+mallowian_estimate <- function(
+    formula,
+    cat_init,
+    tau_seq,
+    tau_0,
+    ...) {
+  # The Variance from Preliminary Estimate Model
+  # var_Y <- ifelse(
+  #   (is.null(cat_init$custom_variance)),
+  #   (get_glm_custom_var(
+  #     cat_init = cat_init,
+  #     tau = ncol(cat_init$adj_x), # Specifying tau as the number of predictors for variance adjustment
+  #     formula = formula
+  #   )),
+  #   cat_init$custom_variance
+  # )
+
+  coefs_0_model <- do.call(
+    stats::glm,
+    list(
+      formula = formula,
+      family = cat_init$family,
+      data = cat_init$data,
+      weights = c(
+        rep(1, cat_init$obs_size),
+        rep(ncol(cat_init$adj_x) / cat_init$syn_size, cat_init$syn_size)
+      )
+    )
+  )
+
+  var_Y <- ifelse(
+    (is.null(cat_init$custom_variance)),
+    sum((get_glm_sample_data(
+      family = cat_init$family,
+      n = cat_init$obs_size,
+      mean = get_glm_mean(cat_init$family, cat_init$adj_obs_x, coef(coefs_0_model)),
+      sd = sqrt(sum(stats::residuals(coefs_0_model)^2) / stats::df.residual(coefs_0_model))
+    ) - cat_init$obs_y)^2) / cat_init$obs_size,
+    cat_init$custom_variance
+  )
+
+  cat("\nvar_Y:", var_Y)
+  risk_estimate_list <- c()
+
+  for (tau in tau_seq) {
+    # The tau Model
+    tau_model <- do.call(
       stats::glm,
       list(
         formula = formula,
-        family = family,
+        family = "gaussian",
         data = cat_init$data,
         weights = c(
           rep(1, cat_init$obs_size),
-          rep(tau_0 / cat_init$syn_size, cat_init$syn_size)
-        )
-      )
-    ))
-
-    mean_Y <- get_glm_mean(
-      family = family,
-      X = cat_init$adj_obs_x,
-      coefs = coef(hat_tau_0_coefs_model)
-    )
-
-    sd_Y <- sd(mean_Y)
-
-    boot_Y_collect <-
-      lambda_boot_hat_mu_collect <- matrix(NA,
-        nrow = cat_init$obs_size,
-        ncol = bootstrap_iteration_times
-      )
-
-    for (bootstrap_iter in 1:bootstrap_iteration_times) {
-      boot_Y <- get_glm_sample_data(
-        family = family,
-        n = cat_init$obs_size,
-        mean = mean_Y,
-        sd = sd_Y
-      )
-
-      boot_Y_df <- as.data.frame(boot_Y)
-      colnames(boot_Y_df) <- colnames(cat_init$syn_y)
-
-      boot_hat_tau_coefs_model <- suppressWarnings(do.call(stats::glm, list(
-        formula = formula,
-        family = family,
-        data = cbind(
-          cat_init$x,
-          rbind(boot_Y_df, cat_init$syn_y)
-        ),
-        weights = c(
-          rep(1, cat_init$obs_size),
           rep(tau / cat_init$syn_size, cat_init$syn_size)
         )
-      )))
-
-      boot_Y_collect[, bootstrap_iter] <- boot_Y
-
-      lambda_boot_hat_mu_collect[, bootstrap_iter] <- get_glm_lambda(
-        discrepancy_method = discrepancy_method,
-        X = cat_init$adj_obs_x,
-        coefs = boot_hat_tau_coefs_model$coefficients
       )
-    }
-
-    risk_estimate_collect <- c(
-      risk_estimate_collect,
-      D + sum(sweep(boot_Y_collect, 1, rowMeans(boot_Y_collect)) *
-        lambda_boot_hat_mu_collect) / bootstrap_iteration_times
-    )
-  }
-  return(risk_estimate_collect)
-}
-
-steinian_estimate <- function(formula,
-                              family = binomial(),
-                              cat_init,
-                              tau_seq,
-                              ...,
-                              tau_0 = 1) {
-  if (get_glm_family(family) != "binomial") {
-    warning(paste(
-      "Please note that only logistic regression can use,",
-      "`risk_estimate_method = steinian_estimate`."
-    ))
-  }
-
-  risk_estimate_collect <- c()
-
-  for (tau in tau_seq) {
-    coefs_tau_model <- suppressWarnings(do.call(stats::glm, list(
-      formula = formula,
-      family = family,
-      data = cat_init$data,
-      weights = c(
-        rep(1, cat_init$obs_size),
-        rep(tau / cat_init$syn_size, cat_init$syn_size)
-      )
-    )))
-
-    D <- get_discrepancy(
-      discrepancy_method = "logistic_deviance",
-      family = family,
-      X = cat_init$adj_obs_x,
-      Y = cat_init$obs_y,
-      coefs = coef(coefs_tau_model)
     )
 
-    hat_coefs_0_model <- suppressWarnings(do.call(stats::glm, list(
-      formula = formula,
-      family = family,
-      data = cat_init$data,
-      weights = c(
-        rep(1, cat_init$obs_size),
-        rep(tau_0 / cat_init$syn_size, cat_init$syn_size)
-      )
-    )))
-
-    hat_mu_0 <- get_glm_mean(
-      family = family,
-      X = cat_init$adj_obs_x,
-      coefs = coef(hat_coefs_0_model)
-    )
-
-    with_ <- with(hat_coefs_0_model, fitted.values * (1 - fitted.values))
-
-    steinian_sum <- 0
-    for (obs in 1:cat_init$obs_size) {
-      triangle_response <- cat_init$y
-      triangle_response[obs, ] <- 1 - cat_init$y[obs, ]
-
-      trigangle_hat_tau_coefs_model <- suppressWarnings(do.call(stats::glm, list(
-        formula = formula,
-        family = family,
-        data = cbind(
-          cat_init$adj_x,
-          triangle_response
-        ),
-        weights = c(
-          rep(1, cat_init$obs_size),
-          rep(tau / cat_init$syn_size, cat_init$syn_size)
-        )
-      )))
-
-      steinian_sum <- steinian_sum +
-        with_[obs] * (2 * cat_init$y[obs, ] - 1) * (tcrossprod(
-          as.matrix(cat_init$adj_x[obs, ]),
-          as.matrix(coefs_tau_model$coefficient - trigangle_hat_tau_coefs_model$coefficient)[-1]
-        ) + (
-          coefs_tau_model$coefficient - trigangle_hat_tau_coefs_model$coefficient)[1])
-    }
-    risk_estimate_collect <- c(risk_estimate_collect, D + steinian_sum)
-  }
-
-  return(risk_estimate_collect)
-}
-
-mallows_estimate <- function(formula,
-                             family = gaussian(),
-                             cat_init,
-                             tau_seq,
-                             ...,
-                             tau_0 = 1) {
-  if (get_glm_family(family) != "gaussian") {
-    warning(paste(
-      "Please note that only linear regression can use",
-      "`risk_estimate_method = mallows_estimate`"
-    ))
-  }
-
-  risk_estimate_collect <- c()
-  for (tau in tau_seq) {
-    coefs_tau_model <- suppressWarnings(do.call(stats::glm, list(
-      formula = formula,
-      family = family,
-      data = cat_init$data,
-      weights = c(
-        rep(1, cat_init$obs_size),
-        rep(tau / cat_init$syn_size, cat_init$syn_size)
-      )
-    )))
-
+    # The In-sample Prediction Error from the tau Model
     D <- get_discrepancy(
       discrepancy_method = "square_error",
-      family = family,
+      family_string = "gaussian",
       X = cat_init$adj_obs_x,
       Y = cat_init$obs_y,
-      coefs = coef(coefs_tau_model)
+      est_coefs = coef(tau_model)
     )
 
-    coefs_0_model <- suppressWarnings(do.call(stats::glm, list(
-      formula = formula,
-      family = family,
-      data = cat_init$data,
-      weights = c(
-        rep(1, cat_init$obs_size),
-        rep(tau_0 / cat_init$syn_size, cat_init$syn_size)
-      )
-    )))
+    # The Regularized Projection Matrix
+    obs_x_matrix <- as.matrix(cat_init$adj_obs_x)
+    syn_x_matrix <- as.matrix(cat_init$adj_syn_x)
 
+    obs_syn_matrix <- crossprod(obs_x_matrix) + (tau / cat_init$syn_size) * crossprod(syn_x_matrix)
 
-    var_Y <- sum((get_glm_sample_data(
-      family = family,
-      n = cat_init$obs_size,
-      mean = get_glm_mean(family, cat_init$adj_obs_x, coef(coefs_0_model)),
-      sd = sqrt(sum(stats::residuals(coefs_0_model)^2) / stats::df.residual(coefs_0_model))
-    ) - cat_init$obs_y)^2) / cat_init$obs_size
-
-    tau_H <- get_h_matrix(
-      obs_x = cat_init$adj_obs_x,
-      syn_x = cat_init$adj_syn_x,
-      tau = tau
+    solved_obs_syn_matrix <- tryCatch(
+      solve(obs_syn_matrix),
+      error = function(.) {
+        # Regularization for dealing with computationally singular issue
+        solve(obs_syn_matrix + diag(nrow(obs_syn_matrix)) * 1e-5)
+      }
     )
 
-    risk_estimate_collect <- c(
-      risk_estimate_collect,
-      D + 2 * var_Y * sum(diag(tau_H)) / cat_init$obs_size
+    weighted_covariance_matrix <- t(obs_x_matrix) + (
+      tau / ((cat_init$syn_size * cat_init$obs_size))
+    ) * t(syn_x_matrix) %*% matrix(1, nrow = cat_init$syn_size, ncol = cat_init$obs_size)
+
+    H_tau_matrix <- obs_x_matrix %*% solved_obs_syn_matrix %*% weighted_covariance_matrix
+
+    risk_estimate_list <- c(
+      risk_estimate_list,
+      D + (2 * var_Y * sum(diag(H_tau_matrix))) / cat_init$obs_size
     )
   }
 
-  return(risk_estimate_collect)
+  return(risk_estimate_list)
 }
 
-cross_validation <- function(formula,
-                             family = gaussian(),
-                             cat_init,
-                             tau_seq,
-                             ...,
-                             discrepancy_method = "square_error",
-                             cv_fold_num = 5) {
-  random_sample <- sample(1:cat_init$obs_size)
+cross_validation <- function(
+    formula,
+    cat_init,
+    tau_seq,
+    discrepancy_method,
+    cross_validation_fold_num,
+    ...) {
+  random_idxs <- sample(1:cat_init$obs_size)
+  risk_estimate_list <- rep(0, length(tau_seq))
 
-  risk_estimate_collect <- rep(0, length(tau_seq))
-  for (fold in 1:cv_fold_num) {
-    idx <- random_sample[(cat_init$obs_size * (fold - 1) / cv_fold_num + 1):
-    (cat_init$obs_size * fold / cv_fold_num)]
+  # The perform of cross-validation
+  for (fold in seq_len(cross_validation_fold_num)) {
+    test_idx <- random_idxs[
+      (cat_init$obs_size * (fold - 1) / cross_validation_fold_num + 1):
+      (cat_init$obs_size * fold / cross_validation_fold_num)
+    ]
 
-    test_x <- cat_init$adj_obs_x[idx, ]
-    test_y <- as.data.frame(cat_init$obs_y[idx, ])
+    test_x <- cat_init$adj_obs_x[test_idx, , drop = FALSE]
+    test_y <- cat_init$obs_y[test_idx]
 
-    train_x <- cat_init$adj_obs_x[-idx, ]
-    train_y <- as.data.frame(cat_init$obs_y[-idx, ])
+    train_x <- cat_init$adj_obs_x[-test_idx, , drop = FALSE]
+    train_y <- cat_init$obs_y[-test_idx]
 
-    colnames(test_y) <- colnames(train_y) <- colnames(cat_init$obs_y)
+    risk_estimate_list_fold <- c()
 
-    risk_estimate_collect_tau <- c()
+    # The iteration over the tau sequence for estimation
     for (tau in tau_seq) {
-      estimate_coefs_model <- suppressWarnings(do.call(stats::glm, list(
+      cv_tau_model <- do.call(stats::glm, list(
         formula = formula,
-        family = family,
-        data = rbind(cbind(train_x[, -1], train_y), cbind(cat_init$syn_x[, -1], cat_init$syn_y)),
+        family = cat_init$family,
+        data = cbind(
+          rbind(train_x, cat_init$adj_syn_x),
+          setNames(
+            data.frame(c(train_y, cat_init$syn_y)),
+            cat_init$y_col_name
+          )
+        ),
         weights = c(
           rep(1, nrow(train_x)),
           rep(tau / cat_init$syn_size, cat_init$syn_size)
         )
-      )))
+      ))
 
-      error_sum <- get_discrepancy(
+      prediction_error <- get_discrepancy(
         discrepancy_method = discrepancy_method,
-        family = family,
+        family_string = cat_init$family,
         X = test_x,
         Y = test_y,
-        coefs = coef(estimate_coefs_model)
+        est_coefs = coef(cv_tau_model)
       )
 
-      risk_estimate_collect_tau <- c(
-        risk_estimate_collect_tau,
-        error_sum / cv_fold_num
+      risk_estimate_list_fold <- c(
+        risk_estimate_list_fold,
+        prediction_error
       )
     }
-    risk_estimate_collect <- risk_estimate_collect + risk_estimate_collect_tau
+
+    risk_estimate_list <- risk_estimate_list + risk_estimate_list_fold
   }
 
-  return(risk_estimate_collect)
+  return(risk_estimate_list / cross_validation_fold_num)
 }

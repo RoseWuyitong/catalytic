@@ -2,46 +2,50 @@
 % Please edit documentation in R/misc.R
 \name{get_discrepancy}
 \alias{get_discrepancy}
-\title{Compute Discrepancy Measures for GLM Models}
+\title{Compute Discrepancy Measures}
 \usage{
 get_discrepancy(
   discrepancy_method = c("logarithmic_error", "square_error", "classification_error",
     "logistic_deviance"),
-  family = NULL,
+  family_string = NULL,
   X = NULL,
   Y = NULL,
-  coefs = NULL,
+  est_coefs = NULL,
   est_Y = NULL
 )
 }
 \arguments{
-\item{discrepancy_method}{Character string specifying the discrepancy method to use.
-Supported methods are "logarithmic_error", "square_error", "classification_error", and "logistic_deviance".}
+\item{discrepancy_method}{A character string specifying the discrepancy method to use. Options are:
+\describe{
+\item{"logarithmic_error"}{Logarithmic error, suitable for probabilities.}
+\item{"square_error"}{Mean squared error.}
+\item{"classification_error"}{Classification error, suitable for binary outcomes.}
+\item{"logistic_deviance"}{Logistic deviance, computed using a GLM model.}
+}}
 
-\item{family}{GLM family specification (e.g., "binomial" or "gaussian").}
+\item{X}{A matrix of predictor variables.}
 
-\item{X}{Predictor variables (matrix or data frame).}
+\item{Y}{A vector or data frame of observed values.}
 
-\item{Y}{Observed response variable (numeric vector for square_error and logistic_deviance,
-factor or binary for classification_error).}
+\item{est_Y}{A vector of estimated values. If not provided, it will be computed using \code{get_glm_mean} with the specified \code{family}.}
 
-\item{coefs}{Coefficients vector from the GLM model.}
+\item{family}{A GLM family object (e.g., "binomial") used to compute logistic deviance.}
 
-\item{est_Y}{Estimated response variable}
+\item{coefs}{A vector of coefficients for the GLM model.}
 }
 \value{
-Numeric value representing the computed discrepancy measure.
+A numeric value representing the discrepancy between observed and estimated values.
 }
 \description{
-Computes various discrepancy measures between observed and estimated responses
-based on the specified discrepancy method.
+This function computes various discrepancy measures between observed and estimated values.
+It supports different methods including logarithmic error, square error, classification error, and logistic deviance.
 }
 \examples{
-family <- "binomial"
-X <- matrix(rnorm(10), ncol = 2)
-Y <- rbinom(5, 1, 0.5)
-coefs <- c(-1, 0.5, 0.3) # Example coefficients
-
-get_discrepancy("classification_error", family, X, Y, coefs)
-get_discrepancy("logistic_deviance", family, X, Y, coefs)
+# Example with square error
+X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
+coefs <- c(0.5, 1.5)
+Y <- c(1, 0)
+est_Y <- get_glm_mean("binomial", X, coefs)
+discrepancy <- get_discrepancy("square_error", X = X, Y = Y, coefs = coefs, est_Y = est_Y)
+discrepancy
 }

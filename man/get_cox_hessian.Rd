@@ -4,35 +4,37 @@
 \alias{get_cox_hessian}
 \title{Compute the Hessian Matrix for Cox Proportional Hazards Model}
 \usage{
-get_cox_hessian(X, time, status, coefs, entry_points = NULL)
+get_cox_hessian(X, time, status, coefs, entry_points)
 }
 \arguments{
-\item{X}{A numeric matrix or data frame of predictor variables. Each row represents an observation,
-and each column represents a predictor variable.}
+\item{X}{A matrix of covariates (design matrix) for the Cox model.}
 
-\item{time}{A numeric vector representing the time-to-status or censoring time for each observation.}
+\item{time}{A numeric vector of event times.}
 
-\item{status}{A numeric vector indicating whether the status of interest occurred (1) or the observation was censored (0).}
+\item{status}{A numeric vector of event indicators (1 for event, 0 for censored).}
 
-\item{coefs}{A numeric vector of coefficients for the predictor variables.}
+\item{coefs}{A numeric vector of coefficients for the Cox model.}
 
-\item{entry_points}{An optional numeric vector of entry times for each observation. Default is NULL, in which case all entry times are set to 0.}
+\item{entry_points}{(Optional) A numeric vector of entry times for the subjects. Defaults to 0.}
 }
 \value{
-A numeric matrix representing the Hessian matrix.
+A matrix representing the negative Hessian of the Cox model.
 }
 \description{
-This function calculates the Hessian matrix for a Cox proportional hazards model,
-which is used to estimate the second-order partial derivatives of the log-likelihood function.
+Compute the Hessian Matrix for Cox Proportional Hazards Model
+}
+\details{
+This function computes the Hessian matrix of the Cox proportional hazards model,
+which is used for estimating the covariance matrix of the coefficients. The Hessian is calculated
+by summing contributions from each event time in the risk set.
 }
 \examples{
-# Example data
-X <- matrix(rnorm(50), nrow = 10)
-time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
-status <- c(1, 0, 1, 0, 1, 0, 1, 0, 1, 1)
-coefs <- rnorm(ncol(X))
+X <- matrix(rnorm(15), ncol = 3)
+time <- rexp(5, rate = 0.1)
+status <- rbinom(5, 1, 0.5)
+coefs <- rnorm(3)
 
-# Compute Hessian matrix
+# Compute the Hessian matrix
 hessian_matrix <- get_cox_hessian(X, time, status, coefs)
-print(hessian_matrix)
+hessian_matrix
 }

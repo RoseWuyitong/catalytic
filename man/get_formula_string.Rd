@@ -2,23 +2,23 @@
 % Please edit documentation in R/misc.R
 \name{get_formula_string}
 \alias{get_formula_string}
-\title{Get Formula String Representation}
+\title{Convert Formula to String}
 \usage{
 get_formula_string(formula)
 }
 \arguments{
-\item{formula}{A formula object.}
+\item{formula}{A formula object to be converted to a string.}
 }
 \value{
 A character string representing the formula.
 }
 \description{
-Converts a formula object into a compact string representation, removing excess whitespace.
+This function converts a formula object to a character string. It removes extra whitespace and formats the formula as a single line.
 }
 \examples{
-f <- y ~ x1 + x2
-get_formula_string(f)
+formula <- y ~ x1 + x2
+get_formula_string(formula)
 
-g <- z ~ w
-get_formula_string(g)
+formula_with_interaction <- y ~ x1 * x2
+get_formula_string(formula_with_interaction)
 }

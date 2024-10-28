@@ -2,7 +2,7 @@
 % Please edit documentation in R/misc.R
 \name{get_cox_risk_set_idx}
 \alias{get_cox_risk_set_idx}
-\title{Get Risk Set Index for Survival Analysis}
+\title{Identify the risk set indices for Cox proportional hazards model}
 \usage{
 get_cox_risk_set_idx(
   time_of_interest,
@@ -12,26 +12,27 @@ get_cox_risk_set_idx(
 )
 }
 \arguments{
-\item{time_of_interest}{A numeric value representing the time of interest.}
+\item{time_of_interest}{A numeric value representing the time at which the risk set is calculated.}
 
-\item{entry_vector}{A numeric vector representing the entry times for each subject.}
+\item{entry_vector}{A numeric vector representing the entry times of subjects.}
 
-\item{time_vector}{A numeric vector representing the time-to-status or censoring time for each subject.}
+\item{time_vector}{A numeric vector representing the time-to-event or censoring times of subjects.}
 
-\item{status_vector}{A numeric vector indicating whether an status occurred (1) or the data is censored (0).}
+\item{status_vector}{A numeric vector indicating event occurrence (1) or censoring (0) for each subject.}
 }
 \value{
-A numeric vector of indices representing the subjects at risk at the specified time of interest.
+A vector of indices representing the subjects at risk at the specified time of interest.
 }
 \description{
-This function identifies the risk set for a given time of interest in survival analysis.
-It returns the indices of subjects who are at risk at the specified time.
+This function returns the indices of the risk set for a given time of interest in the Cox proportional hazards model.
 }
 \examples{
-time_of_interest <- 10
-entry_vector <- c(0, 0, 0, 5, 7)
-time_vector <- c(5, 8, 12, 18, 22)
-status_vector <- c(1, 0, 1, 1, 0)
+entry_vector <- c(0, 0, 0, 0, 0)
+time_vector <- c(3, 5, 8, 9, 10)
+status_vector <- c(1, 1, 0, 1, 0)
+time_of_interest <- 5
+
+# Identify risk set indices
 risk_set_idx <- get_cox_risk_set_idx(time_of_interest, entry_vector, time_vector, status_vector)
-print(risk_set_idx)
+risk_set_idx
 }

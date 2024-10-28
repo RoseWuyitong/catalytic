@@ -8,7 +8,6 @@ cat_cox_initialization(
   formula,
   data,
   syn_size = NULL,
-  ...,
   hazard_constant = NULL,
   entry_points = NULL,
   x_degree = NULL,
@@ -24,8 +23,6 @@ See \code{survival::coxph} for details on formula syntax.}
 
 \item{syn_size}{The size of the synthetic data generated. Default is four times the number of predictors.}
 
-\item{...}{Additional arguments to be passed to the \code{coxph} function.}
-
 \item{hazard_constant}{A constant used in the hazard rate calculation. Default is the sum of observed statuses divided by the mean observed time divided by the number of observations.}
 
 \item{entry_points}{An optional vector specifying the entry points for the data. Default is a vector of zeros.}
@@ -35,6 +32,8 @@ See \code{survival::coxph} for details on formula syntax.}
 \item{resample_only}{Logical indicating whether to generate synthetic data only by resampling original data. Default is FALSE.}
 
 \item{na_replace}{Function used to handle missing values in the original dataset. Defaults to \code{stats::na.omit}.}
+
+\item{...}{Additional arguments to be passed to the \code{coxph} function.}
 }
 \value{
 An object of class \code{cat_init} containing:

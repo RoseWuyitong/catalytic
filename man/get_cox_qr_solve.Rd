@@ -2,25 +2,42 @@
 % Please edit documentation in R/misc.R
 \name{get_cox_qr_solve}
 \alias{get_cox_qr_solve}
-\title{Solve a linear system using QR decomposition}
+\title{Solve Linear System using QR Decomposition}
 \usage{
-get_cox_qr_solve(coef_matrix, constant_vector)
+get_cox_qr_solve(hessian_matrix, gradient_vector)
 }
 \arguments{
-\item{coef_matrix}{A matrix of coefficients from the linear system.}
+\item{coef_matrix}{A matrix of coefficients representing the system of linear equations.}
 
-\item{constant_vector}{The constant vector from the linear system.}
+\item{constant_vector}{A numeric vector representing the constants in the linear system.}
 }
 \value{
-The solution vector \code{x} from the linear system.
+A numeric vector representing the solution to the linear system. NA values in the solution
+are replaced with a small value (0.0001). If an error occurs during solving, a vector of default values
+(0.0001) is returned.
 }
 \description{
-This function solves a linear system of equations represented by \code{coef_matrix \%*\% x = constant_vector}
-using QR decomposition. It handles NA values in the solution by replacing them with a small constant.
+Solve Linear System using QR Decomposition
+}
+\details{
+This function solves the linear system defined by \code{coef_matrix} and \code{constant_vector}
+using QR decomposition. Any NA values in the resulting solution vector are replaced with 0.0001. If there
+is an error during the solution process, a vector of default values (0.0001) is returned instead.
 }
 \examples{
-coef_matrix <- matrix(c(1, 1, 1, 2, 3, 5, 4, 6, 8), nrow = 3, byrow = TRUE)
-constant_vector <- c(10, 20, 30)
+# Define a matrix of coefficients and a constant vector
+coef_matrix <- matrix(c(1, 2, 3, 4), ncol = 2)
+constant_vector <- c(5, 6)
+
+# Solve the linear system
 solution <- get_cox_qr_solve(coef_matrix, constant_vector)
-print(solution)
+solution
+
+# Example with a matrix that might produce NA values
+coef_matrix_na <- matrix(c(1, 1, 1, 1), ncol = 2)
+constant_vector_na <- c(1, 1)
+
+# Solve the linear system and check the result
+solution_na <- get_cox_qr_solve(coef_matrix_na, constant_vector_na)
+solution_na
 }

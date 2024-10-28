@@ -54,33 +54,29 @@
 cat_cox_initialization <- function(formula,
                                    data,
                                    syn_size = NULL,
-                                   ...,
                                    hazard_constant = NULL,
                                    entry_points = NULL,
                                    x_degree = NULL,
                                    resample_only = FALSE,
                                    na_replace = stats::na.omit) {
-  if (!(is.formula_surv(formula))) {
-    stop(
-      paste0(
-        "The provided formula <",
-        deparse(formula),
-        "> is not suitable for a Cox proportional-hazards model."
-      )
-    )
-  }
+  # Validate Input Parameters
+  validate_cox_initialization_input(
+    formula = formula,
+    data = data,
+    syn_size = syn_size,
+    hazard_constant = hazard_constant,
+    entry_points = entry_points,
+    x_degree = x_degree
+  )
 
-  if (!is.data.frame(data)) {
-    stop(
-      paste0(
-        "The provided data should be in `data.frame` format, not in <`",
-        class(data)[1],
-        "`> format."
-      )
-    )
-  }
+  # Extract Information from Input Parameters
+  ## Standardize observation covariate and response
+  obs_data <- get_standardized_data(
+    data = data,
+    na_replace = na_replace
+  )
 
-  # Extract the column names of time and status
+  ## Extract observation covariate and response
   f_lhs <- get_formula_lhs(formula)
 
   time_col_name <- gsub(
@@ -94,6 +90,7 @@ cat_cox_initialization <- function(formula,
       )
     )[[1]][2]
   )
+
   status_col_name <- gsub(
     "`",
     "",
@@ -106,60 +103,46 @@ cat_cox_initialization <- function(formula,
     )[[1]][2]
   )
 
-  # Extract and standardize observation time, status and covariate
-  data <- get_standardized_data(
-    data = data,
-    na_replace = na_replace
-  )
-
-  obs_time <- as.data.frame(data[, time_col_name])
-  colnames(obs_time) <- time_col_name
-
-  obs_status <- as.data.frame(data[, status_col_name])
-  colnames(obs_status) <- status_col_name
-
-  obs_x <- as.data.frame(data[, setdiff(
-    colnames(data),
-    c(time_col_name, status_col_name)
-  )])
-
+  obs_time <- obs_data[, time_col_name]
+  obs_status <- obs_data[, status_col_name]
+  obs_x <- obs_data[, setdiff(colnames(data), c(time_col_name, status_col_name)), drop = FALSE]
   obs_size <- nrow(obs_x)
 
+  # Generate Synthetic Dataset
   if (is.null(x_degree)) x_degree <- rep(1, ncol(obs_x))
   if (is.null(syn_size)) syn_size <- 4 * ncol(obs_x)
   if (is.null(entry_points)) entry_points <- rep(0, obs_size)
 
-  # Generate synthetic covariate by resampling observation covariate
+  ## Generate synthetic covariate by resampling observation covariate
   syn_x_inform <- get_resampled_data(
     data = obs_x,
     resample_size = syn_size,
     data_degree = x_degree,
     resample_only = resample_only
   )
-
   syn_x <- as.data.frame(syn_x_inform$resampled_data)
 
   # Generate synthetic time by using simple model
   if (get_formula_rhs(formula) == 1) {
+    simple_model <- sum(obs_status) / mean(obs_time) / obs_size
     syn_time <- rexp(
       syn_size,
-      rate = sum(obs_status[, 1]) / mean(obs_time[, 1]) / obs_size
+      rate = simple_model
     )
   } else {
-    simple_model <- do.call(
-      survival::coxph,
-      list(
-        formula = formula,
-        data = data,
-        ...
-      )
+    simple_model <- survival::coxph(
+      formula = formula,
+      data = data
     )
-
-    syn_time <- summary(survival::survfit(simple_model,
-      newdata = as.data.frame(syn_x)
-    ))$table[, "median"]
+    syn_time <- summary(
+      survival::survfit(
+        simple_model,
+        newdata = as.data.frame(syn_x)
+      )
+    )$table[, "median"]
   }
 
+  # Delete synthetic data that syn_time is NA
   syn_time_na_idx <- which(is.na(syn_time))
 
   if (length(syn_time_na_idx) > 0) {
@@ -169,50 +152,51 @@ cat_cox_initialization <- function(formula,
       "NA when calculate syn_y."
     ))
 
-    syn_status <- as.data.frame(rep(1, syn_size - length(syn_time_na_idx)))
-    syn_time <- as.data.frame(syn_time[-syn_time_na_idx])
+    syn_time <- syn_time[-syn_time_na_idx]
     syn_x <- syn_x[-syn_time_na_idx, ]
-  } else {
-    syn_status <- as.data.frame(rep(1, syn_size))
-    syn_time <- as.data.frame(syn_time)
   }
-
-  colnames(syn_time) <- time_col_name
-  colnames(syn_status) <- status_col_name
+  syn_status <- rep(1, syn_size - length(syn_time_na_idx))
 
   cat_init <- list(
     function_name = "cat_cox_initialization",
+    ## Input/Processed parameters
     formula = formula,
-    hazard_constant = if (is.null(hazard_constant)) sum(obs_status[, 1]) / mean(obs_time[, 1]) / obs_size else hazard_constant,
+    hazard_constant = if (is.null(hazard_constant)) sum(obs_status) / mean(obs_time) / obs_size else hazard_constant,
     entry_points = entry_points,
     x_degree = x_degree,
+    resample_only = resample_only,
+    na_replace = na_replace,
     time_col_name = time_col_name,
     status_col_name = status_col_name,
+    simple_model = simple_model,
     # Observation data Information
     obs_size = obs_size,
-    obs_data = cbind(obs_x, obs_time, obs_status),
+    obs_data = obs_data,
     obs_x = obs_x,
     obs_time = obs_time,
     obs_status = obs_status,
     # Synthetic data Information
     syn_size = syn_size - length(syn_time_na_idx),
-    syn_data = cbind(syn_x, syn_time, syn_status),
+    syn_data = cbind(
+      syn_x,
+      setNames(as.data.frame(syn_time), time_col_name),
+      setNames(as.data.frame(syn_status), status_col_name)
+    ),
     syn_x = syn_x,
     syn_time = syn_time,
     syn_status = syn_status,
-    syn_x_resample_inform = syn_x_inform$resampled_data_record,
-    ...
+    syn_x_resample_inform = syn_x_inform$resampled_data_record
   )
 
   cat_init <- c(
     cat_init,
     list(
-      # Observation + Synthetic data Information
+      ## Whole data information
       size = cat_init$obs_size + cat_init$syn_size,
       data = rbind(cat_init$obs_data, cat_init$syn_data),
       x = rbind(cat_init$obs_x, cat_init$syn_x),
-      time = rbind(cat_init$obs_time, cat_init$syn_time),
-      status = rbind(cat_init$obs_status, cat_init$syn_status)
+      time = c(cat_init$obs_time, cat_init$syn_time),
+      status = c(cat_init$obs_status, cat_init$syn_status)
     )
   )
 

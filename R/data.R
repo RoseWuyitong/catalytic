@@ -1,8 +1,8 @@
 #' Simulated SWIM Dataset with Binary Response
 #'
-#' @name binomial_swim
+#' @name swim
 #' @docType data
-#' @usage data(binomial_swim)
+#' @usage data(swim)
 #' @keywords data
 #' @format A list containing the following elements:
 #' \describe{
@@ -30,4 +30,4 @@
 #' in "The Saturation Work Initiative Model in San Diego: A Five-Year Follow-up Study".
 #' This data is not directly extracted from the book but was generated to emulate a similar structure
 #' for research and educational purposes.
-"binomial_swim"
+"swim"

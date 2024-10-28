@@ -2,7 +2,7 @@
 % Please edit documentation in R/misc.R
 \name{update_lmm_sigma_square_cat}
 \alias{update_lmm_sigma_square_cat}
-\title{Update Sigma Square for LMM}
+\title{Update the log marginal likelihood for sigma^2 in a hierarchical linear mixed model with catalytic prior}
 \usage{
 update_lmm_sigma_square_cat(
   sigma_square,
@@ -15,39 +15,39 @@ update_lmm_sigma_square_cat(
 )
 }
 \arguments{
-\item{sigma_square}{Numeric value representing the sigma square parameter.}
+\item{sigma_square}{A scalar representing the variance of the residual errors.}
 
-\item{sigma_u_square}{Numeric value representing the sigma_u square parameter.}
+\item{sigma_u_square}{A scalar representing the variance of the random effects.}
 
-\item{d_seq}{Numeric vector of d sequence values.}
+\item{d_seq}{A numeric vector representing the diagonal elements of the design matrix.}
 
-\item{d_seq_star}{Numeric vector of d star sequence values.}
+\item{d_seq_star}{A numeric vector representing the diagonal elements of the design matrix for the prior.}
 
-\item{q}{Numeric vector of q values.}
+\item{q}{A numeric vector representing the mean of the posterior distribution for the random effects.}
 
-\item{q_star}{Numeric vector of q star values.}
+\item{q_star}{A numeric vector representing the mean of the prior distribution for the random effects.}
 
-\item{tau}{Numeric value for the tau parameter.}
+\item{tau}{A scalar representing the precision parameter of the catalytic prior.}
 }
 \value{
-Numeric value representing the result of the minimization program.
+A scalar representing the updated log marginal likelihood for sigma^2.
 }
 \description{
-This function performs the minimization program for updating the sigma square
-parameter in a linear mixed model (LMM). It computes the sum of the
-log of the variances plus the squared terms divided by the variances, adjusted by tau.
+This function calculates the log marginal likelihood for sigma^2 in a hierarchical linear mixed model (LMM)
+with a catalytic prior. The marginal likelihood is updated based on provided parameters and data sequences.
 }
 \examples{
-# Example data
-sigma_square <- 0.5
-sigma_u_square <- 1.0
-d_seq <- c(1, 2, 3)
-d_seq_star <- c(1.5, 2.5, 3.5)
-q <- c(0.1, 0.2, 0.3)
-q_star <- c(0.15, 0.25, 0.35)
-tau <- 0.01
+sigma_square <- 1
+sigma_u_square <- 0.5
+d_seq <- c(2, 3)
+d_seq_star <- c(1, 2)
+q <- c(0.5, 1)
+q_star <- c(0.3, 0.7)
+tau <- 0.1
 
-# Update sigma square
-result <- update_sigma_square_cat(sigma_square, sigma_u_square, d_seq, d_seq_star, q, q_star, tau)
-print(result)
+# Compute updated log marginal likelihood
+log_marginal_likelihood <- update_lmm_sigma_square_cat(
+  sigma_square, sigma_u_square, d_seq, d_seq_star, q, q_star, tau
+)
+log_marginal_likelihood
 }

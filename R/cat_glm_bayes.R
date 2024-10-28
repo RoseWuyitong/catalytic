@@ -38,83 +38,135 @@
 
 cat_glm_bayes <- function(
     formula,
-    family = NULL,
     cat_init,
     tau = NULL,
-    ...,
-    stan_chains = 4,
-    stan_iter = 2000,
-    stan_warmup = 1000,
-    stan_algorithm = "NUTS") {
-  if (!is.cat_glm_init(cat_init)) {
-    stop(
-      "Please enter `cat_init` that generated from `catalytic::cat_glm_initialization`."
+    chains = 4,
+    iter = 2000,
+    warmup = 1000,
+    algorithm = "NUTS",
+    gaussian_variance_alpha = NULL,
+    gaussian_variance_beta = NULL,
+    ...) {
+  # Validate Input Parameters
+  validate_glm_input(
+    formula = formula,
+    cat_init = cat_init,
+    tau = tau
+  )
+
+  # Update cat_init with adjusted data based on the formula's right-hand side
+  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
+  full_formula <- as.formula(paste0(cat_init$y_col_name, f_rhs))
+
+  cat_init <- get_adjusted_cat_init(
+    cat_init = cat_init,
+    formula_rhs = f_rhs
+  )
+
+  if (is.null(tau)) {
+    tau <- ifelse(
+      cat_init$family == "gaussian",
+      ncol(cat_init$adj_x) / 4,
+      ncol(cat_init$adj_x)
     )
   }
 
-  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
-  f_lhs <- get_formula_lhs(formula)
-  if (f_lhs != "NULL" & f_lhs != colnames(cat_init$y)) stop("Please enter the correct y name for formula.")
-
-  cat_init <- get_adjusted_data(cat_init = cat_init, formula = formula)
-
-  if (is.null(family)) family <- cat_init$family
-  if (is.null(tau)) tau <- ncol(cat_init$adj_x) / 4
-  if (tau < 0) stop("Please enter non-negative `tau` value.")
-
-  stan_data <- list(
-    obs_n = cat_init$obs_size,
-    syn_n = cat_init$syn_size,
-    col_n = ncol(cat_init$adj_x),
-    obs_x = cat_init$adj_obs_x,
-    syn_x = cat_init$adj_syn_x,
-    obs_y = as.vector(cat_init$obs_y),
-    syn_y = as.vector(cat_init$syn_y),
-    tau = tau
+  stan_data <- c(
+    list(
+      obs_n = cat_init$obs_size,
+      syn_n = cat_init$syn_size,
+      col_n = ncol(cat_init$adj_x),
+      obs_x = cat_init$adj_obs_x,
+      syn_x = cat_init$adj_syn_x,
+      obs_y = cat_init$obs_y,
+      syn_y = cat_init$syn_y,
+      tau = tau
+    ),
+    if (cat_init$family == "gaussian") {
+      if (is.null(cat_init$custom_variance)) {
+        list(
+          variance_alpha = ifelse(is.null(gaussian_variance_alpha), ncol(cat_init$adj_x), gaussian_variance_alpha),
+          variance_beta = ifelse(is.null(gaussian_variance_beta), ncol(cat_init$adj_x), gaussian_variance_beta)
+        )
+      } else {
+        list(
+          sigma = sqrt(cat_init$custom_variance)
+        )
+      }
+      # Include Gaussian-specific parameters if the family is Gaussian
+      # if (cat_init$gaussian_known_variance) {
+      # # Include sigma value if user set the variance is known
+      # list(
+      #   sigma = sqrt(
+      #     ifelse(
+      #       is.null(cat_init$custom_variance),
+      #       get_glm_custom_var(
+      #         cat_init = cat_init,
+      #         tau = ncol(cat_init$adj_x), # Specifying tau as the number of predictors for variance adjustment
+      #         formula = full_formula
+      #       ),
+      #       cat_init$custom_variance
+      #     )
+      #   )
+      # )
+      # } else {
+      #   # Include the alpha and beta for the inverse-gamma prior for unknown variance
+      #   list(
+      #     variance_alpha = ncol(cat_init$adj_x),
+      #     variance_beta = ncol(cat_init$adj_x)
+      #   )
+      # }
+    } else {
+      NULL
+    }
   )
 
   stan_model <- get_stan_model(
     type = "glm",
-    glm_family = family
+    glm_family_string = cat_init$family,
+    glm_gaussian_known_variance = (!is.null(cat_init$custom_variance))
   )
 
-
+  # Perform Bayesian Sampling via RStan
   stan_sample_model <- rstan::sampling(
     object = stan_model,
     data = stan_data,
-    chains = stan_chains,
-    iter = stan_iter,
-    warmup = stan_warmup,
-    algorithm = stan_algorithm,
+    chains = chains,
+    iter = iter,
+    warmup = warmup,
+    algorithm = algorithm,
     ...
   )
 
+  ## Extract the mean of coefs from the stan sampling model
   coefs <- rstan::summary(stan_sample_model)$summary[
     grep("coefs", rownames(rstan::summary(stan_sample_model)$summary)),
     "mean"
   ]
 
-
   if (!is.null(coefs)) {
     names(coefs) <- c("(Intercept)", colnames(cat_init$adj_x))
   }
-  cat_glm_bayes_ <- list(
+
+  # Finalize Setup and Output
+  cat_model <- list(
     function_name = "cat_glm_bayes",
-    formula = as.formula(paste0(colnames(cat_init$y), f_rhs)),
-    family = family,
+    ## Input/Processed parameters
+    formula = full_formula,
     cat_init = cat_init,
     tau = tau,
-    stan_chains = stan_chains,
-    stan_iter = stan_iter,
-    stan_warmup = stan_warmup,
-    stan_algorithm = stan_algorithm,
-    stan_model = stan_model,
-    stan_sample_model = stan_sample_model,
-    coefficients = coefs,
-    ...
+    chains = chains,
+    iter = iter,
+    warmup = warmup,
+    algorithm = algorithm,
+    ...,
+    ## Result
+    model = stan_model,
+    sample_model = stan_sample_model,
+    coefficients = coefs
   )
 
-  class(cat_glm_bayes_) <- c(cat_glm_bayes_$class, "cat_glm_bayes", "bayes")
+  class(cat_model) <- c(cat_model$class, "cat_glm_bayes", "bayes")
 
-  return(cat_glm_bayes_)
+  return(cat_model)
 }

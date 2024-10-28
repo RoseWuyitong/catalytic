@@ -2,35 +2,32 @@
 % Please edit documentation in R/misc.R
 \name{get_cox_syn_gradient}
 \alias{get_cox_syn_gradient}
-\title{Compute the Gradient for Synthetic Data in a Cox Proportional Hazards Model}
+\title{Compute the gradient of the synthetic Cox proportional hazards model}
 \usage{
 get_cox_syn_gradient(X, time, coefs, hazard_constant)
 }
 \arguments{
-\item{X}{A numeric matrix or data frame of predictor variables. Each row represents an observation,
-and each column represents a predictor variable.}
+\item{X}{A matrix of covariates with rows representing observations and columns representing features.}
 
-\item{time}{A numeric vector representing the time-to-status or censoring time for each observation.}
+\item{time}{A vector of time-to-event data.}
 
-\item{coefs}{A numeric vector of coefficients for the predictor variables.}
+\item{coefs}{A vector of regression coefficients.}
 
-\item{hazard_constant}{A numeric value representing the hazard constant.}
+\item{hazard_constant}{A scalar representing the hazard constant.}
 }
 \value{
-A numeric vector representing the gradient for the synthetic data in the Cox proportional hazards model.
+A numeric vector representing the gradient of the synthetic Cox model.
 }
 \description{
-This function calculates the gradient for synthetic data in a Cox proportional hazards model
-using the provided predictor variables, time-to-status data, coefficients, and a hazard constant.
+This function calculates the gradient of the synthetic Cox proportional hazards model using a vectorized approach.
 }
 \examples{
-# Example data
-X <- matrix(rnorm(50), nrow = 10)
-time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
-coefs <- rnorm(ncol(X))
-hazard_constant <- 0.01
+X <- matrix(c(1, 2, 3, 4, 5, 6), ncol = 2)
+time <- c(1, 2, 3)
+coefs <- c(0.5, -0.3)
+hazard_constant <- 0.7
 
 # Compute gradient
 gradient <- get_cox_syn_gradient(X, time, coefs, hazard_constant)
-print(gradient)
+gradient
 }

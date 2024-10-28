@@ -22,7 +22,7 @@
 #'   \item{coefficients}{The coefficients of the fitted Cox model.}
 #'   \item{model}{The fitted survival model (only for "WME" method).}
 #'   \item{iter}{The number of iterations performed (only for "CRE" method).}
-#'   \item{iter_collect}{The collected coefficients for each iteration (only for "CRE" method).}
+#'   \item{iteration_log}{The collected coefficients for each iteration (only for "CRE" method).}
 #'   \item{init_coefficients}{The initial coefficients used (if any).}
 #'   \item{tol}{The tolerance for convergence.}
 #'   \item{max_iter}{The maximum number of iterations allowed.}
@@ -45,160 +45,131 @@ cat_cox <- function(formula,
                     cat_init,
                     tau = NULL,
                     method = c("CRE", "WME"),
-                    ...,
                     init_coefficients = NULL,
                     tol = 1e-5,
                     max_iter = 25) {
-  if (!is.cat_cox_init(cat_init)) {
-    stop(
-      "Please enter `cat_init` that generated from `catalytic::cat_cox_initialization`."
-    )
-  }
-
-  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
-  f_lhs <- get_formula_lhs(formula)
-
-  time_col_name <- gsub(
-    "`",
-    "",
-    regmatches(
-      f_lhs,
-      regexec(
-        "\\(([^,]+),",
-        f_lhs
-      )
-    )[[1]][2]
-  )
-  status_col_name <- gsub(
-    "`",
-    "",
-    regmatches(
-      f_lhs,
-      regexec(
-        ",\\s*([^\\)]+)\\)",
-        f_lhs
-      )
-    )[[1]][2]
-  )
-
-  if (f_lhs != "NULL" &
-    time_col_name != cat_init$time_col_name &
-    status_col_name != cat_init$status_col_name) {
-    stop("Please enter the correct formula.")
-  }
-
-  cat_init <- get_adjusted_data(cat_init = cat_init, formula = formula)
-
-  if (is.null(tau)) tau <- ncol(cat_init$adj_x)
-  if (tau < 0) stop("Please enter non-negative `tau` value.")
-
   method <- match.arg(method)
 
-  if (method == "CRE") {
-    obs_time <- cat_init$obs_time[, 1]
-    obs_status <- cat_init$obs_status[, 1]
-    syn_time <- cat_init$syn_time[, 1]
+  # Update cat_init with adjusted data based on the formula's right-hand side
+  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
+  full_formula <- as.formula(paste0(
+    "survival::Surv(",
+    cat_init$time_col_name,
+    ",",
+    cat_init$status_col_name,
+    ")",
+    f_rhs
+  ))
 
+  cat_init <- get_adjusted_cat_init(
+    cat_init = cat_init,
+    formula_rhs = f_rhs
+  )
+
+  # Validate Input Parameters
+  validate_cox_input(
+    formula = formula,
+    cat_init = cat_init,
+    tau = tau,
+    init_coefficients = init_coefficients,
+    tol = tol,
+    max_iter = max_iter
+  )
+
+  if (is.null(tau)) tau <- ncol(cat_init$adj_x)
+
+  coefs_model <- NULL
+  iteration_log <- NULL
+  iter <- NULL
+
+  if (method == "CRE") {
     coefs <- if (is.null(init_coefficients)) rep(0, ncol(cat_init$adj_obs_x)) else init_coefficients
 
     diff_new_old <- TRUE
 
     iter <- 0
-    iter_collect <- matrix(
+    iteration_log <- matrix(
       data = c(coefs),
       ncol = (length(coefs)),
       dimnames = list(NULL, colnames(cat_init$adj_x))
     )
+
     while ((iter < max_iter) & diff_new_old) {
       coefs_old <- coefs
-      coef_matrix <- get_cox_hessian(
+      hessian_matrix <- get_cox_hessian(
         X = cat_init$adj_obs_x,
-        time = obs_time,
-        status = obs_status,
+        time = cat_init$obs_time,
+        status = cat_init$obs_status,
         coefs = coefs_old,
         entry_points = cat_init$entry_points
       ) + tau / cat_init$syn_size * get_cox_syn_hessian(
         X = cat_init$adj_syn_x,
-        time = syn_time,
+        time = cat_init$syn_time,
         coefs = coefs_old,
         hazard_constant = cat_init$hazard_constant
       )
 
-      constant_vector <- get_cox_gradient(
+      gradient_vector <- get_cox_gradient(
         X = cat_init$adj_obs_x,
-        time = obs_time,
-        status = obs_status,
+        time = cat_init$obs_time,
+        status = cat_init$obs_status,
         coefs = coefs_old,
         entry_points = cat_init$entry_points
       ) + tau / cat_init$syn_size * get_cox_syn_gradient(
         X = cat_init$adj_syn_x,
-        time = syn_time,
+        time = cat_init$syn_time,
         coefs = coefs_old,
         hazard_constant = cat_init$hazard_constant
       )
 
-      coefs <- coefs_old - get_cox_qr_solve(coef_matrix, constant_vector)
+      coefs <- coefs_old - get_cox_qr_solve(hessian_matrix, gradient_vector)
 
       iter <- iter + 1
-      iter_collect <- rbind(iter_collect, c(coefs))
+      iteration_log <- rbind(iteration_log, c(coefs))
 
-      diff_new_old <- norm(as.numeric(coefs_old - coefs), "2") > tol * norm(as.numeric(coefs_old), "2")
+      diff_new_old <- norm(as.numeric(coefs_old - coefs), "2") > (tol * norm(as.numeric(coefs_old), "2"))
     }
-
-    if (iter == max_iter) {
-      warning(
-        paste0(
-          "Please note it reached maximun iteration, which means this is not converging.",
-          "Suggest increate `max_iter` for better result."
-        )
-      )
-    }
-
-    coefs_model <- NULL
   } else {
-    iter_collect <- NULL
-    iter <- NULL
-
-    time_vector <- as.vector(cat_init$time[, 1])
-    status_vector <- as.vector(cat_init$status[, 1])
-    coefs_model <- do.call(survival::coxph, list(
-      formula = survival::Surv(time_vector, status_vector) ~ .,
-      data = cat_init$adj_x,
-      weights = c(
-        rep(1, cat_init$obs_size),
-        rep(tau / cat_init$syn_size, cat_init$syn_size)
-      ),
-      ties = "breslow",
-      ...
-    ))
+    coefs_model <- if (tau == 0) {
+      do.call(survival::coxph, list(
+        formula = full_formula,
+        data = cat_init$obs_data,
+        ties = "breslow"
+      ))
+    } else {
+      do.call(survival::coxph, list(
+        formula = full_formula,
+        data = cat_init$data,
+        weights = c(
+          rep(1, cat_init$obs_size),
+          rep(tau / cat_init$syn_size, cat_init$syn_size)
+        ),
+        ties = "breslow"
+      ))
+    }
 
     coefs <- coef(coefs_model)
   }
 
-  cat_cox_ <- list(
-    function_name = "cat_glm",
-    formula = full_formula <- as.formula(paste0(
-      "survival::Surv(",
-      cat_init$time_col_name,
-      ",",
-      cat_init$status_col_name,
-      ")",
-      f_rhs
-    )),
+  # Finalize Setup and Output
+  cat_model <- list(
+    function_name = "cat_cox",
+    ## Input/Processed parameters
+    formula = full_formula,
     cat_init = cat_init,
     tau = tau,
     method = method,
-    coefficients = coefs,
-    iter = iter,
-    iter_collect = iter_collect,
-    model = coefs_model,
     init_coefficients = init_coefficients,
     tol = tol,
     max_iter = max_iter,
-    ...
+    ## Result
+    iter = iter,
+    iteration_log = iteration_log,
+    model = coefs_model,
+    coefficients = coefs
   )
 
-  class(cat_cox_) <- c(cat_cox_$class, "cat_cox")
+  class(cat_model) <- c(cat_model$class, "cat_cox")
 
-  return(cat_cox_)
+  return(cat_model)
 }

@@ -26,55 +26,61 @@
 #' @seealso
 #' \code{\link{cat_glm_initialization}}}
 cat_glm <- function(formula,
-                    family = NULL,
                     cat_init,
-                    tau = NULL,
-                    ...) {
-  if (!is.cat_glm_init(cat_init)) {
-    stop(
-      "Please enter `cat_init` that generated from `catalytic::cat_glm_initialization`."
+                    tau = NULL) {
+  # Validate Input Parameters
+  validate_glm_input(
+    formula = formula,
+    cat_init = cat_init,
+    tau = tau
+  )
+
+  # Update cat_init with adjusted data based on the formula's right-hand side
+  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
+  full_formula <- as.formula(paste0(cat_init$y_col_name, f_rhs))
+
+  cat_init <- get_adjusted_cat_init(
+    cat_init = cat_init,
+    formula_rhs = f_rhs
+  )
+
+
+  if (is.null(tau)) {
+    tau <- ifelse(
+      cat_init$family == "gaussian",
+      ncol(cat_init$adj_x) / 4,
+      ncol(cat_init$adj_x)
     )
   }
 
-  f_rhs <- get_formula_rhs(formula, with_tilde = TRUE)
-  f_lhs <- get_formula_lhs(formula)
-  if (f_lhs != "NULL" & f_lhs != colnames(cat_init$y)) stop("Please enter the correct y name for formula.")
-
-  cat_init <- get_adjusted_data(cat_init = cat_init, formula = formula)
-
-  if (is.null(family)) family <- cat_init$family
-  if (is.null(tau)) tau <- ncol(cat_init$adj_x) / 4
-
-  if (tau < 0) stop("Please enter non-negative `tau` value.")
-
-  full_formula <- as.formula(paste0(colnames(cat_init$y), f_rhs))
-
-  glm_model <- suppressWarnings(do.call(stats::glm, list(
-    formula = full_formula,
-    family = family,
-    data = cat_init$data,
-    weights = c(
-      rep(1, cat_init$obs_size),
-      rep(
-        tau / cat_init$syn_size,
-        cat_init$syn_size
+  # Perform Catalytic Fitting
+  glm_model <- do.call(
+    stats::glm,
+    list(
+      formula = full_formula,
+      family = cat_init$family,
+      data = cat_init$data,
+      weights = c(
+        rep(1, cat_init$obs_size),
+        rep(tau / cat_init$syn_size, cat_init$syn_size)
       )
-    ),
-    ...
-  )))
-
-  cat_glm_ <- list(
-    function_name = "cat_glm",
-    formula = full_formula,
-    family = family,
-    cat_init = cat_init,
-    tau = tau,
-    model = glm_model,
-    coefficients = glm_model$coefficients,
-    ...
+    )
   )
 
-  class(cat_glm_) <- c(cat_glm_$class, "cat_glm")
 
-  return(cat_glm_)
+  # Finalize Setup and Output
+  cat_model <- list(
+    function_name = "cat_glm",
+    ## Input/Processed parameters
+    formula = full_formula,
+    cat_init = cat_init,
+    tau = tau,
+    ## Result
+    model = glm_model,
+    coefficients = coef(glm_model)
+  )
+
+  class(cat_model) <- c(cat_model$class, "cat_glm")
+
+  return(cat_model)
 }

@@ -8,10 +8,9 @@ cat_cox_tune(
   formula,
   cat_init,
   method = c("CRE", "WME"),
-  likelihood_method = "cross_validation",
   tau_seq = NULL,
-  ...,
-  cv_fold_num = 5
+  cross_validation_fold_num = 5,
+  ...
 )
 }
 \arguments{
@@ -21,11 +20,11 @@ cat_cox_tune(
 
 \item{method}{Method for fitting the model, either "CRE" (Conditional Ridge Estimation) or "WME" (Weighted Maximum Estimation).}
 
-\item{likelihood_method}{Method for evaluating model likelihood, default is "cross_validation".}
-
 \item{tau_seq}{A sequence of tau values to be tested. Default is a range around the number of predictors in the dataset.}
 
 \item{...}{Additional arguments passed to the likelihood method and the fitting function.}
+
+\item{likelihood_method}{Method for evaluating model likelihood, default is "cross_validation".}
 
 \item{cv_fold_num}{Number of cross-validation folds. Default is 5.}
 }
@@ -39,7 +38,7 @@ A list object containing the tuned model and related information:
 \item{method}{The method used for fitting the model.}
 \item{likelihood_method}{The method used for evaluating model likelihood.}
 \item{cv_fold_num}{The number of cross-validation folds.}
-\item{likelihood_collect}{The collected likelihood values for each tau.}
+\item{likelihood_list}{The collected likelihood values for each tau.}
 \item{tau}{The optimal tau value.}
 \item{model}{The fitted Cox model object.}
 \item{coefficients}{The coefficients of the fitted model.}

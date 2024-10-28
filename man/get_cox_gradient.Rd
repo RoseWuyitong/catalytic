@@ -4,35 +4,37 @@
 \alias{get_cox_gradient}
 \title{Compute the Gradient for Cox Proportional Hazards Model}
 \usage{
-get_cox_gradient(X, time, status, coefs, entry_points = NULL)
+get_cox_gradient(X, time, status, coefs, entry_points)
 }
 \arguments{
-\item{X}{A numeric matrix or data frame of predictor variables. Each row represents an observation,
-and each column represents a predictor variable.}
+\item{X}{A matrix of covariates (design matrix) for the Cox model.}
 
-\item{time}{A numeric vector representing the time-to-status or censoring time for each observation.}
+\item{time}{A numeric vector of event times.}
 
-\item{status}{A numeric vector of status indicators (1 if status occurred, 0 if censored).}
+\item{status}{A numeric vector of event indicators (1 for event, 0 for censored).}
 
-\item{coefs}{A numeric vector of coefficients for the predictor variables.}
+\item{coefs}{A numeric vector of coefficients for the Cox model.}
 
-\item{entry_points}{An optional numeric vector of entry points for each observation. Default is NULL.}
+\item{entry_points}{(Optional) A numeric vector of entry times for the subjects. Defaults to 0.}
 }
 \value{
-A numeric vector representing the gradient for the Cox proportional hazards model.
+A numeric vector representing the gradient of the Cox proportional hazards model.
 }
 \description{
-This function calculates the gradient for a Cox proportional hazards model using the provided predictor variables,
-time-to-status data, status indicators, coefficients, and optional entry points.
+Compute the Gradient for Cox Proportional Hazards Model
+}
+\details{
+This function computes the gradient for the Cox proportional hazards model. The gradient
+is calculated by considering the contributions of each observation to the gradient based on the
+risk set at each event time.
 }
 \examples{
-# Example data
-X <- matrix(rnorm(50), nrow = 10)
-time <- c(5, 8, 12, 18, 22, 30, 35, 40, 42, 50)
-status <- c(1, 0, 1, 1, 0, 1, 1, 0, 1, 1)
-coefs <- rnorm(ncol(X))
+X <- matrix(rnorm(15), ncol = 3)
+time <- rexp(5, rate = 0.1)
+status <- rbinom(5, 1, 0.5)
+coefs <- rnorm(3)
 
-# Compute gradient
+# Compute the gradient
 gradient <- get_cox_gradient(X, time, status, coefs)
-print(gradient)
+gradient
 }

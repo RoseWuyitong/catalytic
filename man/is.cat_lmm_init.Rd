@@ -2,16 +2,36 @@
 % Please edit documentation in R/misc.R
 \name{is.cat_lmm_init}
 \alias{is.cat_lmm_init}
-\title{Checks if the data object is generated from 'data_initilization_lmm'}
+\title{Check if Object is a Cat Initialization for LMM}
 \usage{
 is.cat_lmm_init(x)
 }
 \arguments{
-\item{x}{The data object to be checked.}
+\item{x}{An object to be checked.}
 }
 \value{
-TRUE if the data is generated from 'data_initilization_lmm', otherwise FALSE.
+A logical value indicating whether the input object is a cat initialization for LMM.
+Returns \code{TRUE} if the object inherits from the \code{"cat_initialization"} class and has the
+\code{function_name} attribute set to \code{"cat_lmm_initialization"}; otherwise, returns \code{FALSE}.
 }
 \description{
-This function checks if the given data object is generated from' data_initilization_lmm'.
+This function checks if the input object is an instance of a specific class
+used for initializing a linear mixed model (LMM) within the catalytic framework.
+It returns \code{TRUE} if the object inherits from the \code{"cat_initialization"} class and has
+a \code{function_name} attribute equal to \code{"cat_lmm_initialization"}.
+}
+\examples{
+# Example of creating a cat_initialization object for LMM
+init_obj <- list(function_name = "cat_lmm_initialization")
+class(init_obj) <- "cat_initialization"
+is.cat_lmm_init(init_obj) # Should return TRUE
+
+# Example with a different function_name
+init_obj_diff <- list(function_name = "cat_other_initialization")
+class(init_obj_diff) <- "cat_initialization"
+is.cat_lmm_init(init_obj_diff) # Should return FALSE
+
+# Example with a non-cat_initialization object
+non_cat_obj <- list(function_name = "cat_lmm_initialization")
+is.cat_lmm_init(non_cat_obj) # Should return FALSE
 }
