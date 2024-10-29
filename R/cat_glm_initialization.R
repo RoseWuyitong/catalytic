@@ -103,11 +103,13 @@ cat_glm_initialization <- function(formula,
 
   family <- get_glm_family_string(family)
 
-  syn_y <- if (family == "binomial") {
-    stats::rbinom(syn_size, 1, stats::predict(simple_model, syn_x, type = "response"))
-  } else {
-    stats::predict(simple_model, syn_x)
-  }
+  syn_y <- as.numeric(
+    if (family == "binomial") {
+      stats::rbinom(syn_size, 1, stats::predict(simple_model, syn_x, type = "response"))
+    } else {
+      stats::predict(simple_model, syn_x)
+    }
+  )
 
   # Finalize Setup and Output
   cat_init <- list(

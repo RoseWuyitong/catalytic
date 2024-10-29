@@ -12,6 +12,8 @@ cat_glm_bayes(
   iter = 2000,
   warmup = 1000,
   algorithm = "NUTS",
+  gaussian_variance_alpha = NULL,
+  gaussian_variance_beta = NULL,
   ...
 )
 }

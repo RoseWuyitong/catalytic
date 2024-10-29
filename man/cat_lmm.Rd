@@ -5,19 +5,18 @@
 \title{Title}
 \usage{
 cat_lmm(
-  formula,
-  data_,
+  cat_init,
   tau = NULL,
-  ...,
+  residual_variance_0 = 1,
+  random_effect_variance_0 = 1,
+  coefs_0 = NULL,
+  optimize_domain = c(0, 30),
   max_iter = 500,
-  tol = 1e-08,
-  init_sig_square = c(1, 1),
-  init_coefficients = NULL,
-  optimize_domain = c(0, 30)
+  tol = 1e-08
 )
 }
 \arguments{
-\item{init_coefficients}{}
+\item{coefs_0}{}
 }
 \description{
 Title

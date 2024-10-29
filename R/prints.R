@@ -9,14 +9,14 @@
 #' @export
 #'
 #' @examples
-print.cat_initialization <- function(cat_init,
-                                     show_data = TRUE,
-                                     detail = TRUE,
-                                     ...) {
+print.cat_initialization <- function(
+    cat_init,
+    show_data = TRUE,
+    detail = TRUE) {
   cat(cat_init$function_name)
 
   cat("\n formula:           ", get_formula_string(cat_init$formula))
-  if (cat_init$function_name == "data_initilization_glm") {
+  if (grepl("glm", cat_init$function_name)) {
     cat("\n family:            ", get_glm_family_string(cat_init$family, with_link = TRUE))
   }
   cat("\n size:              ", extract_size(cat_init))
@@ -33,7 +33,9 @@ print.cat_initialization <- function(cat_init,
       print(head(cat_init$obs_data))
     }
   }
+
   cat("\n------\n")
+
   cat("Synthetic Data Information:")
   cat("\n size:              ", cat_init$syn_size)
   if (show_data) {
@@ -46,18 +48,24 @@ print.cat_initialization <- function(cat_init,
     }
   }
 
-  if (!is.null(cat_init$syn_x_resample_inform)) {
+  if (!is.null(cat_init$syn_x_resample_inform) || !is.null(cat_init$syn_z_resample_inform)) {
+    print_data_gen_pro_df <- rbind(
+      cat_init$syn_x_resample_inform,
+      cat_init$syn_z_resample_inform
+    )
+
     cat("\n data generation process:")
     cat("\n [only show the first 10 columns] \n\n")
+
     print(
       format(
-        if (nrow(cat_init$syn_x_resample_inform) > 10) {
-          cat_init$syn_x_resample_inform[1:10, ]
+        if (nrow(print_data_gen_pro_df) > 10) {
+          print_data_gen_pro_df[1:10, ]
         } else {
-          cat_init$syn_x_resample_inform
+          print_data_gen_pro_df
         },
         justify = "left",
-        width = max(nchar(as.character(unlist(cat_init$syn_x_resample_inform)))) + 1
+        width = max(nchar(as.character(unlist(print_data_gen_pro_df)))) + 1
       ),
       quote = FALSE
     )

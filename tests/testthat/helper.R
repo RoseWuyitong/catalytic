@@ -1,5 +1,37 @@
 set.seed(1)
 
+# ----- GLM -----
+
+# ----- COX -----
+
+# ----- LMM -----
+
+mock_lmm_data <- function() {
+  n <- 10
+  return(data.frame(
+    X1 = rnorm(n),
+    X2 = rnorm(n),
+    X3 = rnorm(n),
+    Y = rnorm(n),
+    Z1 = rnorm(n),
+    Z2 = rnorm(n),
+    Z3 = rnorm(n),
+    group = sample(1:3, n, replace = TRUE)
+  ))
+}
+
+mock_cat_lmm_initialization <- function() {
+  return(cat_lmm_initialization(
+    formula = Y ~ X1 + X2 + X3,
+    data = mock_lmm_data(),
+    x_cols = c("X1", "X2", "X3"),
+    z_cols = c("Z1", "Z2", "Z3"),
+    y_col = c("Y"),
+    group_col = c("group")
+  ))
+}
+
+##########
 # ---- GLM Functions ----
 
 #' Generate GLM Data for Testing

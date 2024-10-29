@@ -7,8 +7,6 @@
 cat_glm_bayes_joint(
   formula,
   cat_init,
-  tau_alpha = 2,
-  tau_gamma = 1,
   binomial_tau_lower = 0.05,
   binomial_joint_theta = FALSE,
   binomial_joint_alpha = FALSE,
@@ -16,6 +14,10 @@ cat_glm_bayes_joint(
   iter = 2000,
   warmup = 1000,
   algorithm = "NUTS",
+  tau_alpha = 2,
+  tau_gamma = 1,
+  gaussian_variance_alpha = NULL,
+  gaussian_variance_beta = NULL,
   ...
 )
 }

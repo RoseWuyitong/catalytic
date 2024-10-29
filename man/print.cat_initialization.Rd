@@ -4,7 +4,7 @@
 \alias{print.cat_initialization}
 \title{Title}
 \usage{
-\method{print}{cat_initialization}(cat_init, show_data = TRUE, detail = TRUE, ...)
+\method{print}{cat_initialization}(cat_init, show_data = TRUE, detail = TRUE)
 }
 \arguments{
 \item{detail}{}

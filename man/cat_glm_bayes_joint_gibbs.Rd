@@ -37,9 +37,9 @@ cat_glm_bayes_joint_gibbs(
 
 \item{gibbs_warmup}{Number of warmup iterations in Gibbs sampling. Defaults to 1000.}
 
-\item{...}{Additional arguments passed to \code{stats:glm}, for generating \code{init_coefficients}}
+\item{...}{Additional arguments passed to \code{stats:glm}, for generating \code{coefs_0}}
 
-\item{init_coefficients}{Initial coefs for the GLM model. Defaults to simple glm model within function.}
+\item{coefs_0}{Initial coefs for the GLM model. Defaults to simple glm model within function.}
 }
 \value{
 An object of class \code{cat_glm_bayes_joint_gibbs} containing:
@@ -51,13 +51,13 @@ An object of class \code{cat_glm_bayes_joint_gibbs} containing:
 \item{gibbs_warmup}{Number of warmup iterations for Gibbs sampling.}
 \item{coefs_iter}{Number of iterations for updating coefs in the HMC step.}
 \item{tau_0}{Initial value for tau used in modeling.}
-\item{init_coefficients}{Initial coefs used in HMC (if provided).}
+\item{coefs_0}{Initial coefs used in HMC (if provided).}
 \item{tau_alpha}{Shape parameter for the tau_gamma distribution in Gibbs sampling.}
 \item{tau_gamma}{Rate parameter for the tau_gamma distribution in Gibbs sampling.}
 \item{sys_time}{Timestamp of the sampling process completion.}
 \item{tau_model}{Fitted GLM model object using adjusted data and tau.}
 \item{inform_df}{Summary statistics of the Gibbs sampling output.}
-\item{gibbs_collect}{Matrix containing the Gibbs sampling results for tau and coefs.}
+\item{gibbs_iteration_log}{Matrix containing the Gibbs sampling results for tau and coefs.}
 \item{tau}{Mean of sampled value of tau.}
 \item{coefs}{Mean of sampled coefs from the posterior distribution.}
 }

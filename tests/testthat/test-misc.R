@@ -15,6 +15,370 @@ cox_data <- cox_data
 # ----- COX -----
 
 
+# ----- LMM -----
+cat_init_lmm <- mock_lmm_cat_init()
+lmm_data <- mock_lmm_data()
+
+test_that("update_lmm_variance produces expected results for edge cases", {
+  # Edge case with very small variances
+  result_small_variance <- update_lmm_variance(
+    residual_variance = 1e-10,
+    random_effect_variance = 1e-10,
+    obs_z_eigenvalues = c(1, 2, 3),
+    syn_z_eigenvalues = c(1, 2, 3),
+    obs_adjusted_residuals = c(1, 2, 3),
+    syn_adjusted_residuals = c(1, 2, 3),
+    tau = 1
+  )
+  expect_true(is.finite(result_small_variance))
+
+  # Check monotonicity with varying tau
+  result_low_tau <- update_lmm_variance(1, 1, c(1, 1.5, 2), c(1, 1.5, 2), c(1, 2, 3), c(1, 2, 3), 1)
+  result_high_tau <- update_lmm_variance(1, 1, c(1, 1.5, 2), c(1, 1.5, 2), c(1, 2, 3), c(1, 2, 3), 10)
+  expect_true(result_low_tau < result_high_tau) # Higher tau should increase likelihood
+
+  # Symmetry check with swapped eigenvalues with tau equal to length of the eigenvalues
+  result_obs_syn_swapped <- update_lmm_variance(0.5, 1.2, c(1, 2, 2.5), c(1, 2, 3), c(1, 2, 3), c(1, 2, 3), 3)
+  result_syn_obs_swapped <- update_lmm_variance(0.5, 1.2, c(1, 2, 3), c(1, 2, 2.5), c(1, 2, 3), c(1, 2, 3), 3)
+  expect_equal(result_obs_syn_swapped, result_syn_obs_swapped)
+})
+
+test_that("validate_lmm_input checks parameters correctly", {
+  # Test for valid inputs
+  expect_silent(validate_lmm_input(
+    cat_init = cat_init_lmm,
+    tau = 1,
+    residual_variance_0 = 1,
+    random_effect_variance_0 = 1,
+    coefs_0 = rep(1, ncol(cat_init_lmm$obs_x)),
+    optimize_domain = c(0, 10),
+    max_iter = 100,
+    tol = 0.001,
+    tau_seq = c(0, 1),
+    cross_validation_fold_num = 5
+  ))
+
+  # Test for cat_init generated from cat_glm_initialization
+  # Test for cat_init not generated from `cat_lmm_initialization`
+  cat_init_invalid <- cat_init_lmm
+  cat_init_invalid$function_name <- "wrong_initialization"
+  expect_error(validate_lmm_input(
+    cat_init = cat_init_invalid
+  ))
+
+  # Test for tau being negative
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    tau = -1
+  ))
+
+  # Test for tau being a vector
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    tau = c(1, 2)
+  ))
+
+  # Test for residual_variance_0 being zero
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    residual_variance_0 = 0
+  ))
+
+  # Test for random_effect_variance_0 being zero
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    random_effect_variance_0 = 0
+  ))
+
+  # Test for coefs_0 being too short for observation x
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    coefs_0 = c(1)
+  ))
+
+  # Test for coefs_0 being too long for observation x
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    coefs_0 = rep(1, 5)
+  ))
+
+  # Test for optimize_domain being negative
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    optimize_domain = c(-1, 0)
+  ))
+
+  # Test for optimize_domain being a single value
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    optimize_domain = 1
+  ))
+
+  # Test for optimize_domain being too long
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    optimize_domain = c(1, 2, 3)
+  ))
+
+  # Test for max_iter being too zero
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    max_iter = 0
+  ))
+
+  # Test for max_iter being a vector
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    max_iter = c(1, 2)
+  ))
+
+  # Test for tol being zero
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    tol = 0
+  ))
+
+  # Test for tol being a vector
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    tol = c(1, 2)
+  ))
+
+
+  # Test for tau_seq being negative
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    tau_seq = c(-1, 1)
+  ))
+
+  # Test for tau_seq being a single value
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    tau_seq = 1
+  ))
+
+  # Test for cross_validation_fold_num being zero
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    cross_validation_fold_num = 0
+  ))
+
+  # Test for cross_validation_fold_num being a vector
+  expect_error(validate_lmm_input(
+    formula = Y ~ 1,
+    cat_init = cat_init_lmm,
+    cross_validation_fold_num = c(1, 2)
+  ))
+})
+
+test_that("validate_lmm_initialization_input checks parameters correctly", {
+  # Test for valid inputs
+  expect_silent(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for data in matrix
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = as.matrix(lmm_data),
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for empty data
+  expect_error(cat_lmm_initialization(
+    formula = Y ~ X1,
+    data = data.frame(),
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group"
+  ))
+
+  # Test for lmm formula
+  expect_silent(validate_lmm_initialization_input(
+    formula = Y ~ X1 + (1 | group),
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for surv formula
+  expect_error(validate_lmm_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for lack of x_cols
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for lack of z_cols
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for wrong x_cols
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3", "X4"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for wrong z_cols
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3", "Z4"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for y_col being vector
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2"),
+    y_col = c("Y", "X3"),
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for y_col being wrong
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y1",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = "group",
+    syn_size = NULL
+  ))
+
+  # Test for group_col being a vector
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2"),
+    group_col = c("group", "Z3"),
+    syn_size = NULL
+  ))
+
+  # Test for group_col being wrong
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = c("group1"),
+    syn_size = NULL
+  ))
+
+  # Test for syn_size is too small
+  expect_warning(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = c("group"),
+    syn_size = 1
+  ))
+
+  # Test for syn_size is positive and large enough
+  expect_warning(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = c("group"),
+    syn_size = 50
+  ))
+
+  # Test for syn_size is zero
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = c("group"),
+    syn_size = 0
+  ))
+
+  # Test for syn_size is negative
+  expect_error(validate_lmm_initialization_input(
+    formula = Y ~ X1,
+    data = lmm_data,
+    x_cols = c("X1", "X2", "X3"),
+    y_col = "Y",
+    z_cols = c("Z1", "Z2", "Z3"),
+    group_col = c("group"),
+    syn_size = -1
+  ))
+})
+
+# ----- General -----
+
+
+##############
 # ----- General -----
 
 test_that("is.continuous works correctly", {
@@ -73,7 +437,6 @@ test_that("get_standardized_data works correctly", {
 
 
 
-##############
 # ---- GLM Functions ----
 
 test_that("get_glm_lambda works correctly", {

@@ -4,17 +4,10 @@
 \alias{cat_lmm_tune}
 \title{Title}
 \usage{
-cat_lmm_tune(
-  data_,
-  tau_seq = NULL,
-  ...,
-  discrepancy_function = "square_error",
-  cv_fold_num = 5,
-  risk_estimate_method = "cross_validation_lmm"
-)
+cat_lmm_tune(cat_init, tau_seq = NULL, cross_validation_fold_num = 5)
 }
 \arguments{
-\item{risk_estimate_method}{}
+\item{"cross_validation_lmm"}{}
 }
 \description{
 Title

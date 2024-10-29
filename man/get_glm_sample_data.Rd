@@ -4,12 +4,7 @@
 \alias{get_glm_sample_data}
 \title{Generate Sample Data for GLM}
 \usage{
-get_glm_sample_data(
-  family_string = c("gaussian", "binomial"),
-  n = 10,
-  mean = 0,
-  sd = 1
-)
+get_glm_sample_data(family_string, n = 10, mean = 0, sd = 1)
 }
 \arguments{
 \item{n}{Integer. The number of samples to generate.}

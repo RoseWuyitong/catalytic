@@ -42,7 +42,7 @@ A list containing the fitted Cox model and various fitting details:
 \item{coefficients}{The coefficients of the fitted Cox model.}
 \item{model}{The fitted survival model (only for "WME" method).}
 \item{iter}{The number of iterations performed (only for "CRE" method).}
-\item{iter_collect}{The collected coefficients for each iteration (only for "CRE" method).}
+\item{iteration_log}{The collected coefficients for each iteration (only for "CRE" method).}
 \item{init_coefficients}{The initial coefficients used (if any).}
 \item{tol}{The tolerance for convergence.}
 \item{max_iter}{The maximum number of iterations allowed.}

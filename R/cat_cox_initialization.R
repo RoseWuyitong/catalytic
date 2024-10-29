@@ -134,6 +134,7 @@ cat_cox_initialization <- function(formula,
       formula = formula,
       data = data
     )
+    browser()
     syn_time <- summary(
       survival::survfit(
         simple_model,

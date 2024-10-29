@@ -10,7 +10,6 @@ cat_glm_initialization(
   data,
   syn_size = NULL,
   custom_variance = NULL,
-  gaussian_known_variance = FALSE,
   x_degree = NULL,
   resample_only = FALSE,
   na_replace = stats::na.omit

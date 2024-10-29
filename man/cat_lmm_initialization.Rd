@@ -2,26 +2,88 @@
 % Please edit documentation in R/cat_lmm_initialization.R
 \name{cat_lmm_initialization}
 \alias{cat_lmm_initialization}
-\title{Title}
+\title{Initialization for catalytic Linear Mixed Model (LMM)}
 \usage{
 cat_lmm_initialization(
   formula,
   data,
-  X_cols,
-  Y_cols,
-  Z_cols,
-  group_cols = NULL,
+  x_cols,
+  y_col,
+  z_cols,
+  group_col = NULL,
   syn_size = NULL,
-  ...,
-  x_degree = NULL,
   resample_by_group = FALSE,
   resample_only = FALSE,
   na_replace = mean
 )
 }
 \arguments{
-\item{syn_size}{}
+\item{formula}{A formula specifying the model. Should include response and predictor variables.}
+
+\item{data}{A data frame containing the data for modeling.}
+
+\item{x_cols}{A character vector of column names for fixed effects (predictors).}
+
+\item{y_col}{A character string for the name of the response variable.}
+
+\item{z_cols}{A character vector of column names for random effects.}
+
+\item{group_col}{A character string for the grouping variable (optional). If NULL, it is extracted from the formula.}
+
+\item{syn_size}{An integer specifying the size of the synthetic dataset to be generated (default is length(x_cols) * 4).}
+
+\item{resample_by_group}{A logical indicating whether to resample by group (default is FALSE).}
+
+\item{resample_only}{A logical indicating whether to perform resampling only (default is FALSE).}
+
+\item{na_replace}{A function to replace NA values in the data (default is mean).}
+}
+\value{
+A list containing the following components:
+\item{function_name}{A character string representing the name of the function, "cat_lmm_initialization".}
+\item{simple_model}{An object of class \code{lmer} or \code{lm}, representing the fitted model for generating synthetic response from the original data.}Observation Data Information
+
+\item{obs_size}{An integer representing the number of observations in the original dataset.}
+\item{obs_data}{The original data used for fitting the model, returned as a data frame.}
+\item{obs_x}{A data frame containing the standardized predictor variables from the original dataset.}
+\item{obs_y}{A numeric vector of the standardized response variable from the original dataset.}
+\item{obs_z}{A data frame containing the standardized random effect variables from the original dataset.}
+\item{obs_group}{A numeric vector representing the grouping variable for the original observations.}Synthetic Data Information
+
+\item{syn_size}{An integer representing the number of synthetic observations generated.}
+\item{syn_data}{A data frame containing the synthetic dataset, combining synthetic predictor and response variables.}
+\item{syn_x}{A data frame containing the synthetic predictor variables.}
+\item{syn_y}{A numeric vector of the synthetic response variable values.}
+\item{syn_z}{A data frame containing the synthetic random effect variables.}
+\item{syn_group}{A numeric vector representing the grouping variable for the synthetic observations.}
+\item{syn_x_resample_inform}{A data frame containing information about the resampling process for synthetic predictors.}
+\item{syn_z_resample_inform}{A data frame containing information about the resampling process for synthetic random effects.}Whole Data Information
+
+\item{size}{An integer representing the total size of the combined original and synthetic datasets.}
+\item{data}{A combined data frame of the original and synthetic datasets.}
+\item{x}{A combined data frame of the original and synthetic predictor variables.}
+\item{y}{A combined numeric vector of the original and synthetic response variables.}
+\item{z}{A combined data frame of the original and synthetic random effect variables.}
+\item{group}{A combined numeric vector representing the grouping variable for both original and synthetic datasets.}
 }
 \description{
-Title
+This function prepares and initializes a catalytic linear mixed model by processing input data,
+extracting necessary variables, generating synthetic datasets, and fitting a model.
+}
+\examples{
+data(mtcars)
+cat_init <- cat_lmm_initialization(
+  formula = mpg ~ wt + (1 | cyl), # formula for simple model
+  data = mtcars,
+  x_cols = c("wt"),  # Fixed effects
+  y_col = "mpg",     # Response variable
+  z_cols = c("disp", "hp", "drat", "qsec", "vs", "am", "gear", "carb"),  # Random effects
+  group_col = "cyl",  # Grouping column
+  syn_size = 100,  # Synthetic data size
+  resample_by_group = FALSE,  # Resampling option
+  resample_only = FALSE,  # Resampling method
+  na_replace = mean  # NA replacement method
+)
+cat_init
+
 }

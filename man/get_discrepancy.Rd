@@ -10,7 +10,7 @@ get_discrepancy(
   family_string = NULL,
   X = NULL,
   Y = NULL,
-  est_coefs = NULL,
+  coefs = NULL,
   est_Y = NULL
 )
 }
@@ -27,11 +27,11 @@ get_discrepancy(
 
 \item{Y}{A vector or data frame of observed values.}
 
+\item{coefs}{A vector of coefficients for the GLM model.}
+
 \item{est_Y}{A vector of estimated values. If not provided, it will be computed using \code{get_glm_mean} with the specified \code{family}.}
 
 \item{family}{A GLM family object (e.g., "binomial") used to compute logistic deviance.}
-
-\item{coefs}{A vector of coefficients for the GLM model.}
 }
 \value{
 A numeric value representing the discrepancy between observed and estimated values.
