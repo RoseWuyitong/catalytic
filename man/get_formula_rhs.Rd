@@ -21,5 +21,7 @@ This function extracts the right-hand side (RHS) of a formula and returns it as 
 Optionally, it can include a tilde (\code{~}) at the beginning of the RHS.
 }
 \examples{
-#
+formula <- y ~ x1 + x2
+get_formula_rhs(formula)
+get_formula_rhs(formula, with_tilde = TRUE)
 }

@@ -2,7 +2,6 @@
 title: "catalytic_glm_binomial"
 author:
   - Wu Yitong
-  - Huang Dongming
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 bibliography: assets/catalytic_refs.bib
 link-citations: TRUE
@@ -17,7 +16,6 @@ vignette: >
 
 
 ```{r, include = FALSE}
-devtools::load_all()
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -34,44 +32,43 @@ __catalytic__ package that focuses on GLM Logistic Regression. The other __catal
 
 The goal of the __catalytic__ package is to build framework for catalytic prior distributions. Stabilizing high-dimensional working models by shrinking them towards simplified models. This is achieved by supplementing observed data with weighted synthetic data generated from a predictive distribution under the simpler model.
 
+For more information, see [@catalytic_glm].
+
 The two steps of using catalytic package for GLM Logistic Regression are
 
-1. The `cat_glm_initialization` function constructs a `cat_init` object based on the formula provided by the user to generate synthetic data. The resulting `cat_init` object is tailored to facilitate further analysis, and is integral for subsequent modeling steps in the `catalytic` package.
+1. Initialization: The `cat_glm_initialization` function constructs a `cat_init` object based on the formula provided by the user to generate synthetic data. The resulting `cat_init` object is tailored to facilitate further analysis, and is integral for subsequent modeling steps in the `catalytic` package.
 
-2. Users have the flexibility to choose from five main functions within the catalytic package: `cat_glm`, `cat_glm_tune`, `cat_glm_bayes_joint_gibbs`, `cat_glm_bayes`, and `cat_glm_bayes_joint`. Each function serves a specific purpose in modeling with catalytic priors and offers distinct capabilities tailored to different modeling scenarios for GLM Logistic Regression. This approach enables users to seamlessly incorporate synthetic data with varying weights from different method into GLM Logistic Regression analyses, providing flexibility and control over the modeling process.
+2. Choose Method(s): Users have the flexibility to choose from five main functions within the catalytic package: `cat_glm`, `cat_glm_tune`, `cat_glm_bayes_joint_gibbs`, `cat_glm_bayes`, and `cat_glm_bayes_joint`. Each function serves a specific purpose in modeling with catalytic priors and offers distinct capabilities tailored to different modeling scenarios for GLM Logistic Regression. This approach enables users to seamlessly incorporate synthetic data with varying weights from different method into GLM Logistic Regression analyses, providing flexibility and control over the modeling process.
 
 # Data Preparation{#DataPreparation}
 
 Creating a high-dimensional dataset with a low data size. This step involves increasing the number of features (dimensions) while keeping the number of observations (data size) relatively small. This is useful for testing the performance of `catalytic` models in high-dimensional settings.
 
-The `get_train_idx` function randomly selects training indices amounting to 1/80 of the dataset size. 
-
-The `binomial_swim` dataset is loaded and split into training (`train_data`) and test (`test_data`) datasets.
+The `swim` dataset is loaded and split into training (`train_data`) and test (`test_data`) datasets.
 
 ```{r}
-set.seed(1)
-
-library(pROC)
 library(catalytic)
 
-# Utility function to get random train indices for 1/80 of the original data
-get_train_idx <- function(data_set) {
-  n <- nrow(data_set)
-  return(sample(1:n, floor(1 / 50 * n)))
+set.seed(1)
+
+# Function for calculating the mean of logarithmic error between true response and estimated response
+get_mean_logarithmic_error <- function(Y, est_Y) {
+  Y <- pmax(0.0001, pmin(0.9999, Y))
+  est_Y <- pmax(0.0001, pmin(0.9999, est_Y))
+  return(mean(Y * log(Y / est_Y) + (1 - Y) * log((1 - Y) / (1 - est_Y))))
 }
 
-# Load and split the binomial_swim dataset for binomial analysis
-data("binomial_swim")
-swim_data <- cbind(binomial_swim$x, binomial_swim$y)
-swim_train_idx <- get_train_idx(swim_data)
+# Load swim dataset for binomial analysis
+data("swim")
+swim_data <- cbind(swim$x, swim$y)
 
-train_data <- swim_data[swim_train_idx, ]
-test_data <- swim_data[-swim_train_idx, ]
-
-real_test_y <- test_data$empyr1
+# Seperate observation data into train and test data
+n <- 3 * ncol(swim$x + 1) # Size for training data
+train_idx <- sample(1:nrow(swim_data), n)
+train_data <- swim_data[train_idx, ]
+test_data <- swim_data[-train_idx, ]
 
 dim(train_data)
-head(train_data)
 ```
 
 In this section, we explore the foundational steps of fitting a logistic regression model (GLM) using the `stats::glm` function with the binomial family. 
@@ -92,17 +89,17 @@ predicted_y <- predict(
 
 cat(
   "MLE GLM Binomial Model - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `predicted_y` from `glm_model` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `predicted_y` from `glm_model` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, predicted_y)
 plot(roc_curve, main = "ROC Curve (MLE)", col = "blue", lwd = 2)
 ```
 
@@ -128,18 +125,15 @@ Here's a breakdown of the parameters used:
 
 * `na_replace`: Specifies the method for handling missing values in the dataset, defaulted to `stats::na.omit`. Here is `mean`, which can replace `NA` in `data` with the mean of each column.
 
-* `...` (ellipsis): Allows users to specify additional arguments that are passed directly to the simple model. This model is used within the function to generate synthetic responses by fitting observation data using `stats::glm`. By leveraging `...`, users can customize the behavior of `stats::glm` within cat_glm_initialization with additional options such as `control`, `offset`, or other model-specific settings.
-
 ```{r}
 cat_init_1 <- cat_glm_initialization(
   formula = empyr1 ~ 1,
   family = binomial, # Default: gaussian
   data = train_data,
   syn_size = 100, # Default: 4 times the number of predictors
-  x_degree = c(1, 2, rep(1, 10)), # Default: NULL, which means degrees of all predictors are 1
+  x_degree = NULL, # Default: NULL, which means degrees of all predictors are 1
   resample_only = FALSE, # Default: FALSE
-  na_replace = mean, # Default: stats::na.omit
-  singular.ok = TRUE # Additional argument for the`stats::glm`
+  na_replace = mean # Default: stats::na.omit
 )
 
 cat_init_1
@@ -170,7 +164,7 @@ cat_init <- cat_glm_initialization(
 cat_init
 ```
 
-`cat_init_1`, `cat_init_2` and `cat_init` object contains a list of attributes, which is typically generated from above function [`cat_glm_initialization`]{#Initialization}. These attributes provide comprehensive information for below modeling tasks or for user check. 
+`cat_init_1`, `cat_init_2` and `cat_init` object contains a list of attributes, which is typically generated from above function [`cat_glm_initialization`](#Initialization). These attributes provide comprehensive information for below modeling tasks or for user check. 
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -219,11 +213,8 @@ cat_init$syn_x_resample_inform
 ```
 
 
-## Setp 2.1: Frequentist Approaches{#FrequentistApproaches}
 
-This section explores frequentist approaches to modeling using the catalytic package. These methods rely on traditional statistical techniques where model parameters are estimated through point estimation using a specific `tau`(synthetic data downweight factor) or tuning over a range of tau values(`tau_seq`).
-
-### 2.1.1. Point Estimate{#PointEstimate}
+## Step 2.1: Choose Method(s) - Estimation with fixed tau {#cat_glm}
 
 The `cat_glm` function fits a Generalized Linear Model (GLM) with a catalytic prior on the regression coefficients. It utilizes information from the `cat_init` object generated during the initialization step, which includes both observed and synthetic data, plus other relevant information. 
 
@@ -233,27 +224,21 @@ Here's a breakdown of the parameters used:
 
 * `formula`: This parameter specifies the model formula used in the GLM (Generalized Linear Model). It defines the relationship between the response variable and the predictors. Alternatively, besides using in fomat `RESPONSE ~ COVARIATES`, user can also use `~ COVARIATES` without specifying the response name, since the response name is defined in the initialization step.
 
-* `family`: Specifies the GLM family to use, such as binomial for logistic regression. If not provided (`NULL`), it defaults to the family specified in `cat_init`, which is typically set during [initialization step](#Initialization).
-
 * `cat_init`: This parameter is essential and represents the initialization object (`cat_init`) created using [`cat_glm_initialization`]{#Initialization}. It contains both observed and synthetic data, plus other relevant information, necessary for model fitting.
 
 * `tau`: This parameter determines the down-weight assigned to synthetic data relative to observed data. It influences the influence of synthetic data in the model fitting process. If not specified (`NULL`), it defaults to a one forth of the number of predictors.
 
-* `...` (ellipsis): Denotes additional arguments that can be passed directly to the underlying `stats::glm` function used within `cat_glm` to fit the GLM model. These arguments allow for customization of the GLM fitting process, such as `control`, `offset`, or other model-specific settings.
-
 ```{r}
 cat_glm_1 <- cat_glm(
   formula = empyr1 ~ female + agege35, # Same as `~ female + agege35`
-  family = binomial, # Default: cat_init$family
   cat_init = cat_init,
-  tau = 10, # Default: number of predictors / 4
-  singular.ok = TRUE # Additional argument for the`stats::glm`
+  tau = 10 # Default: number of predictors / 4
 )
 
 cat_glm_1
 ```
 
-Here shows how users can simplify the input for `cat_glm`. User do not have to specify `family` or `tau`, as `family` can derived from `cat_init` and `tau` has default value , which mentioned above.
+Here shows how users can simplify the input for `cat_glm`. User do not have to specify `tau`, as `tau` has default value , which mentioned above.
 
 ```{r}
 cat_glm_2 <- cat_glm(
@@ -274,17 +259,17 @@ cat_glm_predicted_y <- predict(
 
 cat(
   "Catalytic `cat_glm` - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = cat_glm_predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_predicted_y` from `cat_glm_2` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_predicted_y` from `cat_glm_2` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, cat_glm_predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, cat_glm_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm)", col = "blue", lwd = 2)
 ```
 
@@ -314,19 +299,19 @@ cat_glm_2$formula
 cat_glm_2$coefficients
 ```
 
-### 2.1.2. Tuning {#Tuning}
+## Step 2.2: Choose Method(s) - Estimation with Selective tau {#cat_glm_tune}
 
 The `cat_glm_tune` function fits a GLM with a catalytic prior on the regression coefficients and provides options for optimizing model performance over a range of tau values(`tau_seq`).
 
 These methods empower users to fit and optimize GLM models with catalytic priors, leveraging both observed and synthetic data to enhance model performance and robustness in various statistical analyses.
 
-#### Cross-validation (risk_estimate_method = "cross_validation"){#CrossValidation}
+### Cross-validation (risk_estimate_method = "cross_validation"){#CrossValidation}
 
 This method computes the partial likelihood across a specified range of tau values (`tau_seq`). It iterates through each tau value, evaluating its performance based on cross-validation folds (`cv_fold_num`) to select the optimal tau that minimizes the discrepancy error.
 
 Here's a breakdown of the parameters used:
 
-* `formula`, `family` and `cat_init` are same as [above](#PointEstimate).
+* `formula` and `cat_init` are same as [above](#cat_glm).
 
 * `risk_estimate_method`: Method for risk estimation, chosen from "parametric_bootstrap", "cross_validation", "mallows_estimate", "steinian_estimate". In this example, "cross_validation" is used.
 
@@ -334,19 +319,16 @@ Here's a breakdown of the parameters used:
 
 * `tau_seq`: Vector of positive numeric values for downweighting synthetic data. Defaults to a sequence around one fourth of the number of predictors.
 
-* `cv_fold_num`: Number of folds for cross-validation. Defaults to 5.
-
-* `...` (ellipsis): Denotes additional arguments that can be passed directly to the underlying `stats::glm` function used within `cat_glm_tune` to fit the GLM model. These arguments allow for customization of the GLM fitting process, such as `control`, `offset`, or other model-specific settings.
+* `cross_validation_fold_num`: Number of folds for cross-validation. Defaults to 5.
 
 ```{r}
 cat_glm_tune_cv <- cat_glm_tune(
   formula = empyr1 ~ ., # Same as `~ .`
-  family = binomial, # Default: cat_init$family
   cat_init = cat_init,
   risk_estimate_method = "cross_validation", # Default auto-select based on the data size
   discrepancy_method = "logistic_deviance", # Default auto-select based on family
-  tau_seq = seq(1, 100, 0.5), # Default is a numeric sequence around the number of predictors / 4
-  cv_fold_num = 10 # Default: 5
+  tau_seq = seq(0.1, 20, 0.5), # Default is a numeric sequence around the number of predictors / 4. Do not recommand to including 0 for cross validation.
+  cross_validation_fold_num = 5 # Default: 5
 )
 
 cat_glm_tune_cv
@@ -358,7 +340,7 @@ User can plot the tau_seq (x) against discrepancy error (y) using the `plot()` f
 plot(cat_glm_tune_cv)
 ```
 
-#### Bootstrap (risk_estimate_method = "parametric_bootstrap"){#Bootstrap}
+### Bootstrap (risk_estimate_method = "parametric_bootstrap"){#Bootstrap}
 
 This method estimates tau using bootstrap resampling, refining the model through iterative sampling to enhance robustness and accuracy.
 
@@ -377,13 +359,13 @@ cat_glm_tune_boots <- cat_glm_tune(
   risk_estimate_method = "parametric_bootstrap", # Default auto-select based on the data size
   discrepancy_method = "logistic_deviance", # Default auto-select based on family
   tau_0 = 2, # Default: number of predictors / 4
-  bootstrap_iteration_times = 50, # Default: 100
+  parametric_bootstrap_iteration_times = 50, # Default: 100
 )
 
 cat_glm_tune_boots
 ```
 
-#### Steinian Estimate (risk_estimate_method = "steinian_estimate"){#SteinianEstimate}
+### Steinian Estimate (risk_estimate_method = "steinian_estimate"){#SteinianEstimate}
 
 This method computes the partial likelihood using a steinian estimate approach, optimizing the model based on observed and synthetic data.
 
@@ -400,7 +382,7 @@ cat_glm_tune_stein <- cat_glm_tune(
 cat_glm_tune_stein
 ```
 
-#### Recommendations for Choosing `risk_estimate_method` and `discrepancy_method`{#Recommendations}
+### Recommendations for Choosing `risk_estimate_method` and `discrepancy_method`{#Recommendations}
 
 Choosing the appropriate risk_estimate_method and discrepancy_method depends on the data size, model complexity, and the specific requirements of user's analysis.
 
@@ -423,7 +405,7 @@ Choosing the appropriate risk_estimate_method and discrepancy_method depends on 
     * Default: "square_error"
     * For other GLM families (e.g. gaussian), "square_error" is the only option. It measures the discrepancy using squared differences, appropriate for continuous outcomes. Please check `catalytic_glm_gaussian` for more details.
 
-#### Automatic Parameter Selection{#AutoParamSelect}
+### Automatic Parameter Selection{#AutoParamSelect}
 
 Of course, user don't need to worry about specifying these parameters explicitly, and they just need to simply provide the `cat_init` object and the `formula`. then `cat_glm_tune` will automatically select `risk_estimate_method` and `discrepancy_method` based on the dataset size and GLM family type. 
 
@@ -450,17 +432,17 @@ cat_glm_tune_predicted_y <- predict(
 
 cat(
   "Catalytic `cat_glm_tune` - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = cat_glm_tune_predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_tune_predicted_y` from `cat_glm_tune_auto` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_tune_predicted_y` from `cat_glm_tune_auto` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, cat_glm_tune_predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, cat_glm_tune_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_tune)", col = "blue", lwd = 2)
 ```
 
@@ -476,9 +458,7 @@ Here's a breakdown of all attributes except the input parameters:
 
 * `coefficients`: The estimated coefficients from the fitted GLM model (`model`).
 
-* `risk_estimate_collect`: Collected risk estimates across different tau values.
-
-* `min_risk_estimate`: Minimum risk estimate value from `risk_estimate_collect`, indicating the optimal tau.
+* `risk_estimate_list`: Collected risk estimates across different tau values.
 
 For more details, please check `?cat_glm_tune`.
 
@@ -496,27 +476,29 @@ cat_glm_tune_auto$risk_estimate_method
 cat_glm_tune_auto$tau
 ```
 
-## Setp 2.2: Bayesian Approaches{#BayesianApproches}
+## Setp 2.3: Choose Method(s) - Bayesian Posterior Sampling with Fixed Tau{#cat_glm_bayes}
 
 Now, we will explore advanced Bayesian modeling techniques tailored for GLM Binomial using the `catalytic` package. Bayesian inference offers a powerful framework to estimate model parameters and quantify uncertainty by integrating prior knowledge with observed data. 
 
-Below functions enable Bayesian inference for GLM Logistic Regression Model with catalytic priors. This function utilizes Markov chain Monte Carlo (MCMC) methods, implemented using the `rstan` package, to sample from the posterior distribution of model parameters. Users can specify various options such as the number of MCMC chains (`stan_chains`), iterations (`stan_iter`), warmup steps (`stan_warmup`), and the MCMC algorithm (`stan_algorithm`). User could also apply other attributes to `rstan::sampling`, like `refresh` and `control`.
-
-### 2.2.1. Bayesian with Fixed Tau{#BayesWithFixedTau}
+Below functions enable Bayesian inference for GLM Logistic Regression Model with catalytic priors. This function utilizes Markov chain Monte Carlo (MCMC) methods, implemented using the `rstan` package, to sample from the posterior distribution of model parameters. Users can specify various options such as the number of MCMC chains (`chains`), iterations (`iter`), warmup steps (`warmup`), and the MCMC algorithm (`algorithm`). User could also apply other attributes to `rstan::sampling`, like `refresh` and `control`.
 
 In this section, we explore Bayesian approaches using the `cat_glm_bayes` function from the `catalytic` package. This function can fit a Bayesian Generalized Linear Model (GLM) using a fixed tau value. The MCMC sampling process will generate posterior distributions for the coefficients based on the specified tau.
 
 Here's a breakdown of the parameters used:
 
-* `formula`, `family`, `cat_init` and `tau` are same as [above](#PointEstimate).
+* `formula`, `cat_init` and `tau` are same as [above](#cat_glm).
 
-* `stan_chains`: Number of Markov chains to run during MCMC sampling in `rstan`. Defaults to 4.
+* `chains`: Number of Markov chains to run during MCMC sampling in `rstan`. Defaults to 4.
 
-* `stan_iter`: Total number of iterations per chain in the MCMC sampling process in `rstan`. Defaults to 2000.
+* `iter`: Total number of iterations per chain in the MCMC sampling process in `rstan`. Defaults to 2000.
 
-* `stan_warmup`: Number of warmup iterations in the MCMC sampling process in `rstan`, discarded as burn-in. Defaults to 1000.
+* `warmup`: Number of warmup iterations in the MCMC sampling process in `rstan`, discarded as burn-in. Defaults to 1000.
 
-* `stan_algorithm`: Specifies the sampling algorithm used in `rstan`. Defaults to "NUTS" (No-U-Turn Sampler).
+* `algorithm`: Specifies the sampling algorithm used in `rstan`. Defaults to "NUTS" (No-U-Turn Sampler).
+
+* `gaussian_variance_alpha`: The shape parameter for the inverse-gamma prior on variance if the variance is unknown in Gaussian models. Defaults to the number of predictors. More explanation in `catalytic_glm_gaussian.Rmd`.
+
+* `gaussian_variance_beta`: The scale parameter for the inverse-gamma prior on variance if the variance is unknown in Gaussian models. Defaults to the number of predictors times variance of observation response. More explanation in `catalytic_glm_gaussian.Rmd`.
 
 * `...` (ellipsis): Denotes additional arguments that can be passed directly to the underlying `rstan::sampling` function used within `cat_glm_bayes` to fit the Bayesian GLM model. These arguments allow for customization of the Bayesian GLM fitting process, such as `control`, `refresh`, or other model-specific settings.
 
@@ -525,20 +507,18 @@ For more details, please refer to `?cat_glm_bayes`.
 ```{r}
 cat_glm_bayes_1 <- cat_glm_bayes(
   formula = empyr1 ~ ., # Same as `~ .`
-  family = binomial, # Default: cat_init$family
   cat_init = cat_init,
   tau = 50, # Default: number of predictors / 4
-  stan_chains = 2, # Default: 4
-  stan_iter = 100, # Default: 2000
-  stan_warmup = 50, # Default: 1000
-  stan_algorithm = "NUTS", # Default: NUTS
-  refresh = 25 # Additional attribute for `rstan::sampling`
+  chains = 2, # Default: 4
+  iter = 100, # Default: 2000
+  warmup = 50, # Default: 1000
+  algorithm = "NUTS" # Default: NUTS
 )
 
 cat_glm_bayes_1
 ```
 
-Here shows how users can simplify the input for `cat_glm_bayes`. User do not have to specify `family`, `tau` and other attributes, as `family` can derived from `cat_init` , while `tau` and other attributes have default value, which mentioned above.
+Here shows how users can simplify the input for `cat_glm_bayes`. User do not have to specify `tau` and other attributes, as `tau` and other attributes have default value, which mentioned above.
 
 ```{r}
 cat_glm_bayes_2 <- cat_glm_bayes(
@@ -571,17 +551,17 @@ cat_glm_bayes_predicted_y <- predict(
 
 cat(
   "MLE GLM Binomial Model - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = cat_glm_bayes_predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_bayes_predicted_y` from `cat_glm_bayes_2` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_bayes_predicted_y` from `cat_glm_bayes_2` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, cat_glm_bayes_predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes)", col = "blue", lwd = 2)
 ```
 
@@ -590,6 +570,8 @@ Both `cat_glm_bayes_1` and `cat_glm_bayes_2` objects are outputs from the `cat_g
 Here's a breakdown of all attributes except the input parameters:
 
 * `function_name`: The name of the function (`cat_glm_bayes`).
+
+* `stan_data`: The data list used for `rstan::sampling`.
 
 * `stan_model`: The `rstan::stan_model` object used for Bayesian modeling.
 
@@ -607,13 +589,13 @@ User can extract items mentioned above from `cat_glm_bayes` object.
 
 ```{r}
 # The number of Markov chains used during MCMC sampling in `rstan`.
-cat_glm_bayes_2$stan_chain
+cat_glm_bayes_2$chain
 
 # The mean estimated coefficients from the Bayesian GLM model
 cat_glm_bayes_2$coefficients
 ```
 
-### 2.2.2. Bayesian with Adaptive Tau{#BayesWithAdapTau}
+## Step 2.4: Choose Method(s) - Bayesian Posterior Sampling with Adaptive Tau{#cat_glm_bayes_joint}
 
 In this section, we delve into Bayesian methodologies employing the `cat_glm_bayes_joint` function within the `catalytic` package. Unlike its non-adaptive counterpart (`cat_glm_bayes`), this method employs a joint tau prior approach where tau is treated as a parameter within the MCMC sampling process, improving the robustness and accuracy of parameter estimation in Bayesian Binomial modeling.
 
@@ -621,15 +603,16 @@ In this section, we explore Bayesian approaches using the `cat_glm_bayes_joint` 
 
 Here's a breakdown of the parameters used:
 
-* `formula`, `family`, and `cat_init` are same as [above](#PointEstimate).
+* `formula`, and `cat_init` are same as [above](#cat_glm).
 
-* `stan_chains`, `stan_iter`, `stan_warmup` and `stan_algorithm` are same in section [Bayesian with Fixed Tau](#BayesWithFixedTau).
+* `chains`, `iter`, `warmup`, `algorithm`, `gaussian_variance_alpha` and
+ `gaussian_variance_beta`are same in section [Bayesian  Posterior Sampling with Fixed Tau](#cat_glm_bayes).
 
-* `alpha`: Alpha parameter controlling degrees of freedom for distribution in the joint tau approach. Default is 2.
+* `tau_alpha`: Alpha parameter controlling degrees of freedom for distribution in the joint tau approach. Default is 2.
 
-* `gamma`: Gamma parameter in the joint tau approach. Default is 1.
+* `tau_gamma`: Gamma parameter in the joint tau approach. Default is 1.
 
-* `binomial_use_theta`: Logical. If TRUE, use theta parameter in the binomial model. Default is FALSE. More explanation in below section [Incorporating theta (1/tau)](#IncorporateTheta).
+* `binomial_joint_theta`: Logical. If TRUE, use theta parameter in the binomial model. Default is FALSE. More explanation in below section [Incorporating theta (1/tau)](#IncorporateTheta).
 
 * `binomial_joint_alpha`: Logical. If TRUE, use joint alpha in the binomial model. Default is FALSE. More explanation in below section [Incorporating theta (1/tau) with Apdaptive Alpha](#IncorporateThetaWithAdapAlpha).
 
@@ -642,21 +625,19 @@ For more details, please refer to `?cat_glm_bayes_joint`.
 ```{r}
 cat_glm_bayes_joint_1 <- cat_glm_bayes_joint(
   formula = empyr1 ~ ., # Same as `~ .`
-  family = binomial, # Default: cat_init$family
   cat_init = cat_init,
-  stan_chains = 3, # Default: 4
-  stan_iter = 200, # Default: 2000
-  stan_warmup = 100, # Default: 1000
-  stan_algorithm = "NUTS", # Default: NUTS
-  alpha = 2, # Default: 2
-  gamma = 1, # Default: 1
-  refresh = 50 # Additional attributes for `rstan::sampling`
+  chains = 2, # Default: 4
+  iter = 200, # Default: 2000
+  warmup = 100, # Default: 1000
+  algorithm = "NUTS", # Default: NUTS
+  tau_alpha = 2, # Default: 2
+  tau_gamma = 1 # Default: 1
 )
 
 cat_glm_bayes_joint_1
 ```
 
-Here shows how users can simplify the input for `cat_glm_bayes_joint`. User do not have to specify `family` and other attributes, as `family` can derived from `cat_init` , while other attributes have default value, which mentioned above.
+Here shows how users can simplify the input for `cat_glm_bayes_joint`. User do not have to specify `tau_alpha` and other attributes, as these attributes have default value, which mentioned above.
 
 ```{r}
 cat_glm_bayes_joint_2 <- cat_glm_bayes_joint(
@@ -673,7 +654,7 @@ User can also get the traceplot of the `rstan` model by using `traceplot()` dire
 traceplot(cat_glm_bayes_joint_2)
 ```
 
-Like the [`traceplot` shown in the `cat_glm_bayes` function](#BayesWithFixedTau) , user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
+Like the [`traceplot` shown in the `cat_glm_bayes` function](#cat_glm_bayes) , user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
 
 ```{r}
 traceplot(cat_glm_bayes_joint_2, inc_warmup = TRUE)
@@ -689,17 +670,17 @@ cat_glm_bayes_joint_predicted_y <- predict(
 
 cat(
   "Catlytic `cat_glm_bayes_joint` - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = cat_glm_bayes_joint_predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_bayes_joint_predicted_y` from `cat_glm_bayes_joint_2` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_bayes_joint_predicted_y` from `cat_glm_bayes_joint_2` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, cat_glm_bayes_joint_predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint)", col = "blue", lwd = 2)
 ```
 
@@ -711,13 +692,7 @@ Here's a breakdown of all attributes except the input parameters:
 
 * `tau`: The estimated tau parameter from the MCMC sampling `rstan::sampling`, depending on the model configuration.
 
-* `kappa_`: The calculated kappa value used in the model.
-
-* `stan_model`: The `rtan::stan_model` object used for Bayesian modeling.
-
-* `stan_sample_model`: The result object obtained from `rstan::sampling`, encapsulating the MCMC sampling results.
-
-* `coefficients`: The mean estimated coefficients from the Bayesian GLM model, extracted from `rstan::summary(stan_sample_model)$summary`.
+* `stan_data`, `stan_model`, `stan_sample_model` and `coefficients` are same in section [Bayesian Posterior Sampling with Fixed Tau](#cat_glm_bayes).
 
 For more details, please refer to `?cat_glm_bayes_joint`.
 
@@ -735,11 +710,11 @@ cat_glm_bayes_joint_2$tau
 cat_glm_bayes_joint_2$coefficients
 ```
 
-### 2.2.3. Special Approaches for Binomial Models{#SpecialForBinomial}
+## Step 2.5: Choose Method(s) - Special Approaches for Binomial Models{#SpecialForBinomial}
 
 Traditional methods like `rstan` often face challenges in accurately fitting Binomial models, such as computational inefficiencies and convergence issues. To overcome these limitations, we would like to introduce below four specialized approaches designed to improve parameter estimation accuracy, enhance convergence rates, and better handle the complexities inherent in Binomial modeling.
 
-#### Gibbs Sampling{#GibbsSampling}
+### Gibbs Sampling{#GibbsSampling}
 
 Besides the above two approaches, `cat_glm_bayes_joint_gibbs` function utilizes Gibbs sampling. enhancing performance in Bayesian modeling tasks. 
 
@@ -769,25 +744,21 @@ For more information, see [@catalytic_glm] and [@neal2012mcmc].
 
 Here's a breakdown of the parameters used:
 
-* `formula`, `family`, and `cat_init` are same as [above](#PointEstimate).
+* `formula`, and `cat_init` are same as [above](#cat_glm).
 
-* `gibbs_iter`: Total number of Gibbs sampling iterations. Defaults to 2000.
+* `iter`: Total number of Gibbs sampling iterations. Defaults to 2000.
 
-* `gibbs_warmup`: Number of warmup iterations in Gibbs sampling. Deafults to 1000.
+* `warmup`: Number of warmup iterations in Gibbs sampling. Deafults to 1000.
 
-* `coefficients_iter`: Number of iterations in the HMC sampling for coefficients. Defaults to 5.
+* `coefs_iter`: Number of iterations in the HMC sampling for coefficients. Defaults to 5.
 
-* `init_tau`: Initial value for tau (downweighting factor for synthetic data). Defaults to one forth of the number of predictors.
+* `tau_0`: Initial value for tau (downweighting factor for synthetic data). Defaults to one forth of the number of predictors.
 
-* `init_coefficients`: Initial coefficients for the GLM model. Defaults to be the fitted result from `stats::glm` model within `cat_glm_bayes_joint_gibbs`.
+* `tau_alpha`: Shape parameter for the gamma distribution used in tau sampling. Defaults to 2.
 
-* `alpha`: Shape parameter for the gamma distribution used in tau sampling. Defaults to 2.
+* `tau_gamma`: Rate parameter for the gamma distribution used in tau sampling. Defaults to 1.
 
-* `gamma`: Rate parameter for the gamma distribution used in tau sampling. Defaults to 1.
-
-* `stan_refresh`: Refresh rate for the Stan sampling. Defaults to 0.
-
-* `gibbs_refresh`: Logical flag indicating whether to print progress in Gibbs sampling. Defaults to TRUE.
+* `refresh`: Logical flag indicating whether to print progress in Gibbs sampling. Defaults to TRUE.
 
 * `...`(ellipsis): Denotes additional arguments that can be passed directly to the underlying `stats::glm`, for generating `init_coefficients` if user not defined, such as `control`, `offset`, or other model-specific settings.
 
@@ -796,23 +767,20 @@ For more details, please refer to `?cat_glm_bayes_joint_gibbs`.
 ```{r}
 cat_glm_bayes_joint_gibbs_1 <- cat_glm_bayes_joint_gibbs(
   formula = empyr1 ~ ., # Same as `~ .`
-  family = binomial, # Default: cat_init$family
   cat_init = cat_init,
-  gibbs_iter = 100, # Default: 2000
-  gibbs_warmup = 50, # Default: 1000
-  coefficients_iter = 2, # Default: 5
-  init_tau = 1, # Default: ncol(cat_init$x)/4
-  init_coefficients = rep(0, (ncol(cat_init$x) + 1)), # Default: using `stats::glm` model within `cat_glm_bayes_joint_gibbs` function
-  alpha = 2, # Default: 2
-  gamma = 1, # Default: 1
-  stan_refresh = 0, # Default: 0
-  gibbs_refresh = TRUE # Default: TRUE
+  iter = 100, # Default: 1000
+  warmup = 50, # Default: 500
+  coefs_iter = 2, # Default: 5
+  tau_0 = 1, # Default: number of predictors / 4
+  tau_alpha = 2, # Default: 2
+  tau_gamma = 1, # Default: 1
+  refresh = TRUE # Default: TRUE
 )
 
 cat_glm_bayes_joint_gibbs_1
 ```
 
-Here shows how users can simplify the input for `cat_glm_bayes_joint_gibbs`. User do not have to specify `family` and other attributes, as `family` can derived from `cat_init` , while other attributes have default value, which mentioned above.
+Here shows how users can simplify the input for `cat_glm_bayes_joint_gibbs`. User do not have to specify `tau_0` and other attributes, as these attributes have default value, which mentioned above.
 
 ```{r}
 cat_glm_bayes_joint_gibbs_2 <- cat_glm_bayes_joint_gibbs(
@@ -845,17 +813,17 @@ cat_glm_bayes_joint_gibbs_predicted_y <- predict(
 
 cat(
   "Catalytic `cat_glm_bayes_joint_gibbs` - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = cat_glm_bayes_joint_gibbs_predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_bayes_joint_gibbs_predicted_y` from `cat_glm_bayes_joint_gibbs` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_bayes_joint_gibbs_predicted_y` from `cat_glm_bayes_joint_gibbs` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, cat_glm_bayes_joint_gibbs_predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_gibbs_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint_gibbs)", col = "blue", lwd = 2)
 ```
 
@@ -867,9 +835,7 @@ Here's a breakdown of all attributes except the input parameters:
 
 * `sys_time`: The date and time when sampling ended.
 
-* `coefs_tau_model`: The fitted GLM model object including coefficients and tau.
-
-* `gibbs_collect`: A matrix containing the Gibbs sampling results for both tau and coefficients.
+* `gibbs_iteration_log`: A matrix containing the Gibbs sampling results for both tau and coefficients.
 
 * `inform_df`: The summary statistics including mean, standard error of mean, standard deviation, quantiles, and effective sample size for coefficients and tau.
 
@@ -894,13 +860,13 @@ cat_glm_bayes_joint_gibbs_2$inform_df
 ```
 
 
-#### Setting Higher Tau Lower Bound{#HighTauLowerBound}
+### Setting Higher Tau Lower Bound{#HighTauLowerBound}
 
-> ! NEED PROF ADD DETAILS
+Since the inefficiency in sampling is caused by small values of tau, a straightforward solution is to modify the joint prior by truncating tau to prevent it from approaching 0. The `cat_glm_bayes_joint` function incorporates `binomial_tau_lower` within the `rstan` model to enhance its performance. Adjusting this lower bound transforms the parameter space, a critical step in leveraging Bayesian inference to manage complex data distributions effectively.
 
-The `cat_glm_bayes_joint` function incorporates `binomial_tau_lower` within the `rstan` model to enhance its performance. Adjusting this lower bound transforms the parameter space, a critical step in leveraging Bayesian inference to manage complex data distributions effectively.
+`binomial_tau_lower` (default is 0.05) sets the minimum allowable value for the tau parameter in the Bayesian model, ensuring tau is greater than or equal to `number_of_predictors * binomial_tau_lower`, which defines a suitable range for model calculations. This adjustment improves the coherence of the posterior density and enhances sampling outcomes. Additionally, the density of the second derivative is not too small, indicating improved performance. 
 
-`binomial_tau_lower` (default is 0.05) sets the minimum allowable value for the tau parameter in the Bayesian model, ensuring tau is greater than or equal to `number_of_predictors * binomial_tau_lower`, which defines a suitable range for model calculations. This adjustment improves the coherence of the posterior density and enhances sampling outcomes. Additionally, the density of the second derivative is not too small, indicating improved performance.
+For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint).
 
 ```{r}
 cat_glm_bayes_joint_tau_lower <- cat_glm_bayes_joint(
@@ -922,37 +888,35 @@ cat_glm_bayes_joint_tau_lower_predicted_y <- predict(
 
 cat(
   "Catalytic `cat_glm_bayes_joint_tau_lower` - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = cat_glm_bayes_joint_tau_lower_predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_bayes_joint_tau_lower_predicted_y` from `cat_glm_bayes_joint_tau_lower` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_bayes_joint_tau_lower_predicted_y` from `cat_glm_bayes_joint_tau_lower` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, cat_glm_bayes_joint_tau_lower_predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_tau_lower_predicted_y)
 plot(roc_curve, main = "ROC Curve (MLE)", col = "blue", lwd = 2)
 ```
 
-#### Incorporating theta (1/tau){#IncorporateTheta}
+### Incorporating theta (1/tau){#IncorporateTheta}
 
-> ! NEED PROF ADD DETAILS
+For GLM Binomial models, the joint distribution of tau and coefficients displays a banana-shape contour, which makes it challenging for the no-U-turn sampler to effectively transit over the parameter space. To address this, the `cat_glm_bayes_joint` function introduces `theta = 1/tau` into the `rstan` model. 
 
-For GLM Binomial models, the `cat_glm_bayes_joint` function introduces `theta = 1/tau` into the `rstan` model.
-
-In the rstan script used in this example, `theta` serves as the inverse of tau, allowing the model to adjust its parameterization dynamically based on the data's characteristics. 
+In the `rstan` program used in this example, `theta` serves as the inverse of tau, allowing the model to adjust its parameterization dynamically based on the data's characteristics. 
 
 This approach enhances flexibility in model fitting, especially when dealing with datasets exhibiting diverse and complex patterns across different dimensions.
 
-For breakdown of input parameters and output attributes, please check section [Bayesian with Adaptive Tau](#BayesWithAdapTau).
+For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint).
 
 ```{r}
 cat_glm_bayes_joint_theta <- cat_glm_bayes_joint(
   formula = ~., # Same as `empyr1 ~ .`
   cat_init = cat_init,
-  binomial_use_theta = TRUE # Default: FALSE
+  binomial_joint_theta = TRUE # Default: FALSE
 )
 
 cat_glm_bayes_joint_theta
@@ -968,31 +932,31 @@ cat_glm_bayes_joint_theta_predicted_y <- predict(
 
 cat(
   "Catalytic `cat_glm_bayes_joint_theta` - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = cat_glm_bayes_joint_theta_predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_bayes_joint_theta_predicted_y` from `cat_glm_bayes_joint_theta` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_bayes_joint_theta_predicted_y` from `cat_glm_bayes_joint_theta` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, cat_glm_bayes_joint_theta_predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_theta_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint_theta)", col = "blue", lwd = 2)
 ```
 
-#### Incorporating theta (1/tau) with Apdaptive Alpha{#IncorporateThetaWithAdapAlpha}
+### Incorporating theta (1/tau) with Apdaptive Alpha{#IncorporateThetaWithAdapAlpha}
 
 Additionally, in scenarios where adjusting the spread of data (controlled by `alpha`) significantly impacts model performance, the `cat_glm_bayes_joint` function extends the` theta = 1/tau` approach by introducing a adaptive/joint alpha parameter. This enhancement in the `rstan` model allows simultaneous adjustment of both theta and alpha parameters, aiming for better convergence and more accurate parameter estimates.
 
-For breakdown of input parameters and output attributes, please check section [Bayesian with Adaptive Tau](#BayesWithAdapTau).
+For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint).
 
 ```{r}
 cat_glm_bayes_joint_alpha <- cat_glm_bayes_joint(
   formula = ~., # Same as `empyr1 ~ .`
   cat_init = cat_init,
-  binomial_use_theta = TRUE, # Default: FALSE
+  binomial_joint_theta = TRUE, # Default: FALSE
   binomial_joint_alpha = TRUE # Default: FALSE
 )
 
@@ -1009,17 +973,17 @@ cat_glm_bayes_joint_alpha_predicted_y <- predict(
 
 cat(
   "Catalytic `cat_glm_bayes_joint_alpha` - Logarithmic Error:",
-  get_discrepancy("logarithmic_error",
-    Y = real_test_y,
+  get_mean_logarithmic_error(
+    Y = test_data$empyr1,
     est_Y = cat_glm_bayes_joint_alpha_predicted_y
   )
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_bayes_joint_alpha_predicted_y` from `cat_glm_bayes_joint_alpha` versus the `real_test_y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_bayes_joint_alpha_predicted_y` from `cat_glm_bayes_joint_alpha` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
-roc_curve <- roc(real_test_y, cat_glm_bayes_joint_alpha_predicted_y)
+roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_alpha_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint_alpha)", col = "blue", lwd = 2)
 ```
 

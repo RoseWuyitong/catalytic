@@ -7,9 +7,9 @@
 get_cox_qr_solve(hessian_matrix, gradient_vector)
 }
 \arguments{
-\item{coef_matrix}{A matrix of coefficients representing the system of linear equations.}
+\item{hessian_matrix}{A matrix of coefficients representing the system of linear equations.}
 
-\item{constant_vector}{A numeric vector representing the constants in the linear system.}
+\item{gradient_vector}{A numeric vector representing the constants in the linear system.}
 }
 \value{
 A numeric vector representing the solution to the linear system. NA values in the solution
@@ -17,27 +17,21 @@ are replaced with a small value (0.0001). If an error occurs during solving, a v
 (0.0001) is returned.
 }
 \description{
-Solve Linear System using QR Decomposition
-}
-\details{
-This function solves the linear system defined by \code{coef_matrix} and \code{constant_vector}
+This function solves the linear system defined by \code{hessian_matrix} and \code{gradient_vector}
 using QR decomposition. Any NA values in the resulting solution vector are replaced with 0.0001. If there
 is an error during the solution process, a vector of default values (0.0001) is returned instead.
 }
 \examples{
-# Define a matrix of coefficients and a constant vector
-coef_matrix <- matrix(c(1, 2, 3, 4), ncol = 2)
-constant_vector <- c(5, 6)
-
-# Solve the linear system
-solution <- get_cox_qr_solve(coef_matrix, constant_vector)
+solution <- get_cox_qr_solve(
+  hessian_matrix = matrix(stats::rnorm(9), ncol = 3),
+  gradient_vector = rep(1, 3)
+)
 solution
 
 # Example with a matrix that might produce NA values
-coef_matrix_na <- matrix(c(1, 1, 1, 1), ncol = 2)
-constant_vector_na <- c(1, 1)
-
-# Solve the linear system and check the result
-solution_na <- get_cox_qr_solve(coef_matrix_na, constant_vector_na)
+solution_na <- get_cox_qr_solve(
+  hessian_matrix = matrix(c(1, 1, 1, 1), ncol = 2),
+  gradient_vector = c(1, 1)
+)
 solution_na
 }

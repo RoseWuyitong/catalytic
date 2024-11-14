@@ -1,36 +1,57 @@
-#' Fit Bayesian Joint Cox Model with `cat_cox_bayes_joint`
+#' Bayesian Estimation for Catalytic Cox Proportional-Hazards Model (COX) with adaptive tau
 #'
-#' This function fits a Bayesian joint Cox proportional hazards model using Stan.
-#' The model jointly estimates the baseline hazard and regression coefficients.
+#' This function performs Bayesian estimation for a catalytic Cox proportional-hazards model (COX) using RStan
+#' by using adaptive tau. It allows users to estimate the coefficients and cumulative baseline hazard increments
+#' over specified time intervals with Bayesian sampling.
 #'
-#' @param formula A formula specifying the survival model. Must use `Surv` for survival analysis.
-#' @param cat_init An object generated from `catalytic::cat_cox_initialization` containing initialization data.
-#' @param ... Additional arguments passed to the `rstan::sampling` function.
-#' @param stan_chains Number of Markov Chains (default is 4).
-#' @param stan_iter Total number of iterations (default is 2000).
-#' @param stan_warmup Number of warmup iterations (default is 1000).
-#' @param tau_alpha Hyperparameter for the Gamma prior (default is 2).
-#' @param tau_gamma Hyperparameter for the Gamma prior (default is 1).
-#' @param hazard_beta Small value of `hazard_beta` corresponds to a more diffuse and less informative prior (default is 2).
-#' @param H_star_list Optional list of cumulative hazard values. If NULL, it is estimated from a Weibull regression model.
+#' @param formula A formula specifying the Cox model. Should at least include response variables (e.g. \code{~ .}).
+#' @param cat_init A list generated from `cat_cox_initialization`.
+#' @param hazard_beta Numeric, default `2`. Shape parameter for the Gamma distribution in the hazard model.
+#' @param tau_alpha Numeric, defaults `2`. Scalar for the shape parameter of the Gamma-like function for tau.
+#' @param tau_gamma Numeric, defaults `1`. Scalar for the scale parameter of the Gamma-like function for tau.
+#' @param chains Integer, default `4`. Number of Markov chains to be run in the RStan sampling.
+#' @param iter Integer, default `2000`. Number of iterations per chain in the RStan sampling.
+#' @param warmup Integer, default `1000`. Number of warm-up (or burn-in) iterations for each chain.
+#' @param ... Additional arguments passed to RStan’s `rstan::sampling` function.
 #'
-#' @return A list containing:
-#' \item{function_name}{The name of the function.}
-#' \item{formula}{The formula used for fitting the model.}
-#' \item{cat_init}{The `cat_init` object used for initialization.}
-#' \item{stan_chains}{Number of chains used in Stan sampling.}
-#' \item{stan_iter}{Number of iterations used in Stan sampling.}
-#' \item{stan_warmup}{Number of warmup iterations used in Stan sampling.}
-#' \item{hazard_beta}{The prior parameter value `hazard_beta`.}
-#' \item{H_star_list}{List of cumulative hazard values.}
-#' \item{stan_model}{The compiled Stan model object.}
-#' \item{stan_sample_model}{The fitted Stan model object.}
-#' \item{coefficients}{Estimated regression coefficients.}
-#' \item{increment_cumulative_baseline_hazard}{Estimated cumulative baseline hazard increments.}
-#'
-#' @export
+#' @return A list containing the values of all the arguments and the following components:
+#' \item{stan_data}{A data list used for fitting RStan sampling model.}
+#' \item{stan_model}{Compiled RStan model object for Cox regression.}
+#' \item{stan_sample_model}{Fitted RStan sampling model containing posterior samples.}
+#' \item{tau}{Mean posterior estimates of tau value from `stan_sample_model`.}
+#' \item{coefficients}{Mean posterior estimates of model coefficients from `stan_sample_model`.}
+#' \item{increment_cumulative_baseline_hazard}{Mean posterior estimates of Estimated
+#' cumulative hazard increments over time intervals from `stan_sample_model`.}
 #'
 #' @examples
+#' library(survival)
+#' data("cancer")
+#' cancer$status[cancer$status == 1] <- 0
+#' cancer$status[cancer$status == 2] <- 1
+#'
+#' cat_init <- cat_cox_initialization(
+#'   formula = Surv(time, status) ~ 1, # formula for simple model
+#'   data = cancer,
+#'   syn_size = 200, # Synthetic data size
+#'   hazard_constant = 0.1, # Hazard rate value
+#'   entry_points = rep(0, nrow(cancer)), # Entry points of each observation
+#'   x_degree = rep(1, ncol(cancer) - 2), # Degrees for polynomial expansion of predictors
+#'   resample_only = FALSE, # Whether to perform resampling only
+#'   na_replace = stats::na.omit # How to handle NA values in data
+#' )
+#'
+#' cat_model <- cat_cox_bayes_joint(
+#'   formula = ~., # Should at least include response variables
+#'   cat_init = cat_init, # Only accept object generated from `cat_cox_initialization`
+#'   hazard_beta = 2, # Shape parameter for the Gamma distribution in the hazard model
+#'   tau_alpha = 2, # Shape parameter of the Gamma-like function for tau
+#'   tau_gamma = 1, # Scale parameter of the Gamma-like function for tau
+#'   chains = 1, # Number of Markov chains to be run in the RStan sampling
+#'   iter = 1000, # Number of iterations per chain in the RStan sampling
+#'   warmup = 500 # Number of warm-up (or burn-in) iterations for each chain
+#' )
+#' cat_model
+#' @export
 cat_cox_bayes_joint <- function(
     formula,
     cat_init,
@@ -67,14 +88,12 @@ cat_cox_bayes_joint <- function(
       max(cat_init$obs_time[-which(cat_init$obs_time == max(cat_init$obs_time))])
   ))
 
-
   # get risk set and failure set
   risk_and_failure_sets <- get_cox_risk_and_failure_sets(
     time_vector = cat_init$obs_time,
     status_vector = cat_init$obs_status,
     indicator_vector = unique_observed_status_times_and_beyond
   )
-
 
   # Get the initial guess of H_0 from the intercept-only weibull regression model based on observation data
   weibull_model <- do.call(
@@ -86,11 +105,10 @@ cat_cox_bayes_joint <- function(
   )
   # Extracts the shape and scale parameters of the Weibull distribution
   weibull_shape <- as.numeric(1 / weibull_model$scale)
-  weibull_scale <- as.numeric(exp(coef(weibull_model)))
+  weibull_scale <- as.numeric(exp(stats::coef(weibull_model)))
 
   # Calculates the cumulative hazard values for the risk_and_failure_sets
   H_star_list <- (unique_observed_status_times_and_beyond / weibull_scale)^(weibull_shape)
-
 
   # List of tau_alpha value from each h_j ~ Gamma(alpha_j, hazard_beta), where alpha_j = alpha_0[j] - alpha_0[j-1]
   hazard_alpha_list <- diff(c(0, hazard_beta * H_star_list))
@@ -113,8 +131,7 @@ cat_cox_bayes_joint <- function(
       X = cat_init$syn_x,
       time = cat_init$syn_time,
       status = cat_init$syn_status,
-      hazard_constant = cat_init$hazard_constant,
-      entry_points = cat_init$entry_points
+      hazard_constant = cat_init$hazard_constant
     ),
     tau_alpha = tau_alpha,
     tau_gamma = tau_gamma
@@ -148,7 +165,7 @@ cat_cox_bayes_joint <- function(
   cat_model <- list(
     function_name = "cat_cox_bayes_joint",
     ## Input/Processed parameters
-    formula = as.formula(paste0(
+    formula = stats::as.formula(paste0(
       "survival::Surv(",
       cat_init$time_col_name,
       ",",
@@ -165,8 +182,9 @@ cat_cox_bayes_joint <- function(
     warmup = warmup,
     ...,
     ## Result
-    model = stan_model,
-    sample_model = stan_sample_model,
+    stan_data = stan_data,
+    stan_model = stan_model,
+    stan_sample_model = stan_sample_model,
     tau = rstan::summary(stan_sample_model)$summary[
       grep("tau", rownames(rstan::summary(stan_sample_model)$summary)),
       "mean"
@@ -178,8 +196,7 @@ cat_cox_bayes_joint <- function(
     ]
   )
 
-  class(cat_model) <- c(cat_model$class, "cat_cox_bayes_joint", "bayes")
-
+  class(cat_model) <- c(cat_model$class, "cat_bayes", "cat_cox")
 
   return(cat_model)
 }

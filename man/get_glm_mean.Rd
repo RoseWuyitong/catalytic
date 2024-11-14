@@ -7,11 +7,11 @@
 get_glm_mean(family_string, X, coefs)
 }
 \arguments{
+\item{family_string}{Character. The GLM family to use. Options are \code{"binomial"} or \code{"gaussian"}.}
+
 \item{X}{Matrix. The design matrix (predictors) for the GLM.}
 
 \item{coefs}{Numeric vector. The coefficients for the GLM.}
-
-\item{family}{Character. The GLM family to use. Options are \code{"binomial"} or \code{"gaussian"}.}
 }
 \value{
 Numeric vector. The computed mean of the response variable based on the specified family.
@@ -21,8 +21,8 @@ This function calculates the mean of the response variable for a generalized lin
 based on the specified family. The calculation depends on whether the family is binomial or gaussian.
 }
 \examples{
-X <- matrix(rnorm(15), ncol = 3)
-coefs <- rnorm(4)
+X <- matrix(stats::rnorm(15), ncol = 3)
+coefs <- stats::rnorm(4)
 
 # Compute mean for a binomial family
 mean_binomial <- get_glm_mean("binomial", X, coefs)

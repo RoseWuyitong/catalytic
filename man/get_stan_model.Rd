@@ -2,34 +2,54 @@
 % Please edit documentation in R/misc.R
 \name{get_stan_model}
 \alias{get_stan_model}
-\title{Get a Stan model}
+\title{Retrieve a Cached Stan Model Based on Specified Parameters}
 \usage{
 get_stan_model(
   type = c("glm", "cox"),
-  glm_family_string = NULL,
+  glm_family_string = c("gaussian", "binomial"),
   joint_tau = FALSE,
   glm_binomial_joint_theta = FALSE,
   glm_binomial_joint_alpha = FALSE,
-  glm_binomial_gibbs = FALSE,
   glm_gaussian_known_variance = FALSE
 )
 }
 \arguments{
-\item{type}{A character string specifying the model type. Choices are "glm" or "cox".}
+\item{type}{Character, either \code{"glm"} or \code{"cox"}, specifying the type of model to load.}
 
-\item{joint_tau}{Logical indicating if joint tau is used.}
+\item{glm_family_string}{Character, specifying the family for GLM models, either \code{"binomial"} or \code{"gaussian"}.
+Required for \code{"glm"} models, ignored for \code{"cox"} models.}
 
-\item{glm_binomial_joint_theta}{Logical indicating if joint theta is used for binomial GLM.}
+\item{joint_tau}{Logical, if \code{TRUE}, includes "joint" in the file name to indicate a joint model with tau parameter.}
 
-\item{glm_binomial_joint_alpha}{Logical indicating if joint alpha is used for binomial GLM.}
+\item{glm_binomial_joint_theta}{Logical, if \code{TRUE} and \code{glm_family_string} is \code{"binomial"}, includes "theta" in the
+file name for joint theta parameter.}
 
-\item{glm_binomial_gibbs}{Logical indicating if Gibbs sampling is used for binomial GLM.}
+\item{glm_binomial_joint_alpha}{Logical, if \code{TRUE} and \code{glm_family_string} is \code{"binomial"}, includes "alpha" in the
+file name for joint alpha parameter.}
 
-\item{glm_family}{Optional character string specifying the GLM family (e.g., "binomial").}
+\item{glm_gaussian_known_variance}{Logical, if \code{TRUE} and \code{glm_family_string} is \code{"gaussian"}, includes
+"known_variance" in the file name to specify known variance.}
 }
 \value{
-A Stan model object.
+A compiled Stan model loaded by \code{rstan::stan_model}.
 }
 \description{
-This function loads and returns a Stan model based on specified parameters.
+This function retrieves a Stan model file based on a combination of input parameters,
+constructs the file path, and loads the Stan model. The function is memoized, so repeated
+calls with the same parameters will retrieve a cached result.
+}
+\examples{
+# Load a basic GLM binomial model with joint theta and alpha parameters
+model_1 <- get_stan_model(
+  type = "glm",
+  glm_family_string = "binomial",
+  joint_tau = TRUE,
+  glm_binomial_joint_theta = TRUE,
+  glm_binomial_joint_alpha = TRUE
+)
+print(model_1)
+
+# Load a Cox model
+model_2 <- get_stan_model(type = "cox")
+print(model_2)
 }

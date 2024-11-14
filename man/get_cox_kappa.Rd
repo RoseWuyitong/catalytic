@@ -4,7 +4,7 @@
 \alias{get_cox_kappa}
 \title{Estimate the kappa value for the synthetic Cox proportional hazards model}
 \usage{
-get_cox_kappa(X, time, status, hazard_constant, entry_points)
+get_cox_kappa(X, time, status, hazard_constant)
 }
 \arguments{
 \item{X}{A matrix of covariates with rows representing observations and columns representing features.}
@@ -14,14 +14,6 @@ get_cox_kappa(X, time, status, hazard_constant, entry_points)
 \item{status}{A vector indicating event occurrence (1 = event, 0 = censored).}
 
 \item{hazard_constant}{A scalar representing the hazard constant. Defaults to NULL, in which case it's calculated internally.}
-
-\item{entry_points}{Optional vector indicating entry times for the observations. Defaults to NULL.}
-
-\item{tol}{Tolerance for convergence. Defaults to 1e-5.}
-
-\item{max_iter}{Maximum number of iterations for the estimation process. Defaults to 25.}
-
-\item{initial_values}{Optional vector of initial coefficient values. Defaults to NULL.}
 }
 \value{
 A numeric value representing the estimated kappa for the synthetic Cox model.
@@ -30,13 +22,11 @@ A numeric value representing the estimated kappa for the synthetic Cox model.
 This function iteratively estimates the kappa value for the synthetic Cox proportional hazards model using a vectorized approach for efficiency.
 }
 \examples{
-# Randomly generated data for demonstration
-X <- matrix(rnorm(100), ncol = 5)
-time <- rexp(20)
-status <- rbinom(20, 1, 0.5)
-hazard_constant <- 0.02
-
-# Estimate kappa
-kappa <- get_cox_kappa(X, time, status, hazard_constant)
+kappa <- get_cox_kappa(
+  X = matrix(stats::rnorm(100), ncol = 5),
+  time = stats::rexp(20),
+  status = stats::rbinom(20, 1, 0.5),
+  hazard_constant = 0.02
+)
 kappa
 }

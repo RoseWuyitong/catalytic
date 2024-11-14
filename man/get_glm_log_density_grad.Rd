@@ -7,6 +7,8 @@
 get_glm_log_density_grad(family_string, X, Y, coefs, weights = 1)
 }
 \arguments{
+\item{family_string}{Character. The GLM family to use. Options are \code{"binomial"} or \code{"gaussian"}.}
+
 \item{X}{Matrix. The design matrix (predictors) for the GLM.}
 
 \item{Y}{Vector. The response variable.}
@@ -14,8 +16,6 @@ get_glm_log_density_grad(family_string, X, Y, coefs, weights = 1)
 \item{coefs}{Numeric vector. The coefs for the GLM.}
 
 \item{weights}{Numeric vector. The weights for the GLM. Default is 1.}
-
-\item{family}{Character. The GLM family to use. Options are \code{"binomial"} or \code{"gaussian"}.}
 }
 \value{
 Numeric vector. The gradient of the log density with respect to the coefs.
@@ -25,9 +25,9 @@ This function calculates the gradient of the log density with respect to the coe
 for a given GLM family based on the provided predictors, response variable, and weights.
 }
 \examples{
-X <- matrix(rnorm(15), ncol = 3)
-Y <- rbinom(5, 1, 0.5)
-coefs <- rnorm(4)
+X <- matrix(stats::rnorm(15), ncol = 3)
+Y <- stats::rbinom(5, 1, 0.5)
+coefs <- stats::rnorm(4)
 
 # Compute gradient of log density for a binomial family
 grad_binomial <- get_glm_log_density_grad("binomial", X, Y, coefs)

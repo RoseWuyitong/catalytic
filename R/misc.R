@@ -1,26 +1,23 @@
 # ----- GLMs -----
-
 #' Generate Sample Data for GLM
 #'
 #' This function generates sample data for a specified GLM family. It can generate
 #' binomial or Gaussian distributed data based on the provided parameters.
 #'
-#' @param family Character. The family of the GLM. Options are `"binomial"` or `"gaussian"`.
+#' @param family_string Character. The family of the GLM. Options are `"binomial"` or `"gaussian"`.
 #' @param n Integer. The number of samples to generate.
 #' @param mean Numeric. The mean of the distribution (used for both binomial and Gaussian).
 #' @param sd Numeric. The standard deviation of the distribution (used only for Gaussian).
 #'
 #' @return Numeric vector of generated sample data.
 #'
-#' @export
-#'
 #' @examples
 #' # Generate sample data for binomial family
-#' binomial_data <- get_glm_sample_data(family = "binomial", n = 10, mean = 0.5)
+#' binomial_data <- get_glm_sample_data(family_string = "binomial", n = 10, mean = 0.5)
 #' binomial_data
 #'
 #' # Generate sample data for Gaussian family
-#' gaussian_data <- get_glm_sample_data(family = "gaussian", n = 10, mean = 0, sd = 1)
+#' gaussian_data <- get_glm_sample_data(family_string = "gaussian", n = 10, mean = 0, sd = 1)
 #' gaussian_data
 get_glm_sample_data <- function(family_string,
                                 n = 10,
@@ -32,6 +29,38 @@ get_glm_sample_data <- function(family_string,
   )
 }
 
+#' Run Hamiltonian Monte Carlo to Get MCMC Sample Result
+#'
+#' This function uses Hamiltonian Monte Carlo (HMC) to generate samples for Markov Chain Monte Carlo (MCMC)
+#' sampling from a target distribution specified by `neg_log_den_func`. Each iteration performs a full HMC update
+#' to generate a new sample position.
+#'
+#' @param neg_log_den_func A function that computes the negative log-density of the target distribution at a given position.
+#' @param neg_log_den_grad_func A function that computes the gradient of `neg_log_den_func` at a given position.
+#' @param coefs_0 A numeric vector specifying the initial position of the chain in the parameter space.
+#' @param iter An integer specifying the number of HMC sampling iterations. Defaults to 5.
+#' @param hmc_scale A numeric value representing the scale factor for the leapfrog step size in the HMC update. Defaults to 0.01.
+#' @param hmc_steps An integer specifying the number of leapfrog steps in each HMC update. Defaults to 5.
+#'
+#' @return A numeric vector representing the final position in the parameter space after the specified number of iterations.
+#'
+#' @examples
+#' neg_log_den_func <- function(pos) {
+#'   0.5 * sum(pos^2)
+#' }
+#' neg_log_den_grad_func <- function(pos) {
+#'   pos
+#' }
+#' coefs_0 <- c(1, 1)
+#' result <- get_hmc_mcmc_result(
+#'   neg_log_den_func,
+#'   neg_log_den_grad_func,
+#'   coefs_0,
+#'   iter = 10,
+#'   hmc_scale = 0.01,
+#'   hmc_steps = 5
+#' )
+#' result
 get_hmc_mcmc_result <- function(
     neg_log_den_func,
     neg_log_den_grad_func,
@@ -39,53 +68,71 @@ get_hmc_mcmc_result <- function(
     iter = 5,
     hmc_scale = 0.01,
     hmc_steps = 5) {
-  mcmc_collect <- matrix(NA, iter + 1, length(coefs_0))
-  mcmc_collect[1, ] <- coefs_0
+  coefs <- coefs_0
 
-  for (i in seq_len(iter)) {
-    mcmc_collect[i + 1, ] <- hmc_neal_2010(
+  for (i in 1:iter) {
+    coefs <- hmc_neal_2010(
       neg_log_den_func = neg_log_den_func,
       neg_log_den_grad_func = neg_log_den_grad_func,
-      leapfrog_stepsize = rbeta(1, 0.5, 0.5) * hmc_scale / hmc_steps, # add random value to leapfrog_stepsize to overcome poor performance
+      leapfrog_stepsize = stats::rbeta(1, 0.5, 0.5) * hmc_scale / hmc_steps, # Add random value to leapfrog_stepsize to overcome poor performance
       leapfrog_step = hmc_steps,
-      current_pos = mcmc_collect[i, ]
+      current_pos = coefs
     )$position
   }
 
-
-  return(mcmc_collect[iter + 1, ])
+  return(coefs)
 }
 
-
-# SIMPLE IMPLEMENTATION OF HAMILTONIAN MONTE CARLO.
-#
-# Radford M. Neal, 2010.
-#
-# This program appears in Figure 2 of "MCMC using Hamiltonian dynamics",
-# to appear in the Handbook of Markov Chain Monte Carlo.
-#
-# The arguments to the HMC function are as follows:
-#
-#   neg_log_den_func          A function to evaluate minus the log of the density of the
-#              distribution to be sampled, plus any constant - ie, the
-#              "potential energy".
-#
-#   neg_log_den_grad_func     A function to evaluate the gradient of neg_log_den_func.
-#
-#   leapfrog_stepsize    The stepsize to use for the leapfrog steps.
-#
-#   leapfrog_step          The number of leapfrog steps to do to propose a new state.
-#
-#   current_pos  The current state (position variables only).
-#
-# Momentum variables are sampled from independent standard normal
-# distributions within this function.  The value return is the vector
-# of new position variables (equal to current_pos if the endpoint of the
-# trajectory was rejected).
-#
-# This function was written for illustrative purposes.  More elaborate
-# implementations of this basic HMC method and various variants of HMC
-# are available from my web page, http://www.cs.utoronto.ca/~radford/
+#' Hamiltonian Monte Carlo (HMC) Implementation
+#'
+#' This function implements the Hamiltonian Monte Carlo algorithm as
+#' described by Radford M. Neal (2010) in "MCMC using Hamiltonian dynamics",
+#' which is a part of the Handbook of Markov Chain Monte Carlo. The method uses
+#' Hamiltonian dynamics to propose new positions and then applies the Metropolis
+#' criterion to decide whether to accept or reject the new position.
+#'
+#' @param neg_log_den_func A function that evaluates the negative log of the density
+#'                          (potential energy) of the distribution to be sampled,
+#'                          including any constants.
+#' @param neg_log_den_grad_func A function that computes the gradient of
+#'                              \code{neg_log_den_func}.
+#' @param leapfrog_stepsize A numeric value specifying the step size for the
+#'                          leapfrog integration method.
+#' @param leapfrog_step A numeric value specifying the number of leapfrog steps
+#'                      to take to propose a new state.
+#' @param current_pos A numeric vector representing the current position (state)
+#'                    of the system.
+#'
+#' @return A list containing the following elements:
+#' \item{position}{The position of the system after the leapfrog steps, which is
+#'                 the proposed new position if accepted, or the current position
+#'                 if rejected.}
+#' \item{potential_energy}{The potential energy of the proposed position.}
+#' \item{accepted}{A logical value indicating whether the proposal was accepted
+#'                 (TRUE) or rejected (FALSE).}
+#'
+#' @details This function was written for illustrative purposes. More elaborate
+#  implementations of this basic HMC method and various variants of HMC are available
+#' on Radford M. Neal's personal webpage (http://www.cs.utoronto.ca/~radford/).
+#'
+#' @examples
+#' neg_log_den_func <- function(pos) {
+#'   0.5 * sum(pos^2)
+#' }
+#' neg_log_den_grad_func <- function(pos) {
+#'   pos
+#' }
+#' result <- hmc_neal_2010(
+#'   neg_log_den_func = neg_log_den_func,
+#'   neg_log_den_grad_func = neg_log_den_grad_func,
+#'   leapfrog_stepsize = 0.1,
+#'   leapfrog_step = 10,
+#'   current_pos = c(1, 1)
+#' )
+#' result
+#'
+#' @references Neal, R. M. (2012). MCMC using Hamiltonian dynamics.
+#' arXiv:1206.1901. Available at: \url{https://arxiv.org/pdf/1206.1901}
 hmc_neal_2010 <- function(
     neg_log_den_func,
     neg_log_den_grad_func,
@@ -95,14 +142,14 @@ hmc_neal_2010 <- function(
   pos <- current_pos
 
   # Sample initial momentum from standard normal distribution
-  momentum <- rnorm(length(pos), 0, 1)
+  momentum <- stats::rnorm(length(pos), 0, 1)
   current_momentum <- momentum
 
   # Initial half-step for momentum
   momentum <- momentum - leapfrog_stepsize * neg_log_den_grad_func(pos) / 2
 
   # Full steps for position and momentum over the leapfrog trajectory (except at end of trajectory)
-  for (i in seq_len(leapfrog_step - 1)) {
+  for (i in 1:(leapfrog_step - 1)) {
     # Full step for position
     pos <- pos + leapfrog_stepsize * momentum
 
@@ -123,7 +170,7 @@ hmc_neal_2010 <- function(
   proposed_kinetic_energy <- sum(momentum^2) / 2
 
   # Metropolis acceptance criterion
-  if (runif(1) < exp(current_potential_energy - current_potential_energy +
+  if (stats::runif(1) < exp(current_potential_energy - current_potential_energy +
     current_kinetic_energy - proposed_kinetic_energy)) {
     # Accept the state at end of trajectory, returning the position at the end of the trajectory
     return(list(
@@ -146,7 +193,7 @@ hmc_neal_2010 <- function(
 #' This function calculates the gradient of the log density with respect to the coefs
 #' for a given GLM family based on the provided predictors, response variable, and weights.
 #'
-#' @param family Character. The GLM family to use. Options are `"binomial"` or `"gaussian"`.
+#' @param family_string Character. The GLM family to use. Options are `"binomial"` or `"gaussian"`.
 #' @param X Matrix. The design matrix (predictors) for the GLM.
 #' @param Y Vector. The response variable.
 #' @param coefs Numeric vector. The coefs for the GLM.
@@ -154,12 +201,10 @@ hmc_neal_2010 <- function(
 #'
 #' @return Numeric vector. The gradient of the log density with respect to the coefs.
 #'
-#' @export
-#'
 #' @examples
-#' X <- matrix(rnorm(15), ncol = 3)
-#' Y <- rbinom(5, 1, 0.5)
-#' coefs <- rnorm(4)
+#' X <- matrix(stats::rnorm(15), ncol = 3)
+#' Y <- stats::rbinom(5, 1, 0.5)
+#' coefs <- stats::rnorm(4)
 #'
 #' # Compute gradient of log density for a binomial family
 #' grad_binomial <- get_glm_log_density_grad("binomial", X, Y, coefs)
@@ -187,12 +232,10 @@ get_glm_log_density_grad <- function(family_string,
 #'
 #' @return Numeric vector. The diagonal elements of the approximate covariance matrix.
 #'
-#' @export
-#'
 #' @examples
-#' X <- matrix(rnorm(15), ncol = 3)
-#' y <- rbinom(5, 1, 0.5)
-#' model <- glm(y ~ X, family = binomial)
+#' X <- matrix(stats::rnorm(15), ncol = 3)
+#' y <- stats::rbinom(5, 1, 0.5)
+#' model <- stats::glm(y ~ X, family = binomial)
 #'
 #' diag_cov <- get_glm_diag_approx_cov(X, model)
 #' diag_cov
@@ -224,35 +267,27 @@ get_glm_diag_approx_cov <- function(X,
 
 
 
-#' Generate Suggestions for Bayesian Joint GLM Parameter Estimation
+#' Generate Suggestions for Bayesian Joint Binomial GLM Parameter Estimation
 #'
 #' This function provides suggestions for improving the parameter estimation process
-#' in Bayesian joint GLM modeling based on the diagnostic output from a Stan model.
+#' in Bayesian joint Binomial GLM modeling based on the diagnostic output from a Stan model.
 #' It evaluates the results and suggests adjustments to improve model fit and convergence.
 #'
-#' @param family Character. The GLM family to use, e.g., `"binomial"`.
-#' @param stan_iter Integer. The number of iterations used in Stan sampling.
 #' @param alpha Numeric. The alpha parameter used in the prior distribution.
+#' @param stan_iter Integer. The number of iterations used in Stan sampling.
 #' @param stan_sample_model Stan model object containing sampling results.
-#' @param binomial_use_theta Logical. Whether to use theta in the binomial model.
+#' @param binomial_joint_theta Logical. Whether to use theta in the binomial model.
 #' @param binomial_joint_alpha Logical. Whether to use joint alpha in the binomial model.
 #' @param binomial_tau_lower Numeric. The lower bound for tau in the binomial model.
 #'
 #' @return NULL. The function prints suggestions to the console based on the model diagnostics.
-#'
-#' @export
-#'
-#' @examples
-#' # Assuming you have a Stan model and relevant parameters
-#' # get_glm_bayes_joint_suggestion("binomial", 2000, 1, stan_model, TRUE, FALSE, 0.5)
-print_glm_bayes_joint_suggestion <- function(
+print_glm_bayes_joint_binomial_suggestion <- function(
     alpha,
     stan_iter,
     stan_sample_model,
-    binomial_use_theta,
+    binomial_joint_theta,
     binomial_joint_alpha,
-    binomial_tau_lower,
-    gaussian_known_variance) {
+    binomial_tau_lower) {
   # Helper function to calculate the error between estimated and theoretical percentiles
   get_est_params <- function(params, percentiles, mean_, distribution) {
     alpha <- exp(params[1]) # Convert log-alpha to alpha
@@ -270,7 +305,7 @@ print_glm_bayes_joint_suggestion <- function(
     return(error)
   }
 
-  if (binomial_use_theta) {
+  if (binomial_joint_theta) {
     # Retrieve theta summary from Stan model
     theta_summary <- rstan::summary(stan_sample_model)$summary["theta", ]
 
@@ -321,49 +356,62 @@ print_glm_bayes_joint_suggestion <- function(
       } else if (binomial_tau_lower < 1) {
         cat("\nSUGGESTION: Please consider using a larger `binomial_tau_lower` (e.g.,", min(binomial_tau_lower + 0.05, 1), ")\n")
       } else {
-        cat("\nSUGGESTION: Please consider setting `binomial_use_theta = TRUE`.\n")
+        cat("\nSUGGESTION: Please consider setting `binomial_joint_theta = TRUE`.\n")
       }
     }
   }
 }
 
-
+#' Get Custom Variance for Generalized Linear Model (GLM)
+#'
+#' This function calculates a custom variance for a Generalized Linear Model (GLM) based on the specified formula,
+#' the model initialization object, and a scaling factor `tau`. The custom variance is computed by adjusting
+#' the residuals of the fitted model and returning a weighted sum of squared residuals.
+#'
+#' @param formula A formula object specifying the GLM model to be fitted, such as `response ~ predictors`.
+#' @param cat_init A list object containing the initialization data for the model. Generated from `cat_initialization`
+#' @param tau A numeric value representing a scaling factor for the synthetic data's weights.
+#'
+#' @return A numeric value representing the custom variance for the GLM model.
+#'
+#' @examples
+#' formula <- y ~ x1 + x2
+#' cat_init <- list(
+#'   family = gaussian,
+#'   data = data.frame(
+#'     y = stats::rnorm(10),
+#'     x1 = stats::rnorm(10),
+#'     x2 = stats::rnorm(10)
+#'   ),
+#'   obs_size = 4,
+#'   syn_size = 6
+#' )
+#' tau <- 0.5
+#'
+#' custom_variance <- get_glm_custom_var(formula, cat_init, tau)
+#' custom_variance
 get_glm_custom_var <- function(
+    formula,
     cat_init,
-    tau,
-    coefs = NULL,
-    formula = NULL) {
-  if (is.null(coefs)) {
-    coefs <- coef(
-      do.call(
-        stats::glm,
-        list(
-          formula = formula,
-          family = cat_init$family,
-          data = cat_init$data,
-          weights = c(
-            rep(1, cat_init$obs_size),
-            rep(tau / cat_init$syn_size, cat_init$syn_size)
-          )
-        )
+    tau) {
+  ncol_model <- do.call(
+    stats::glm,
+    list(
+      formula = formula,
+      family = cat_init$family,
+      data = cat_init$data,
+      weights = c(
+        rep(1, cat_init$obs_size),
+        rep(tau / cat_init$syn_size, cat_init$syn_size)
       )
     )
-  }
-
-  return((get_discrepancy(
-    discrepancy_method = "square_error",
-    family_string = cat_init$family,
-    Y = cat_init$obs_y,
-    X = if ("adj_obs_x" %in% cat_init) cat_init$adj_obs_x else cat_init$obs_x,
-    coefs = coefs
-  ) + (tau / cat_init$syn_size) * get_discrepancy(
-    discrepancy_method = "square_error",
-    family_string = cat_init$family,
-    Y = cat_init$syn_y,
-    X = if ("adj_syn_x" %in% cat_init) cat_init$adj_syn_x else cat_init$syn_x,
-    coefs = coefs
   )
-  ) / ((cat_init$obs_size + tau - ncol(cat_init$adj_x) + 2)))
+
+
+  return(
+    sum(stats::residuals(ncol_model)^2) / stats::df.residual(ncol_model) +
+      sum(stats::residuals(ncol_model)[1:cat_init$obs_size]^2) / cat_init$obs_size
+  )
 }
 
 #' Compute Lambda Based on Discrepancy Method
@@ -373,25 +421,23 @@ get_glm_custom_var <- function(
 #' type of error or deviance used in the calculation.
 #'
 #' @param discrepancy_method Character. A string specifying the type of discrepancy method
-#'        to use. Options are `"square_error"`, `"classification_error"`, or `"logistic_deviance"`.
-#'        Default is `"square_error"`.
+#'        to use. Options are `"mean_square_error"`, `"mean_classification_error"`, or `"logistic_deviance"`.
+#'        Default is `"mean_square_error"`.
 #' @param X Matrix. The design matrix (predictors) for the GLM.
 #' @param coefs Numeric vector. The coefficients for the GLM.
 #'
 #' @return Numeric. The computed lambda value based on the selected discrepancy method.
 #'
-#' @export
-#'
 #' @examples
-#' X <- matrix(rnorm(15), ncol = 3)
-#' coefs <- rnorm(4)
+#' X <- matrix(stats::rnorm(15), ncol = 3)
+#' coefs <- stats::rnorm(4)
 #'
-#' lambda <- get_glm_lambda(discrepancy_method = "square_error", X, coefs)
+#' lambda <- get_glm_lambda(discrepancy_method = "mean_square_error", X, coefs)
 #' lambda
 get_glm_lambda <- function(
     discrepancy_method = c(
-      "square_error",
-      "classification_error",
+      "mean_square_error",
+      "mean_classification_error",
       "logistic_deviance"
     ),
     X,
@@ -401,8 +447,8 @@ get_glm_lambda <- function(
 
   # Compute lambda based on the selected discrepancy method
   return(switch(discrepancy_method,
-    "square_error" = 2 * get_glm_mean(family_string = "gaussian", X = X, coefs = coefs),
-    "classification_error" = 2 * get_glm_mean(family_string = "binomial", X = X, coefs = coefs),
+    "mean_square_error" = 2 * get_glm_mean(family_string = "gaussian", X = X, coefs = coefs),
+    "mean_classification_error" = 2 * get_glm_mean(family_string = "binomial", X = X, coefs = coefs),
     "logistic_deviance" = get_linear_predictor(X = X, coefs = coefs)
   ))
 }
@@ -412,7 +458,7 @@ get_glm_lambda <- function(
 #' This function calculates the log density of the response variable given a generalized linear model (GLM)
 #' based on the specified family. The log density is computed differently for binomial and gaussian families.
 #'
-#' @param family Character. The GLM family to use. Options are `"binomial"` or `"gaussian"`.
+#' @param family_string Character. The GLM family to use. Options are `"binomial"` or `"gaussian"`.
 #' @param X Matrix. The design matrix (predictors) for the GLM.
 #' @param Y Vector or data frame. The response variable for the GLM. If a data frame, it is converted to a numeric vector.
 #' @param coefs Numeric vector. The coefficients for the GLM.
@@ -420,12 +466,10 @@ get_glm_lambda <- function(
 #'
 #' @return Numeric. The computed log density of the response variable based on the specified family.
 #'
-#' @export
-#'
 #' @examples
-#' X <- matrix(rnorm(15), ncol = 3)
-#' Y <- rbinom(5, 1, 0.5)
-#' coefs <- rnorm(4)
+#' X <- matrix(stats::rnorm(15), ncol = 3)
+#' Y <- stats::rbinom(5, 1, 0.5)
+#' coefs <- stats::rnorm(4)
 #'
 #' # Compute log density for a binomial family
 #' log_density_binomial <- get_glm_log_density("binomial", X, Y, coefs)
@@ -438,9 +482,9 @@ get_glm_log_density <- function(family_string,
   # Compute the linear predictor
   lp <- get_linear_predictor(X = X, coefs = coefs)
 
-  return((weights * switch(family_string,
-    "binomial" = sum((Y * lp - log(1 + exp(lp)))),
-    "gaussian" = -0.5 * sum((log(2 * pi * max(mean((Y - lp)^2), 1e-5)) + 1)) # TODO: confirm w/ prof
+  return((switch(family_string,
+    "binomial" = sum(weights * (Y * lp - log(1 + exp(lp)))),
+    "gaussian" = -0.5 * sum(weights * (log(2 * pi * max(mean((Y - lp)^2), 1e-5)) + 1))
   )))
 }
 
@@ -450,17 +494,15 @@ get_glm_log_density <- function(family_string,
 #' This function calculates the mean of the response variable for a generalized linear model (GLM)
 #' based on the specified family. The calculation depends on whether the family is binomial or gaussian.
 #'
-#' @param family Character. The GLM family to use. Options are `"binomial"` or `"gaussian"`.
+#' @param family_string Character. The GLM family to use. Options are `"binomial"` or `"gaussian"`.
 #' @param X Matrix. The design matrix (predictors) for the GLM.
 #' @param coefs Numeric vector. The coefficients for the GLM.
 #'
 #' @return Numeric vector. The computed mean of the response variable based on the specified family.
 #'
-#' @export
-#'
 #' @examples
-#' X <- matrix(rnorm(15), ncol = 3)
-#' coefs <- rnorm(4)
+#' X <- matrix(stats::rnorm(15), ncol = 3)
+#' coefs <- stats::rnorm(4)
 #'
 #' # Compute mean for a binomial family
 #' mean_binomial <- get_glm_mean("binomial", X, coefs)
@@ -480,6 +522,129 @@ get_glm_mean <- function(family_string, X, coefs) {
   ))
 }
 
+#' Retrieve GLM Family Name or Name with Link Function
+#'
+#' This function retrieves the name of a GLM family or, optionally, the family name with the associated link function.
+#'
+#' @param family Character or function. The name of the GLM family (as a string) or a function that returns a GLM family object.
+#' @param with_link Logical. If TRUE, returns the family name along with the link function in the format "family \\[link\\]".
+#' If FALSE, only the family name is returned. Default is FALSE.
+#'
+#' @return A character string. The name of the GLM family, or the name with the link function if `with_link` is TRUE.
+#'
+#' @examples
+#' # Retrieve the name of the Gaussian family
+#' family_name <- get_glm_family_string("gaussian")
+#' family_name
+#'
+#' # Retrieve the name of the Poisson family with its link function
+#' family_name_with_link <- get_glm_family_string("poisson", with_link = TRUE)
+#' family_name_with_link
+get_glm_family_string <- function(family, with_link = FALSE) {
+  # Validate and retrieve the family object
+  validate_glm_family <- function(f) {
+    if (methods::is(f, "character")) {
+      tryCatch(
+        {
+          f <- get(f, mode = "function", envir = parent.frame(2))
+        },
+        error = function(e) {
+          stop("'family' must be a valid GLM family.",
+            call. = FALSE
+          )
+        }
+      )
+    }
+    if (methods::is(f, "function")) {
+      f <- f()
+    }
+    if (!methods::is(f, "family")) {
+      stop("'family' must be a valid GLM family.",
+        call. = FALSE
+      )
+    }
+    return(f)
+  }
+
+  # Retrieve and validate the family object
+  family <- validate_glm_family(family)
+
+  # Return the family name or family name with link function
+  if (with_link) {
+    return(paste0(family$family, " [", family$link, "]"))
+  } else {
+    return(family$family)
+  }
+}
+
+#' Validate Inputs for Catalytic Generalized Linear Models (GLMs)
+#'
+#' This function validates the input parameters for initializing a catalytic Generalized
+#' Linear Models (GLMs). It ensures that the provided model formula, family, and
+#' additional parameters are suitable for further analysis. The function performs
+#' various checks on the input values to confirm they meet expected criteria.
+#'
+#' @param formula A formula object specifying the GLM to be fitted. The left-hand
+#'        side of the formula should at least contains the response variable.
+#' @param cat_init An object of class `cat_initialization` generated by
+#'        `cat_glm_initialization`. It contains model initialization details,
+#'        such as the response variable name and the GLM family.
+#' @param tau A positive numeric value for the tau parameter in the model.
+#'        It represents a regularization or scaling factor and must be greater
+#'        than zero.
+#' @param tau_seq A numeric vector specifying a sequence of tau values.
+#'        This is used for parameter tuning and must contain positive values.
+#' @param tau_0 A positive numeric value for the initial tau parameter,
+#'        which must be greater than zero.
+#' @param parametric_bootstrap_iteration_times An integer specifying the
+#'        number of iterations for the parametric bootstrap method. It must be
+#'        greater than zero.
+#' @param cross_validation_fold_num An integer for the number of folds in
+#'        cross-validation. It must be greater than 1 and less than or equal to
+#'        the number of observations.
+#' @param risk_estimate_method A character string specifying the method for
+#'        estimating risk, such as "parametric_bootstrap" or other options,
+#'        depending on the family of the GLM.
+#' @param discrepancy_method A character string specifying the method for
+#'        calculating discrepancy. The valid options depend on the GLM family
+#'        and risk estimation method.
+#' @param binomial_joint_theta Logical; if TRUE, uses joint theta (theta = 1/tau) in Binomial models.
+#' @param binomial_joint_alpha Logical; if TRUE, uses joint alpha (adaptive tau_alpha) in Binomial models.
+#' @param binomial_tau_lower A positive numeric value specifying the lower
+#'        bound for tau in binomial GLMs. It must be greater than zero.
+#' @param tau_alpha A positive numeric value for the tau alpha parameter.
+#' @param tau_gamma A positive numeric value for the tau gamma parameter.
+#' @param gibbs_iter An integer for the number of Gibbs iterations in the
+#'        sampling process. It must be greater than zero.
+#' @param gibbs_warmup An integer for the number of warm-up iterations in the
+#'        Gibbs sampling. It must be positive and less than the total number
+#'        of iterations.
+#' @param coefs_iter An integer specifying the number of iterations for the
+#'        coefficient update in the Gibbs sampling. It must be positive.
+#' @param gaussian_variance_alpha The shape parameter for the inverse-gamma prior on
+#'        variance if the variance is unknown in Gaussian models. It must be positive.
+#' @param gaussian_variance_beta  The scale parameter for the inverse-gamma prior on
+#'        variance if the variance is unknown in Gaussian models. It must be positive.
+#' @details
+#' This function performs several checks to ensure the validity of the input
+#' parameters:
+#' \itemize{
+#'   \item Ensures that `tau`, `tau_0`, `parametric_bootstrap_iteration_times`,
+#'         `binomial_tau_lower`, `tau_alpha`, `tau_gamma`, `gibbs_iter`,
+#'         `gibbs_warmup`, and `coefs_iter` are positive values.
+#'   \item Verifies that `cat_init` is an object generated by
+#'         `cat_glm_initialization`.
+#'   \item Checks that the `formula` response name matches the response name
+#'         used in the `cat_init` object.
+#'   \item Verifies that `risk_estimate_method` and `discrepancy_method` are
+#'         compatible with the GLM family and that no invalid combinations are
+#'         used.
+#'   \item Warns if the dataset size is too large for the specified risk
+#'         estimation method.
+#' }
+#' If any of these conditions are not met, the function raises an error or warning to guide the user.
+#'
+#' @return Returns nothing if all checks pass; otherwise, raises an error or warning.
 validate_glm_input <- function(formula,
                                cat_init,
                                tau = NULL,
@@ -489,15 +654,19 @@ validate_glm_input <- function(formula,
                                cross_validation_fold_num = NULL,
                                risk_estimate_method = NULL,
                                discrepancy_method = NULL,
+                               binomial_joint_theta = FALSE,
+                               binomial_joint_alpha = FALSE,
                                binomial_tau_lower = NULL,
                                tau_alpha = NULL,
                                tau_gamma = NULL,
                                gibbs_iter = NULL,
                                gibbs_warmup = NULL,
-                               coefs_iter = NULL) {
+                               coefs_iter = NULL,
+                               gaussian_variance_alpha = NULL,
+                               gaussian_variance_beta = NULL) {
   # Check if below parameters is positive
   validate_positive("tau", tau, incl_0 = TRUE)
-  validate_positive("tau_0", tau_0, incl_0 = TRUE)
+  validate_positive("tau_0", tau_0)
   validate_positive("parametric_bootstrap_iteration_times", parametric_bootstrap_iteration_times)
   validate_positive("cross_validation_fold_num", cross_validation_fold_num)
   validate_positive("binomial_tau_lower", binomial_tau_lower)
@@ -506,9 +675,9 @@ validate_glm_input <- function(formula,
   validate_positive("gibbs_iter", gibbs_iter)
   validate_positive("gibbs_warmup", gibbs_warmup)
   validate_positive("coefs_iter", coefs_iter)
+  validate_positive("gaussian_variance_alpha", gaussian_variance_alpha)
+  validate_positive("gaussian_variance_beta", gaussian_variance_beta)
   validate_positive("tau_seq", tau_seq, incl_0 = TRUE, is_vector = TRUE)
-
-
 
   # Check if cat_init is generated from cat_glm_initialization
   if (!(inherits(cat_init, "cat_initialization") &
@@ -536,12 +705,13 @@ validate_glm_input <- function(formula,
     )
   }
 
-  # Check for gibbs
+
+  # Specific check for cat_glm_bayes_joint_gibbs
   if (!is.null(gibbs_iter) & !is.null(gibbs_warmup)) {
     # Check if user apply gibbs to linear regression
     if (cat_init$family != "binomial") {
       stop(
-        "\nPlease note that only logistic regression can use `cat_glm_bayes_joint_gibbs`.",
+        "Please note that only logistic regression can use `cat_glm_bayes_joint_gibbs`.",
         call. = FALSE
       )
     }
@@ -555,7 +725,7 @@ validate_glm_input <- function(formula,
           gibbs_iter,
           "; warmup =",
           gibbs_warmup,
-          "> is invalid.",
+          "> is invalid."
         ),
         call. = FALSE
       )
@@ -563,7 +733,7 @@ validate_glm_input <- function(formula,
 
     # Check if coefs_iter too large in gibbs
     if (coefs_iter > 10) {
-      response <- menu(
+      response <- utils::menu(
         c("YES", "NO"),
         title = paste0(
           "\nPlease note that large `coefs_iter` can slow down gibb's sampling process.\n",
@@ -587,7 +757,7 @@ validate_glm_input <- function(formula,
       validation_errors <- c(
         validation_errors,
         paste0(
-          "\nOnly logistic regression can use `risk_estimate_method = steinian_estimate`.\n",
+          "Only logistic regression can use `risk_estimate_method = steinian_estimate`.\n",
           "SUGGESTION: Use `mallowian_estimate` for linear regression."
         )
       )
@@ -597,27 +767,27 @@ validate_glm_input <- function(formula,
       validation_errors <- c(
         validation_errors,
         paste0(
-          "\nOnly linear regression can use `risk_estimate_method = mallowian_estimate`.\n",
+          "Only linear regression can use `risk_estimate_method = mallowian_estimate`.\n",
           "SUGGESTION: Use `steinian_estimate` for logistic regression."
         )
       )
     }
 
-    if (cat_init$family == "gaussian" & discrepancy_method != "square_error") {
+    if (cat_init$family == "gaussian" & discrepancy_method != "mean_square_error") {
       validation_errors <- c(
         validation_errors,
         paste0(
-          "\nOnly logistic regression can use `discrepancy_method = classification_error` or `logistic_deviance`.\n",
-          "SUGGESTION: Use `square_error` for linear regression."
+          "Only logistic regression can use `discrepancy_method = mean_classification_error` or `logistic_deviance`.\n",
+          "SUGGESTION: Use `mean_square_error` for linear regression."
         )
       )
     }
 
-    if (cat_init$family == "binomial" & discrepancy_method == "square_error") {
+    if (cat_init$family == "binomial" & discrepancy_method == "mean_square_error") {
       validation_errors <- c(
         validation_errors,
         paste0(
-          "\nOnly linear regression can use `discrepancy_method = square_error`.\n",
+          "Only linear regression can use `discrepancy_method = mean_square_error`.\n",
           "SUGGESTION: Use `logistic_deviance` for logistic regression."
         )
       )
@@ -625,23 +795,8 @@ validate_glm_input <- function(formula,
 
     # Stop the process if there are any validation errors
     if (length(validation_errors) > 0) {
-      stop(paste(validation_errors, collapse = "\n"))
+      stop(paste(validation_errors, collapse = "\n"), call. = FALSE)
     }
-
-    # Warn User that
-    if (cat_init$family == "binomial" &
-      risk_estimate_method == "steinian_estimate" &
-      discrepancy_method != "logistic_deviance") {
-      warning(
-        paste0(
-          "\nOnly `discrepancy_method = logistic_deviance` can be applied to `risk_estimate_method = steinian_estimate`.\n",
-          "Will continue use `discrepancy_method = logistic_deviance` instead of <",
-          discrepancy_method,
-          ">."
-        )
-      )
-    }
-
 
     # Set data size thresholds based on the risk estimation method
     size_threshold <- switch(risk_estimate_method,
@@ -652,35 +807,49 @@ validate_glm_input <- function(formula,
 
     # Check if the observational dataset size exceeds the threshold
     if (cat_init$obs_size > size_threshold) {
-      response <- menu(
+      response <- utils::menu(
         choices = c("YES", "NO"),
         title = paste0(
           "The large size of the dataset may lead to longer estimation times.\n",
           "Do you want to continue?"
         )
       )
-
-
       # Terminate process if the user chooses "NO"
       if (response == 2) {
         stop("\nProcess terminated by user.", call. = FALSE)
       }
     }
 
-    # Issue warning for larger dataset sizes
-    if (cat_init$obs_size > (size_threshold / 2)) {
-      warning(
+    # Check if cross_validation_fold_num is less than 2 or larger than size of observation data
+    if (risk_estimate_method == "cross_validation" && (
+      cross_validation_fold_num < 2 | cross_validation_fold_num > cat_init$obs_size)) {
+      stop(
         paste0(
-          "The large size of the dataset may lead to longer estimation times.\n",
-          "SUGGESTION: Consider using `risk_estimate_method = cross_validation` ",
-          "for quicker estimation."
+          "The provided `cross_validation_fold_num` must be larger than 1 and smaller than the observation data size. <",
+          cross_validation_fold_num,
+          "> is invalid."
         ),
         call. = FALSE
       )
     }
 
-    # Check if dataset size is small for cross-validation
-    if (risk_estimate_method == "cross_validation" & cat_init$obs_size < (5 * cross_validation_fold_num)) {
+    # Warn User that will apply "logistic_deviance" for "steinian_estimate"
+    if (cat_init$family == "binomial" &
+      risk_estimate_method == "steinian_estimate" &
+      discrepancy_method != "logistic_deviance") {
+      warning(
+        paste0(
+          "Only `discrepancy_method = logistic_deviance` can be applied to `risk_estimate_method = steinian_estimate`.\n",
+          "Will continue use `discrepancy_method = logistic_deviance` instead of <",
+          discrepancy_method,
+          ">."
+        ),
+        call. = FALSE
+      )
+    }
+
+    # Warn user if dataset size is small for cross-validation
+    if (risk_estimate_method == "cross_validation" && cat_init$obs_size < (5 * cross_validation_fold_num)) {
       warning(
         paste0(
           "The size of the observation dataset is relatively small for cross-validation to yield optimal results.\n",
@@ -691,70 +860,74 @@ validate_glm_input <- function(formula,
       )
     }
   }
-}
 
-
-#' Retrieve GLM Family Name or Name with Link Function
-#'
-#' This function retrieves the name of a GLM family or, optionally, the family name with the associated link function.
-#'
-#' @param family Character or function. The name of the GLM family (as a string) or a function that returns a GLM family object.
-#' @param with_link Logical. If TRUE, returns the family name along with the link function in the format "family [link]". If FALSE, only the family name is returned. Default is FALSE.
-#'
-#' @return A character string. The name of the GLM family, or the name with the link function if `with_link` is TRUE.
-#'
-#' @export
-#'
-#' @examples
-#' # Retrieve the name of the Gaussian family
-#' family_name <- get_glm_family_string("gaussian")
-#' family_name
-#'
-#' # Retrieve the name of the Poisson family with its link function
-#' family_name_with_link <- get_glm_family_string("poisson", with_link = TRUE)
-#' family_name_with_link
-get_glm_family_string <- function(family, with_link = FALSE) {
-  # Validate and retrieve the family object
-  validate_glm_family <- function(f) {
-    if (is.character(f)) {
-      tryCatch(
-        {
-          f <- get(f, mode = "function", envir = parent.frame(2))
-        },
-        error = function(e) {
-          stop("'family' must be a valid GLM family.",
-            call. = FALSE
-          )
-        }
-      )
-    }
-    if (is.function(f)) {
-      f <- f()
-    }
-    if (!is(f, "family")) {
-      stop("'family' must be a valid GLM family.",
-        call. = FALSE
-      )
-    }
-    return(f)
+  if ((!is.null(gaussian_variance_alpha) | !is.null(gaussian_variance_beta)) & (cat_init$gaussian_known_variance | cat_init$family != "gaussian")) {
+    warning(
+      paste0(
+        "The provided `gaussian_variance_alpha` or\\and `gaussian_variance_beta` only be applicable when ",
+        "`gaussian_known_variance = FALSE` and `family = gaussian`."
+      ),
+      call. = FALSE
+    )
   }
 
-  # Retrieve and validate the family object
-  family <- validate_glm_family(family)
+  if (cat_init$family != "binomial" & (binomial_joint_theta | binomial_joint_alpha)) {
+    warning(
+      paste0(
+        "The provided `binomial_joint_theta` or\\and `binomial_joint_alpha` only be applicable when ",
+        "`family = binomial`."
+      ),
+      call. = FALSE
+    )
+  }
 
-  # Return the family name or family name with link function
-  if (with_link) {
-    return(paste0(family$family, " [", family$link, "]"))
-  } else {
-    return(family$family)
+  if (cat_init$family == "binomial" & binomial_joint_alpha & !binomial_joint_theta) {
+    warning(
+      paste0(
+        "To activate `binomial_joint_alpha = TRUE` feature, ",
+        "both `binomial_joint_theta` and `binomial_joint_alpha` should be assigned as `TRUE`."
+      ),
+      call. = FALSE
+    )
   }
 }
 
+#' Validate Inputs for Catalytic Generalized Linear Models (GLMs) Initialization
+#'
+#' This function validates the input parameters required for initializing a catalytic Generalized Linear Model (GLM).
+#' It ensures the appropriate structure and compatibility of the formula, family, data, and additional parameters
+#' before proceeding with further modeling.
+#'
+#' @param formula A formula object specifying the \code{stats::glm} model to be fitted. It must not contain random effects or survival terms.
+#' @param family A character or family object specifying the error distribution and link function. Valid values are "binomial" and "gaussian".
+#' @param data A \code{data.frame} containing the data to be used in the GLM.
+#' @param syn_size A positive integer specifying the sample size used for the synthetic data.
+#' @param custom_variance A positive numeric value for the custom variance used in the model (only applicable for Gaussian family).
+#' @param gaussian_known_variance A logical indicating whether the variance is known for the Gaussian family.
+#' @param x_degree A numeric vector specifying the degree of the predictors. Its length should match the number of predictors (excluding the response variable).
+#'
+#' @details
+#' This function performs the following checks:
+#' \itemize{
+#'   \item Ensures that \code{syn_size}, \code{custom_variance}, and \code{x_degree} are positive values.
+#'   \item Verifies that the provided \code{formula} is suitable for GLMs, ensuring no random effects or survival terms.
+#'   \item Checks that the provided \code{data} is a \code{data.frame}.
+#'   \item Confirms that the \code{formula} does not contain too many terms relative to the number of columns in \code{data}.
+#'   \item Ensures that the \code{family} is either "binomial" or "gaussian".
+#'   \item Validates that \code{x_degree} has the correct length relative to the number of predictors in \code{data}.
+#'   \item Warns if \code{syn_size} is too small relative to the number of columns in \code{data}.
+#'   \item Issues warnings if \code{custom_variance} or \code{gaussian_known_variance} are used with incompatible families.
+#' }
+#'
+#' If any of these conditions are not met, the function raises an error or warning to guide the user.
+#'
+#' @return Returns nothing if all checks pass; otherwise, raises an error or warning.
 validate_glm_initialization_input <- function(formula,
                                               family,
                                               data,
                                               syn_size,
                                               custom_variance,
+                                              gaussian_known_variance,
                                               x_degree) {
   # Check if below parameters is positive
   validate_positive("syn_size", syn_size)
@@ -786,7 +959,7 @@ validate_glm_initialization_input <- function(formula,
   }
 
   # Check if the formula is overly complex
-  if (length(attr(terms(formula), "term.labels")) >= (ncol(data) - 1)) {
+  if (length(attr(stats::terms(formula), "term.labels")) >= (ncol(data) - 1)) {
     stop(
       paste0(
         "The provided `formula` must contain fewer terms than the number of columns in `data`. <",
@@ -830,9 +1003,17 @@ validate_glm_initialization_input <- function(formula,
     )
   }
 
-  if (family_string != "gaussian" & (!is.null(custom_variance))) {
+
+  if (family_string != "gaussian" & (!is.null(custom_variance) | gaussian_known_variance)) {
     warning(
-      "The `custom_variance` is not applicable when the family is not `gaussian`.",
+      "The `custom_variance` or `gaussian_known_variance` is not applicable when the family is not `gaussian`.",
+      call. = FALSE
+    )
+  }
+
+  if (family_string == "gaussian" & !is.null(custom_variance) & !gaussian_known_variance) {
+    warning(
+      "The `custom_variance` is not applicable when `gaussian_known_variance = FALSE`.",
       call. = FALSE
     )
   }
@@ -852,14 +1033,11 @@ validate_glm_initialization_input <- function(formula,
 #' \item{risk_set}{A matrix indicating which subjects are at risk at each time point.}
 #' \item{failure_set}{A matrix indicating which subjects experienced an event at each time point.}
 #'
-#' @export
-#'
 #' @examples
 #' time_vector <- rexp(10)
 #' status_vector <- rbinom(10, 1, 0.5)
 #' indicator_vector <- sort(unique(c(time_vector, time_vector + rexp(10))))
 #'
-#' # Calculate risk and failure sets
 #' sets <- get_cox_risk_and_failure_sets(time_vector, status_vector, indicator_vector)
 #' sets$risk_set
 #' sets$failure_set
@@ -910,30 +1088,21 @@ get_cox_risk_and_failure_sets <- function(time_vector,
 #' @param time A vector of time-to-event data.
 #' @param status A vector indicating event occurrence (1 = event, 0 = censored).
 #' @param hazard_constant A scalar representing the hazard constant. Defaults to NULL, in which case it's calculated internally.
-#' @param tol Tolerance for convergence. Defaults to 1e-5.
-#' @param max_iter Maximum number of iterations for the estimation process. Defaults to 25.
-#' @param entry_points Optional vector indicating entry times for the observations. Defaults to NULL.
-#' @param initial_values Optional vector of initial coefficient values. Defaults to NULL.
 #'
 #' @return A numeric value representing the estimated kappa for the synthetic Cox model.
 #'
-#' @export
-#'
 #' @examples
-#' # Randomly generated data for demonstration
-#' X <- matrix(rnorm(100), ncol = 5)
-#' time <- rexp(20)
-#' status <- rbinom(20, 1, 0.5)
-#' hazard_constant <- 0.02
-#'
-#' # Estimate kappa
-#' kappa <- get_cox_kappa(X, time, status, hazard_constant)
+#' kappa <- get_cox_kappa(
+#'   X = matrix(stats::rnorm(100), ncol = 5),
+#'   time = stats::rexp(20),
+#'   status = stats::rbinom(20, 1, 0.5),
+#'   hazard_constant = 0.02
+#' )
 #' kappa
 get_cox_kappa <- function(X,
                           time,
                           status,
-                          hazard_constant,
-                          entry_points) {
+                          hazard_constant) {
   X <- as.matrix(X)
   time <- as.vector(time)
   status <- as.vector(status)
@@ -944,7 +1113,7 @@ get_cox_kappa <- function(X,
   diff_new_old <- TRUE
   iter <- 0
 
-  while ((iter < 25) & diff_new_old) {
+  while ((iter < 50) & diff_new_old) {
     coefs_old <- coefs
 
     # Calculate linear predictor
@@ -981,17 +1150,14 @@ get_cox_kappa <- function(X,
 #'
 #' @return A numeric scalar representing the partial likelihood of the Cox model.
 #'
-#' @export
-#'
 #' @examples
-#' X <- matrix(rnorm(20), ncol = 4)
-#' time <- runif(5, 0, 10)
-#' status <- sample(0:1, 5, replace = TRUE)
-#' coefs <- rnorm(4)
-#' entry_points <- rep(0, 5)
-#'
-#' # Compute partial likelihood
-#' pl <- get_cox_partial_likelihood(X, time, status, coefs, entry_points)
+#' pl <- get_cox_partial_likelihood(
+#'   X = matrix(stats::rnorm(100), ncol = 5),
+#'   time = stats::rexp(20),
+#'   status = stats::rbinom(20, 1, 0.5),
+#'   coefs = stats::rnorm(5),
+#'   entry_points = rep(0, 20)
+#' )
 #' pl
 get_cox_partial_likelihood <- function(X,
                                        time,
@@ -1031,34 +1197,29 @@ get_cox_partial_likelihood <- function(X,
 
 #' Solve Linear System using QR Decomposition
 #'
-#' @param coef_matrix A matrix of coefficients representing the system of linear equations.
-#' @param constant_vector A numeric vector representing the constants in the linear system.
+#' This function solves the linear system defined by \code{hessian_matrix} and \code{gradient_vector}
+#' using QR decomposition. Any NA values in the resulting solution vector are replaced with 0.0001. If there
+#' is an error during the solution process, a vector of default values (0.0001) is returned instead.
+#'
+#' @param hessian_matrix A matrix of coefficients representing the system of linear equations.
+#' @param gradient_vector A numeric vector representing the constants in the linear system.
 #'
 #' @return A numeric vector representing the solution to the linear system. NA values in the solution
 #' are replaced with a small value (0.0001). If an error occurs during solving, a vector of default values
 #' (0.0001) is returned.
 #'
-#' @export
-#'
-#' @details This function solves the linear system defined by \code{coef_matrix} and \code{constant_vector}
-#' using QR decomposition. Any NA values in the resulting solution vector are replaced with 0.0001. If there
-#' is an error during the solution process, a vector of default values (0.0001) is returned instead.
-#'
 #' @examples
-#' # Define a matrix of coefficients and a constant vector
-#' coef_matrix <- matrix(c(1, 2, 3, 4), ncol = 2)
-#' constant_vector <- c(5, 6)
-#'
-#' # Solve the linear system
-#' solution <- get_cox_qr_solve(coef_matrix, constant_vector)
+#' solution <- get_cox_qr_solve(
+#'   hessian_matrix = matrix(stats::rnorm(9), ncol = 3),
+#'   gradient_vector = rep(1, 3)
+#' )
 #' solution
 #'
 #' # Example with a matrix that might produce NA values
-#' coef_matrix_na <- matrix(c(1, 1, 1, 1), ncol = 2)
-#' constant_vector_na <- c(1, 1)
-#'
-#' # Solve the linear system and check the result
-#' solution_na <- get_cox_qr_solve(coef_matrix_na, constant_vector_na)
+#' solution_na <- get_cox_qr_solve(
+#'   hessian_matrix = matrix(c(1, 1, 1, 1), ncol = 2),
+#'   gradient_vector = c(1, 1)
+#' )
 #' solution_na
 get_cox_qr_solve <- function(hessian_matrix,
                              gradient_vector) {
@@ -1083,29 +1244,17 @@ get_cox_qr_solve <- function(hessian_matrix,
 
 #' Compute the Gradient for Cox Proportional Hazards Model
 #'
+#' This function computes the gradient for the Cox proportional hazards model. The gradient
+#' is calculated by considering the contributions of each observation to the gradient based on the
+#' risk set at each event time.
+#'
 #' @param X A matrix of covariates (design matrix) for the Cox model.
 #' @param time A numeric vector of event times.
 #' @param status A numeric vector of event indicators (1 for event, 0 for censored).
 #' @param coefs A numeric vector of coefficients for the Cox model.
-#' @param entry_points (Optional) A numeric vector of entry times for the subjects. Defaults to 0.
+#' @param entry_points A numeric vector of entry times for the subjects. Defaults to 0.
 #'
 #' @return A numeric vector representing the gradient of the Cox proportional hazards model.
-#'
-#' @export
-#'
-#' @details This function computes the gradient for the Cox proportional hazards model. The gradient
-#' is calculated by considering the contributions of each observation to the gradient based on the
-#' risk set at each event time.
-#'
-#' @examples
-#' X <- matrix(rnorm(15), ncol = 3)
-#' time <- rexp(5, rate = 0.1)
-#' status <- rbinom(5, 1, 0.5)
-#' coefs <- rnorm(3)
-#'
-#' # Compute the gradient
-#' gradient <- get_cox_gradient(X, time, status, coefs)
-#' gradient
 get_cox_gradient <- function(X,
                              time,
                              status,
@@ -1119,7 +1268,7 @@ get_cox_gradient <- function(X,
   gradient <- matrix(NA, nrow = ncol(X), ncol = nrow(X))
 
   # Loop over each observation to compute the gradient
-  for (i in seq_len(nrow(X))) {
+  for (i in 1:(nrow(X))) {
     # Get the indices of the risk set for the current observation
     risk_set_idx <- get_cox_risk_set_idx(
       time[i],
@@ -1155,16 +1304,13 @@ get_cox_gradient <- function(X,
 #'
 #' @return A numeric vector representing the gradient of the synthetic Cox model.
 #'
-#' @export
-#'
 #' @examples
-#' X <- matrix(c(1, 2, 3, 4, 5, 6), ncol = 2)
-#' time <- c(1, 2, 3)
-#' coefs <- c(0.5, -0.3)
-#' hazard_constant <- 0.7
-#'
-#' # Compute gradient
-#' gradient <- get_cox_syn_gradient(X, time, coefs, hazard_constant)
+#' gradient <- get_cox_syn_gradient(
+#'   X = matrix(stats::rnorm(15), ncol = 3),
+#'   time = stats::rexp(5, rate = 0.1),
+#'   coefs = stats::rnorm(3),
+#'   hazard_constant = 0.3
+#' )
 #' gradient
 get_cox_syn_gradient <- function(X,
                                  time,
@@ -1182,7 +1328,6 @@ get_cox_syn_gradient <- function(X,
   return(gradient)
 }
 
-
 #' Identify the risk set indices for Cox proportional hazards model
 #'
 #' This function returns the indices of the risk set for a given time of interest in the Cox proportional hazards model.
@@ -1194,16 +1339,13 @@ get_cox_syn_gradient <- function(X,
 #'
 #' @return A vector of indices representing the subjects at risk at the specified time of interest.
 #'
-#' @export
-#'
 #' @examples
-#' entry_vector <- c(0, 0, 0, 0, 0)
-#' time_vector <- c(3, 5, 8, 9, 10)
-#' status_vector <- c(1, 1, 0, 1, 0)
-#' time_of_interest <- 5
-#'
-#' # Identify risk set indices
-#' risk_set_idx <- get_cox_risk_set_idx(time_of_interest, entry_vector, time_vector, status_vector)
+#' risk_set_idx <- get_cox_risk_set_idx(
+#'   time_of_interest = 5,
+#'   entry_vector = c(0, 0, 0, 0, 0),
+#'   time_vector = c(3, 5, 8, 9, 10),
+#'   status_vector = c(1, 1, 0, 1, 0)
+#' )
 #' risk_set_idx
 get_cox_risk_set_idx <- function(time_of_interest,
                                  entry_vector,
@@ -1219,31 +1361,28 @@ get_cox_risk_set_idx <- function(time_of_interest,
       time_vector + 1e-08 > time_of_interest))))
 }
 
-
 #' Compute the Hessian Matrix for Cox Proportional Hazards Model
+#'
+#' This function computes the Hessian matrix of the Cox proportional hazards model,
+#' which is used for estimating the covariance matrix of the coefficients. The Hessian is calculated
+#' by summing contributions from each event time in the risk set.
 #'
 #' @param X A matrix of covariates (design matrix) for the Cox model.
 #' @param time A numeric vector of event times.
 #' @param status A numeric vector of event indicators (1 for event, 0 for censored).
 #' @param coefs A numeric vector of coefficients for the Cox model.
-#' @param entry_points (Optional) A numeric vector of entry times for the subjects. Defaults to 0.
+#' @param entry_points A numeric vector of entry times for the subjects. Defaults to 0.
 #'
 #' @return A matrix representing the negative Hessian of the Cox model.
 #'
-#' @export
-#'
-#' @details This function computes the Hessian matrix of the Cox proportional hazards model,
-#' which is used for estimating the covariance matrix of the coefficients. The Hessian is calculated
-#' by summing contributions from each event time in the risk set.
-#'
 #' @examples
-#' X <- matrix(rnorm(15), ncol = 3)
-#' time <- rexp(5, rate = 0.1)
-#' status <- rbinom(5, 1, 0.5)
-#' coefs <- rnorm(3)
-#'
-#' # Compute the Hessian matrix
-#' hessian_matrix <- get_cox_hessian(X, time, status, coefs)
+#' hessian_matrix <- get_cox_hessian(
+#'   X = matrix(stats::rnorm(15), ncol = 3),
+#'   time = stats::rexp(5, rate = 0.1),
+#'   status = stats::rbinom(5, 1, 0.5),
+#'   coefs = stats::rnorm(3),
+#'   entry_points = rep(0, 5)
+#' )
 #' hessian_matrix
 get_cox_hessian <- function(X,
                             time,
@@ -1292,6 +1431,9 @@ get_cox_hessian <- function(X,
 
 #' Compute the Synthetic Hessian Matrix for Cox Proportional Hazards Model
 #'
+#' This function computes the synthetic Hessian matrix for the Cox proportional hazards model.
+#' The Hessian is calculated by summing the contributions from each individual observation, scaled by
+#' the hazard constant and the time of the event.
 #' @param X A matrix of covariates (design matrix) for the Cox model.
 #' @param time A numeric vector of event times.
 #' @param coefs A numeric vector of coefficients for the Cox model.
@@ -1299,20 +1441,13 @@ get_cox_hessian <- function(X,
 #'
 #' @return A matrix representing the synthetic Hessian of the Cox model.
 #'
-#' @export
-#'
-#' @details This function computes the synthetic Hessian matrix for the Cox proportional hazards model.
-#' The Hessian is calculated by summing the contributions from each individual observation, scaled by
-#' the hazard constant and the time of the event.
-#'
 #' @examples
-#' X <- matrix(rnorm(15), ncol = 3)
-#' time <- rexp(5, rate = 0.1)
-#' coefs <- rnorm(3)
-#' hazard_constant <- 1
-#'
-#' # Compute the synthetic Hessian matrix
-#' hessian_matrix <- get_cox_syn_hessian(X, time, coefs, hazard_constant)
+#' hessian_matrix <- get_cox_syn_hessian(
+#'   X = matrix(stats::rnorm(15), ncol = 3),
+#'   time = stats::rexp(5, rate = 0.1),
+#'   coefs = stats::rnorm(3),
+#'   hazard_constant = 0.7
+#' )
 #' hessian_matrix
 get_cox_syn_hessian <- function(X,
                                 time,
@@ -1331,6 +1466,38 @@ get_cox_syn_hessian <- function(X,
   return(-hessian)
 }
 
+#' Validate Inputs for Catalytic Cox Model
+#'
+#' This function validates the parameters provided for setting up a catalytic Cox proportional hazards model
+#' with an initialization object created by \code{cat_cox_initialization}.
+#'
+#' @param formula An object of class \code{formula}. Specifies the model structure for the Cox model, including a \code{Surv} object for survival analysis. Should at least inlcude response variance.
+#' @param cat_init An initialization object generated by \code{cat_cox_initialization}. This object should contain necessary information about the dataset, including the time and status column names.
+#' @param tau Optional. A numeric scalar, the regularization parameter for the Cox model. Must be positive.
+#' @param tau_seq Optional. A numeric vector for specifying a sequence of regularization parameters. Must be positive.
+#' @param init_coefficients Optional. A numeric vector of initial coefficients for the Cox model. Should match the number of predictors in the dataset.
+#' @param tol Optional. A positive numeric value indicating the tolerance level for convergence in iterative fitting.
+#' @param max_iter Optional. A positive integer indicating the maximum number of iterations allowed in the model fitting.
+#' @param cross_validation_fold_num Optional. A positive integer specifying the number of folds for cross-validation. Should be greater than 1 and less than or equal to the size of the dataset.
+#' @param hazard_beta Optional. A positive numeric value representing a constant for adjusting the hazard rate in the Cox model.
+#' @param tau_alpha Optional. A positive numeric value controlling the influence of \code{tau}.
+#' @param tau_gamma Optional. A positive numeric value controlling the influence of \code{tau_seq}.
+#'
+#' @details
+#' This function checks:
+#' \itemize{
+#'   \item That \code{tau}, \code{tol}, \code{max_iter}, \code{cross_validation_fold_num}, \code{hazard_beta}, \code{tau_alpha}, and \code{tau_gamma} are positive.
+#'   \item That \code{tau_seq} is a non-negative vector.
+#'   \item That \code{cat_init} is generated from \code{cat_cox_initialization}.
+#'   \item That \code{formula} uses the same time and status column names as those in \code{cat_init}.
+#'   \item That \code{init_coefficients} has the correct length for the number of predictors.
+#'   \item That \code{cross_validation_fold_num} is between 2 and the dataset size.
+#'   \item That the dataset is sufficiently large for cross-validation, recommending fewer folds if it is not.
+#' }
+#'
+#' If any conditions are not met, the function will raise an error or warning.
+#'
+#' @return Returns nothing if all checks pass; otherwise, raises an error or warning.
 validate_cox_input <- function(formula,
                                cat_init,
                                tau = NULL,
@@ -1343,14 +1510,14 @@ validate_cox_input <- function(formula,
                                tau_alpha = NULL,
                                tau_gamma = NULL) {
   # Check if below parameters is positive
-  validate_positive("tau", tau, incl_0 = TRUE)
+  validate_positive("tau", tau)
   validate_positive("tol", tol)
   validate_positive("max_iter", max_iter)
   validate_positive("cross_validation_fold_num", cross_validation_fold_num)
   validate_positive("hazard_beta", hazard_beta)
   validate_positive("tau_alpha", tau_alpha)
   validate_positive("tau_gamma", tau_gamma)
-  validate_positive("tau_seq", tau_seq, incl_0 = TRUE, is_vector = TRUE)
+  validate_positive("tau_seq", tau_seq, is_vector = TRUE)
 
   # Check if cat_init is generated from cat_cox_initialization
   if (!(inherits(cat_init, "cat_initialization") &
@@ -1402,7 +1569,6 @@ validate_cox_input <- function(formula,
     )
   }
 
-
   # Check if the length of input coefs is match to the data.
   if (!is.null(init_coefficients) && length(init_coefficients) != ncol(cat_init$adj_x)) {
     stop(
@@ -1413,18 +1579,56 @@ validate_cox_input <- function(formula,
     )
   }
 
+  # Check if cross_validation_fold_num is less than 2 or larger than size of observation data
+  if (!is.null(cross_validation_fold_num) && (
+    cross_validation_fold_num < 2 | cross_validation_fold_num > cat_init$obs_size)
+  ) {
+    stop(
+      paste0(
+        "The provided `cross_validation_fold_num` must be larger than 1 and smaller than the observation data size. <",
+        cross_validation_fold_num,
+        "> is invalid."
+      ),
+      call. = FALSE
+    )
+  }
+
   # Check if dataset size is small for cross-validation
   if (!is.null(cross_validation_fold_num) && (cat_init$obs_size < (5 * cross_validation_fold_num))) {
     warning(
       paste0(
-        "The size of the observational dataset is relatively small for cross-validation to yield results.\n",
+        "The size of the observation data is relatively small for cross-validation to yield results.\n",
         "SUGGESTION: Please consider reducing `cross_validation_fold_num` for better estimation."
       ),
+      call. = FALSE
     )
   }
 }
 
-
+#' Validate Inputs for Catalytic Cox proportional hazards model (COX) Initialization
+#'
+#' This function performs validation checks on input parameters for initializing a catalytic Cox proportional hazards model.
+#' It ensures that essential parameters meet requirements, such as being of the correct type, appropriate length, and having valid values.
+#'
+#' @param formula An object of class \code{formula}. The model formula specifying the Cox model structure. It must contain a \code{Surv} object to indicate survival analysis.
+#' @param data A \code{data.frame} containing the dataset to be used for model fitting. It should include all variables referenced in \code{formula}.
+#' @param syn_size A positive integer indicating the size of the synthetic dataset. It is recommended that this value is at least four times the number of columns in \code{data}.
+#' @param hazard_constant A positive numeric value representing the hazard constant for the Cox model.
+#' @param entry_points A numeric vector representing entry times for observations. This vector should be non-negative and have a length equal to the number of rows in \code{data}.
+#' @param x_degree A numeric vector indicating degrees for each covariate. It should be non-negative and match the number of covariates (i.e., \code{ncol(data) - 2}).
+#'
+#' @details
+#' This function checks:
+#' \itemize{
+#'   \item That \code{syn_size}, \code{hazard_constant}, \code{entry_points}, and \code{x_degree} are positive values.
+#'   \item That \code{formula} includes a \code{Surv} object to be suitable for Cox models.
+#'   \item That \code{data} is a \code{data.frame}.
+#'   \item The complexity of \code{formula} to ensure it has fewer terms than the number of columns in \code{data}.
+#'   \item The length of \code{x_degree} and \code{entry_points} to match the dimensions of \code{data}.
+#' }
+#' If the conditions are not met, descriptive error messages are returned.
+#'
+#' @return Returns nothing if all checks pass; otherwise, raises an error.
 validate_cox_initialization_input <- function(formula,
                                               data,
                                               syn_size,
@@ -1434,7 +1638,8 @@ validate_cox_initialization_input <- function(formula,
   # Check if below parameters is positive
   validate_positive("syn_size", syn_size)
   validate_positive("hazard_constant", hazard_constant)
-  validate_positive("entry_points", entry_points, is_vector = TRUE)
+  validate_positive("entry_points", entry_points, incl_0 = TRUE, is_vector = TRUE)
+  validate_positive("x_degree", x_degree, is_vector = TRUE)
 
   # Check if formula is for COX
   if (!grepl("Surv", deparse(formula))) {
@@ -1459,10 +1664,8 @@ validate_cox_initialization_input <- function(formula,
       call. = FALSE
     )
   }
-
-
   # Check if the formula is overly complex
-  if (length(attr(terms(formula), "term.labels")) >= (ncol(data) - 1)) {
+  if (length(attr(stats::terms(formula), "term.labels")) >= (ncol(data) - 2)) {
     stop(
       paste0(
         "The provided `formula` must contain fewer terms than the number of columns in `data`. <",
@@ -1472,20 +1675,22 @@ validate_cox_initialization_input <- function(formula,
       call. = FALSE
     )
   }
+
   # Check if x_degree is positive and same size to the data covariance
-  if (!is.null(x_degree) && (length(x_degree) != (ncol(data) - 2) || any(x_degree < 0))) {
+  if (!is.null(x_degree) && (length(x_degree) != (ncol(data) - 2))) {
     stop(
       paste0(
         "The provided `x_degree` should be a vector of non-negtive values ",
         "with a length same as the number of covariates. <",
         paste(x_degree, collapse = ","),
         "> is invalid."
-      )
+      ),
+      call. = FALSE
     )
   }
 
   # Check if entry_points is positive and same size to the data covariance
-  if (!is.null(entry_points) & (length(entry_points) != nrow(data))) {
+  if (!is.null(entry_points) && (length(entry_points) != nrow(data))) {
     stop(
       paste0(
         "The provided `entry_points` should be a vector of values ",
@@ -1504,8 +1709,8 @@ validate_cox_initialization_input <- function(formula,
     )
   }
 }
-# ----- LMM -----
 
+# ----- LMM -----
 #' Calculates the log-likelihood for linear mixed models (LMMs) by combining
 #' observed and synthetic log-likelihoods based on the variance parameters.
 #'
@@ -1524,19 +1729,15 @@ validate_cox_initialization_input <- function(formula,
 #' @return The sum of observed and synthetic log-likelihoods.
 #'
 #' @examples
-#' # Example parameters for testing
-# residual_variance <- 0.5
-# random_effect_variance <- 1.2
-# obs_z_eigenvalues <- c(0.8, 1.1, 1.3)
-# syn_z_eigenvalues <- c(0.7, 1.0, 1.2)
-# obs_adjusted_residuals <- c(0.2, -0.1, 0.05)
-# syn_adjusted_residuals <- c(-0.1, 0.05, 0.2)
-# tau <- 1.5
-#' #
-# update_lmm_variance(
-#   residual_variance, random_effect_variance, obs_z_eigenvalues,
-#   syn_z_eigenvalues, obs_adjusted_residuals, syn_adjusted_residuals, tau
-# )
+#' update_lmm_variance(
+#'   residual_variance = 0.5,
+#'   random_effect_variance = 1.2,
+#'   obs_z_eigenvalues = c(0.8, 1.1, 1.3),
+#'   syn_z_eigenvalues = c(0.7, 1.0, 1.2),
+#'   obs_adjusted_residuals = c(0.2, -0.1, 0.05),
+#'   syn_adjusted_residuals = c(-0.1, 0.05, 0.2),
+#'   tau = 1.5
+#' )
 update_lmm_variance <- function(residual_variance,
                                 random_effect_variance,
                                 obs_z_eigenvalues,
@@ -1557,26 +1758,35 @@ update_lmm_variance <- function(residual_variance,
   return(obs_log_likelihood + syn_log_likelihood)
 }
 
-#' Validate Inputs for Linear Mixed Model (LMM) Function
+#' Validate Inputs for Catalytic Linear Mixed Model (LMM)
 #'
-#' This function validates input parameters for LMM functions, ensuring that key
-#' parameters are positive, that specific initialization requirements are met,
-#' and that structures such as `cat_init`, `coefs_0`, and `optimize_domain` have
-#' expected properties.
+#' This function validates the parameters needed for fitting a catalytic Linear Mixed Model (LMM) or Generalized Linear Model (GLM),
+#' specifically for the use with the categorical initialization from `cat_lmm_initialization`.
 #'
-#' @param formula A formula for the model.
-#' @param cat_init Initialization object, expected to be generated by `cat_lmm_initialization`.
-#' @param tau Initial tau value; must be non-negative if provided.
-#' @param residual_variance_0 Initial residual variance; must be positive if provided.
-#' @param random_effect_variance_0 Initial random effect variance; must be positive if provided.
-#' @param coefs_0 Initial coefficients; must match the number of columns in `cat_init$obs_x`.
-#' @param optimize_domain Numeric vector of length 2 specifying optimization domain; must be non-negative.
-#' @param max_iter Maximum iterations; must be positive.
-#' @param tol Convergence tolerance; must be positive.
-#' @param tau_seq Optional sequence of tau values; all elements must be non-negative.
-#' @param cross_validation_fold_num Number of folds for cross-validation; must be positive if provided.
+#' @param cat_init An object of class \code{cat_initialization}, typically generated from the \code{cat_lmm_initialization} function.
+#' @param tau A positive numeric value specifying the penalty parameter for the model.
+#' @param residual_variance_0 A positive numeric value for the initial residual variance estimate.
+#' @param random_effect_variance_0 A positive numeric value for the initial random effect variance estimate.
+#' @param coefs_0 A numeric vector of length equal to the number of columns in the observation matrix. This represents the initial values for the model coefficients.
+#' @param optimize_domain A numeric vector of length 2 specifying the domain for the optimization procedure.
+#' @param max_iter A positive integer specifying the maximum number of iterations for the optimization.
+#' @param tol A positive numeric value indicating the tolerance level for convergence.
+#' @param tau_seq A numeric vector representing a sequence of values for the penalty parameter.
+#' @param cross_validation_fold_num A positive integer specifying the number of folds for cross-validation.
 #'
-#' @return The function does not return a value but throws an error if any validation check fails.
+#' @details
+#' This function performs the following checks:
+#' \itemize{
+#'   \item Ensures that \code{tau}, \code{tau_seq}, \code{residual_variance_0}, \code{random_effect_variance_0}, \code{optimize_domain}, \code{max_iter}, and \code{tol} are positive values.
+#'   \item Verifies that \code{cat_init} is an object generated by \code{cat_lmm_initialization}.
+#'   \item Checks if \code{coefs_0} has the same length as the number of columns in the observation matrix of \code{cat_init}.
+#'   \item Ensures \code{optimize_domain} is a numeric vector of length 2.
+#'   \item Confirms that \code{cross_validation_fold_num} is greater than 1 and less than the number of observations in \code{cat_init}.
+#' }
+#'
+#' If any of these conditions are not met, the function raises an error to guide the user.
+#'
+#' @return Returns nothing if all checks pass; otherwise, raises an error.
 validate_lmm_input <- function(
     cat_init,
     tau = NULL,
@@ -1596,7 +1806,6 @@ validate_lmm_input <- function(
   validate_positive("optimize_domain", optimize_domain, incl_0 = TRUE, is_vector = TRUE)
   validate_positive("max_iter", max_iter)
   validate_positive("tol", tol)
-  validate_positive("cross_validation_fold_num", cross_validation_fold_num)
 
   # Check if cat_init is generated from cat_lmm_initialization
   if (!(inherits(cat_init, "cat_initialization") &
@@ -1634,22 +1843,51 @@ validate_lmm_input <- function(
       call. = FALSE
     )
   }
+
+
+  # Check if cross_validation_fold_num is less than 2 or larger than size of observation data
+  if (!is.null(cross_validation_fold_num) && (
+    cross_validation_fold_num < 2 | cross_validation_fold_num > cat_init$obs_size)
+  ) {
+    stop(
+      paste0(
+        "The provided `cross_validation_fold_num` must be larger than 1 and smaller than the observation data size. <",
+        cross_validation_fold_num,
+        "> is invalid."
+      ),
+      call. = FALSE
+    )
+  }
 }
 
-#' Validate Initialization Inputs for LMM Model
+#' Validate Inputs for Catalytic Linear Mixed Model (LMM) Initialization
 #'
-#' This function validates inputs required for initializing an LMM model, including
-#' checks on formula complexity, data structure, and inclusion of necessary columns.
+#' This function validates the parameters needed for initializing a catalytic Linear Mixed Model (LMM) or Generalized Linear Model (GLM)
+#' based on the input formula, data, and column specifications.
 #'
-#' @param formula A model formula, not applicable for survival analysis.
-#' @param data A `data.frame` containing predictor and outcome variables.
-#' @param x_cols Names of predictor columns in `data`.
-#' @param y_col Name of the outcome variable column in `data`.
-#' @param z_cols Names of random effect columns in `data`.
-#' @param group_col Name of the grouping column in `data`.
-#' @param syn_size Number of synthetic samples; should be larger than 4 * the number of columns.
+#' @param formula An object of class \code{formula} representing the model formula, typically including fixed and random effects for LMMs or for GLMs.
+#' @param data A \code{data.frame} containing the data for model fitting. This should include all columns specified in \code{x_cols}, \code{y_col}, \code{z_cols}, and \code{group_col}.
+#' @param x_cols A character vector of column names to be used as predictor variables in the model.
+#' @param y_col A single character string specifying the name of the response variable column.
+#' @param z_cols A character vector of column names to be used as additional predictors or grouping factors, depending on the model structure.
+#' @param group_col A single character string specifying the name of the grouping variable for random effects.
+#' @param syn_size Optional. A positive integer indicating the synthetic data size, typically for use in data augmentation or model diagnostics.
 #'
-#' @return The function does not return a value but throws an error if any validation check fails.
+#' @details
+#' This function performs the following checks:
+#' \itemize{
+#'   \item Ensures \code{syn_size} is a positive integer.
+#'   \item Verifies that \code{formula} is not for survival analysis (e.g., does not contain \code{Surv} terms).
+#'   \item Checks that the formula is not overly complex by confirming it has fewer terms than the total columns in \code{data}.
+#'   \item Ensures \code{y_col} and \code{group_col} each contain only one column name.
+#'   \item Confirms \code{data} is a \code{data.frame}.
+#'   \item Validates that all specified columns in \code{x_cols}, \code{y_col}, \code{z_cols}, and \code{group_col} exist in \code{data} without overlap or missing values.
+#'   \item Warns if \code{syn_size} is set too small relative to the data dimensions, recommending a larger value.
+#' }
+#'
+#' If any of these conditions are not met, the function raises an error or warning to guide the user.
+#'
+#' @return Returns nothing if all checks pass; otherwise, raises an error or warning.
 validate_lmm_initialization_input <- function(
     formula,
     data,
@@ -1674,7 +1912,7 @@ validate_lmm_initialization_input <- function(
   }
 
   # Check if the formula is overly complex
-  if (length(attr(terms(formula), "term.labels")) >= (ncol(data) - 1)) {
+  if (length(attr(stats::terms(formula), "term.labels")) >= (ncol(data) - 1)) {
     stop(
       paste0(
         "The provided `formula` must contain fewer terms than the number of columns in `data`. <",
@@ -1743,8 +1981,48 @@ validate_lmm_initialization_input <- function(
     )
   }
 }
-# ----- General -----
 
+# ----- General -----
+#' Validate Positive or Non-negative Parameter
+#'
+#' This function checks whether a parameter value is positive (or non-negative if `incl_0` is set to `TRUE`).
+#' It can handle both single numeric values and vectors, and it raises an error with an informative
+#' message if the validation fails.
+#'
+#' @param param_name A string representing the name of the parameter. Used in the error message.
+#' @param param_value The parameter value to validate, either a single numeric or a numeric vector.
+#' @param incl_0 Logical, if `TRUE`, allows non-negative values (≥ 0); if `FALSE`, requires positive values (> 0).
+#' @param is_vector Logical, if `TRUE`, treats `param_value` as a vector; otherwise, expects a single numeric value.
+#'
+#' @return `NULL` if validation passes; otherwise, an error is raised.
+#'
+#' @examples
+#' # Passes: 1 is positive
+#' validate_positive(
+#'   param_name = "alpha",
+#'   param_value = 1
+#' )
+#'
+#' # Passes: all values are non-negative, treated as a vector
+#' validate_positive(
+#'   param_name = "delta",
+#'   param_value = c(0, 1),
+#'   incl_0 = TRUE,
+#'   is_vector = TRUE
+#' )
+#'
+#' # Error: input should not be a single number
+#' validate_positive(
+#'   param_name = "beta",
+#'   param_value = c(0, 2, 3),
+#'   incl_0 = TRUE
+#' )
+#'
+#' # Error: -1 is not positive
+#' validate_positive(
+#'   param_name = "gamma",
+#'   param_value = -1
+#' )
 validate_positive <- function(param_name,
                               param_value,
                               incl_0 = FALSE,
@@ -1784,49 +2062,71 @@ validate_positive <- function(param_name,
   }
 }
 
-#' Get a Stan model
+#' Retrieve a Cached Stan Model Based on Specified Parameters
 #'
-#' This function loads and returns a Stan model based on specified parameters.
+#' This function retrieves a Stan model file based on a combination of input parameters,
+#' constructs the file path, and loads the Stan model. The function is memoized, so repeated
+#' calls with the same parameters will retrieve a cached result.
 #'
-#' @param type A character string specifying the model type. Choices are "glm" or "cox".
-#' @param glm_family Optional character string specifying the GLM family (e.g., "binomial").
-#' @param joint_tau Logical indicating if joint tau is used.
-#' @param glm_binomial_joint_theta Logical indicating if joint theta is used for binomial GLM.
-#' @param glm_binomial_joint_alpha Logical indicating if joint alpha is used for binomial GLM.
-#' @param glm_binomial_gibbs Logical indicating if Gibbs sampling is used for binomial GLM.
+#' @param type Character, either `"glm"` or `"cox"`, specifying the type of model to load.
+#' @param glm_family_string Character, specifying the family for GLM models, either `"binomial"` or `"gaussian"`.
+#'        Required for `"glm"` models, ignored for `"cox"` models.
+#' @param joint_tau Logical, if `TRUE`, includes "joint" in the file name to indicate a joint model with tau parameter.
+#' @param glm_binomial_joint_theta Logical, if `TRUE` and `glm_family_string` is `"binomial"`, includes "theta" in the
+#'        file name for joint theta parameter.
+#' @param glm_binomial_joint_alpha Logical, if `TRUE` and `glm_family_string` is `"binomial"`, includes "alpha" in the
+#'        file name for joint alpha parameter.
+#' @param glm_gaussian_known_variance Logical, if `TRUE` and `glm_family_string` is `"gaussian"`, includes
+#'        "known_variance" in the file name to specify known variance.
 #'
-#' @return A Stan model object.
+#' @return A compiled Stan model loaded by `rstan::stan_model`.
 #'
-#' @export
+#' @examples
+#' # Load a basic GLM binomial model with joint theta and alpha parameters
+#' model_1 <- get_stan_model(
+#'   type = "glm",
+#'   glm_family_string = "binomial",
+#'   joint_tau = TRUE,
+#'   glm_binomial_joint_theta = TRUE,
+#'   glm_binomial_joint_alpha = TRUE
+#' )
+#' print(model_1)
+#'
+#' # Load a Cox model
+#' model_2 <- get_stan_model(type = "cox")
+#' print(model_2)
 get_stan_model <- memoise::memoise(function(type = c("glm", "cox"),
-                                            glm_family_string = NULL,
+                                            glm_family_string = c("gaussian", "binomial"),
                                             joint_tau = FALSE,
                                             glm_binomial_joint_theta = FALSE,
                                             glm_binomial_joint_alpha = FALSE,
-                                            glm_binomial_gibbs = FALSE,
                                             glm_gaussian_known_variance = FALSE) {
-  # Ensure type is valid
+  # Ensure type and glm family is valid
   type <- match.arg(type)
+  glm_family_string <- match.arg(glm_family_string)
 
   # Construct the filename based on parameters
-  filename <- paste0(
-    "~/catalytic/R/rstan_program/",
+  stan_file <- system.file(
+    "stan",
     paste0(
-      c(
-        type,
-        glm_family_string,
-        if (any(joint_tau, glm_binomial_joint_theta, glm_binomial_joint_alpha)) "joint",
-        if (type == "glm" && glm_family_string == "binomial" && glm_binomial_joint_theta && !glm_binomial_gibbs) "theta",
-        if (type == "glm" && glm_family_string == "binomial" && glm_binomial_joint_alpha && !glm_binomial_gibbs) "alpha",
-        if (type == "glm" && glm_family_string == "gaussian" && glm_gaussian_known_variance) "known_variance"
+      paste0(
+        c(
+          type,
+          if (type == "glm") glm_family_string,
+          if (any(joint_tau, glm_binomial_joint_theta, glm_binomial_joint_alpha)) "joint",
+          if (type == "glm" & glm_family_string == "binomial" & glm_binomial_joint_theta) "theta",
+          if (type == "glm" & glm_family_string == "binomial" & glm_binomial_joint_theta & glm_binomial_joint_alpha) "alpha",
+          if (type == "glm" & glm_family_string == "gaussian" & glm_gaussian_known_variance) "known_variance"
+        ),
+        collapse = "_"
       ),
-      collapse = "_"
+      ".stan"
     ),
-    ".stan"
+    package = "catalytic"
   )
 
   # Load and return the Stan model
-  return(rstan::stan_model(file = filename))
+  return(rstan::stan_model(file = stan_file))
 })
 
 #' Compute Linear Predictor
@@ -1840,15 +2140,13 @@ get_stan_model <- memoise::memoise(function(type = c("glm", "cox"),
 #'
 #' @return A vector of linear predictor values.
 #'
-#' @export
-#'
 #' @examples
 #' X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
 #' coefs <- c(0.5, 1.5)
-#' get_linear_predictor(X, coefs)
+#' get_linear_predictor(X = X, coefs = coefs)
 #'
 #' coefs_with_intercept <- c(1, 0.5, 1.5)
-#' get_linear_predictor(X, coefs_with_intercept)
+#' get_linear_predictor(X = X, coefs = coefs_with_intercept)
 get_linear_predictor <- function(X, coefs) {
   X <- as.matrix(X)
   coefs <- as.vector(coefs)
@@ -1864,9 +2162,12 @@ get_linear_predictor <- function(X, coefs) {
 
   # Error case: dimensions do not match
   stop(
-    "\nCoefficient and predictor dimensions do not match:\n",
-    "Coefficients:\n", coefs,
-    "\nCovariance:\n", X
+    paste0(
+      "Coefficient and covariance dimensions do not match.\n",
+      "Coefficients Length: ", length(coefs),
+      "\nCovariance Dimention: nrow = ", nrow(X), "; ncol = ", ncol(X)
+    ),
+    call. = FALSE
   )
 }
 
@@ -1878,11 +2179,11 @@ get_linear_predictor <- function(X, coefs) {
 #' @param discrepancy_method A character string specifying the discrepancy method to use. Options are:
 #'   \describe{
 #'     \item{"logarithmic_error"}{Logarithmic error, suitable for probabilities.}
-#'     \item{"square_error"}{Mean squared error.}
-#'     \item{"classification_error"}{Classification error, suitable for binary outcomes.}
+#'     \item{"mean_square_error"}{Mean squared error.}
+#'     \item{"mean_classification_error"}{Mean of classification error, suitable for binary outcomes.}
 #'     \item{"logistic_deviance"}{Logistic deviance, computed using a GLM model.}
 #'   }
-#' @param family A GLM family object (e.g., "binomial") used to compute logistic deviance.
+#' @param family_string A GLM family in string (e.g., "binomial") used to compute logistic deviance.
 #' @param X A matrix of predictor variables.
 #' @param Y A vector or data frame of observed values.
 #' @param coefs A vector of coefficients for the GLM model.
@@ -1890,21 +2191,19 @@ get_linear_predictor <- function(X, coefs) {
 #'
 #' @return A numeric value representing the discrepancy between observed and estimated values.
 #'
-#' @export
-#'
 #' @examples
-#' # Example with square error
-#' X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
-#' coefs <- c(0.5, 1.5)
-#' Y <- c(1, 0)
-#' est_Y <- get_glm_mean("binomial", X, coefs)
-#' discrepancy <- get_discrepancy("square_error", X = X, Y = Y, coefs = coefs, est_Y = est_Y)
-#' discrepancy
+#' get_discrepancy(
+#'   discrepancy_method = "mean_square_error",
+#'   family_string = "gaussian",
+#'   X = matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2),
+#'   Y = c(1, 0),
+#'   coefs = c(0.5, 1.5)
+#' )
 get_discrepancy <- function(
     discrepancy_method = c(
-      "logarithmic_error",
-      "square_error",
-      "classification_error",
+      "mean_logarithmic_error",
+      "mean_square_error",
+      "mean_classification_error",
       "logistic_deviance"
     ),
     family_string = NULL,
@@ -1925,7 +2224,7 @@ get_discrepancy <- function(
   }
 
   # Apply specific preprocessing for logarithmic error
-  if (discrepancy_method == "logarithmic_error") {
+  if (discrepancy_method == "mean_logarithmic_error") {
     Y <- pmax(0.0001, pmin(0.9999, Y))
     est_Y <- pmax(0.0001, pmin(0.9999, est_Y))
   }
@@ -1933,49 +2232,33 @@ get_discrepancy <- function(
   # Compute and return the discrepancy measure based on the chosen method
   return(
     switch(discrepancy_method,
-      "logarithmic_error" = mean(Y * log(Y / est_Y) + (1 - Y) * log((1 - Y) / (1 - est_Y))),
-      "square_error" = mean((Y - est_Y)^2),
-      "classification_error" = mean(Y - 2 * Y * est_Y + est_Y),
+      "mean_logarithmic_error" = mean(Y * log(Y / est_Y) + (1 - Y) * log((1 - Y) / (1 - est_Y))),
+      "mean_square_error" = mean((Y - est_Y)^2),
+      "mean_classification_error" = mean(Y - 2 * Y * est_Y + est_Y),
       "logistic_deviance" = -get_glm_log_density(family_string = "binomial", X = X, Y = Y, coefs = coefs)
     )
   )
 }
 
-
-
-#' Get Adjusted Data
+#' Adjusted Cat Initialization
 #'
-#' This function adjusts the data in the `cat_init` object according to the specified formula.
-#' It transforms the variables in the formula to numeric and separates the data into observed
-#' and synthetic parts.
+#' This function adjusts the categorical initialization by creating a model frame
+#' for the predictors specified in the right-hand side of the formula and splits
+#' the adjusted data into observed and synthetic parts.
 #'
-#' @param cat_init A list containing the initial data with components:
-#'   - `x`: A matrix or data frame of raw data.
-#'   - `obs_size`: Number of observed samples.
-#'   - `size`: Total number of samples (observed + synthetic).
-#' @param formula A formula specifying the variables to be adjusted.
+#' @param cat_init The object generated from `cat_glm_initialization`, `cat_cox_initialization` or `cat_lmm_initialization`
+#' @param formula_rhs A formula specifying the right-hand side of the model for predictors.
 #'
-#' @return The updated `cat_init` list with adjusted data:
-#'   - `adj_x`: Adjusted data frame for all samples.
-#'   - `adj_obs_x`: Adjusted data frame for observed samples.
-#'   - `adj_syn_x`: Adjusted data frame for synthetic samples.
-#'
-#' @export
-#'
-#' @examples
-#' cat_init <- list(
-#'   x = data.frame(a = 1:5, b = 6:10),
-#'   obs_size = 3,
-#'   size = 5
-#' )
-#' formula <- "x ~ b"
-#' adjusted_data <- get_adjusted_data(cat_init, formula)
-#' adjusted_data
+#' @return A list containing the original `cat_init` with added components:
+#'   \itemize{
+#'     \item adj_x: The adjusted model frame for the predictors.
+#'     \item adj_obs_x: The observed part of the adjusted predictors.
+#'     \item adj_syn_x: The synthetic part of the adjusted predictors.
+#'   }
 get_adjusted_cat_init <- function(cat_init,
-                                  formula_rhs,
-                                  type = c("glm", "cox")) {
+                                  formula_rhs) {
   # Generate model frame for predictors using the right-hand side of the formula
-  cat_init$adj_x <- model.frame(
+  cat_init$adj_x <- stats::model.frame(
     formula_rhs,
     as.data.frame(cat_init$x)
   )
@@ -1987,10 +2270,10 @@ get_adjusted_cat_init <- function(cat_init,
   return(cat_init)
 }
 
-#' Resample Data Columns and Apply Processing Methods
+#' Resampling Methods for Data Processing
 #'
-#' This function resamples data by columns, applies specific processing methods
-#' depending on the data type and characteristics, and records the resampling process.
+#' This function includes various resampling methods applied to input data for each column to prepare it
+#' for analysis. These methods help to transform the data distribution and improve model fitting.
 #'
 #' @param data A data frame to be resampled.
 #' @param resample_size An integer specifying the size of the resample.
@@ -1998,22 +2281,49 @@ get_adjusted_cat_init <- function(cat_init,
 #' @param resample_only A logical value indicating whether to return only the resampled data (default is FALSE).
 #'
 #' @return A list containing:
-#'   \item{resampled_data}{A data frame of resampled data.}
-#'   \item{resampled_data_record}{A data frame recording the resampling process for each column.}
+#'   \item{resampled_df}{A data frame of resampled data.}
+#'   \item{resampled_df_log}{A data frame recording the resampling process for each column.}
+#'
+#' @details
+#'
+#' **Coordinate**:
+#' This method refers to the preservation of the original data values as reference coordinates during processing.
+#' It ensures that the transformations applied are based on the data's initial structure.
+#'
+#' **Deskewing**:
+#' Deskewing is the process of adjusting the data distribution to reduce skewness, making it more symmetric.
+#' If the absolute value of skewness is greater than or equal to 1, deskewing techniques will be applied
+#' to normalize the distribution, which can enhance model performance.
+#'
+#' **Smoothing**:
+#' Smoothing techniques reduce noise in the data by averaging or modifying data points.
+#' This is especially useful when there are many unique values in the original data column, as it helps
+#' to stabilize the dataset and prevent overfitting during model training.
+#'
+#' **Flattening**:
+#' Flattening modifies the data to create a more uniform distribution across its range.
+#' This method is employed when the frequency of certain categories in categorical variables is low,
+#' replacing some original values with randomly selected unique values from the dataset to reduce sparsity.
+#'
+#' **Symmetrizing**:
+#' Symmetrizing adjusts the data so that it becomes more balanced around its mean.
+#' This is crucial for achieving better statistical properties and improving the robustness of the model
+#' fitting process.
 #'
 #' @examples
 #' data <- data.frame(
 #'   x1 = c(1, 2, 3, 4, 5),
 #'   x2 = factor(c("A", "B", "A", "B", "A")),
-#'   x3 = c(1.1, 2.2, 3.3, 4.4, 5.5)
+#'   x3 = c(1.1, 1.1, 1.1, 4.4, 100.1)
 #' )
-#' resampled <- get_resampled_data(data, resample_size = 10)
-#' print(resampled$resampled_data)
-#' print(resampled$resampled_data_record)
-get_resampled_data <- function(data,
-                               resample_size,
-                               data_degree = NULL,
-                               resample_only = FALSE) {
+#' resampled <- get_resampled_df(data, resample_size = 10)
+#'
+#' print(resampled$resampled_df)
+#' print(resampled$resampled_df_log)
+get_resampled_df <- function(data,
+                             resample_size,
+                             data_degree = NULL,
+                             resample_only = FALSE) {
   # Resample a column
   resample_column <- function(col, size) {
     sample(col, size = size, replace = TRUE)
@@ -2040,7 +2350,7 @@ get_resampled_data <- function(data,
       iqr_value <- 0
       while (iqr_value == 0 & right_quantile < 1) {
         iqr_value <- diff(
-          quantile(
+          stats::quantile(
             as.numeric(x),
             c(1 - right_quantile, right_quantile),
             na.rm = FALSE,
@@ -2081,7 +2391,7 @@ get_resampled_data <- function(data,
           a = min(original_x),
           b = max(original_x),
           mean(original_x, trim = 0.1),
-          -get_iqr(original_x) / (2 * qnorm(1 / 4))
+          -get_iqr(original_x) / (2 * stats::qnorm(1 / 4))
         )
       )
     )
@@ -2129,27 +2439,27 @@ get_resampled_data <- function(data,
   }
 
   # Resample the data by columns
-  resampled_data <- as.data.frame(lapply(data, resample_column, size = resample_size))
+  resampled_df <- as.data.frame(lapply(data, resample_column, size = resample_size))
 
   # Return resampled data only if resample_only is TRUE
   if (resample_only) {
     return(list(
-      resampled_data = resampled_data,
-      resampled_data_record = NULL
+      resampled_df = resampled_df,
+      resampled_df_log = NULL
     ))
   }
 
   if (is.null(data_degree)) data_degree <- rep(1, (ncol(data)))
   # Record resampling processes for each column
-  resampled_data_record <- do.call(
+  resampled_df_log <- do.call(
     rbind,
     lapply(
-      1:ncol(resampled_data),
+      1:ncol(resampled_df),
       function(n) {
-        processed <- process_column(resampled_data[, n], data[, n], data_degree[n])
-        resampled_data[, n] <<- processed$column
+        processed <- process_column(resampled_df[, n], data[, n], data_degree[n])
+        resampled_df[, n] <<- processed$column
         data.frame(
-          Covariate = colnames(resampled_data)[n],
+          Covariate = colnames(resampled_df)[n],
           Type = processed$data_type,
           Process = processed$process
         )
@@ -2158,8 +2468,8 @@ get_resampled_data <- function(data,
   )
 
   return(list(
-    resampled_data = resampled_data,
-    resampled_data_record = resampled_data_record
+    resampled_df = resampled_df,
+    resampled_df_log = resampled_df_log
   ))
 }
 
@@ -2170,8 +2480,6 @@ get_resampled_data <- function(data,
 #' @param formula A formula object to be converted to a string.
 #'
 #' @return A character string representing the formula.
-#'
-#' @export
 #'
 #' @examples
 #' formula <- y ~ x1 + x2
@@ -2191,8 +2499,6 @@ get_formula_string <- function(formula) {
 #' @param formula A formula object from which the LHS will be extracted.
 #'
 #' @return A character string representing the left-hand side of the formula.
-#'
-#' @export
 #'
 #' @examples
 #' formula <- y ~ x1 + x2
@@ -2216,13 +2522,10 @@ get_formula_lhs <- function(formula) {
 #' @return A character string representing the right-hand side of the formula. If `with_tilde` is `TRUE`,
 #'   the string includes a leading tilde.
 #'
-#' @export
-#'
 #' @examples
-# formula <- y ~ x1 + x2
-#' #
-# get_formula_rhs(formula)
-# get_formula_rhs(formula, with_tilde = TRUE)
+#' formula <- y ~ x1 + x2
+#' get_formula_rhs(formula)
+#' get_formula_rhs(formula, with_tilde = TRUE)
 get_formula_rhs <- function(formula, with_tilde = FALSE) {
   if (with_tilde) {
     return(paste("~", deparse(rlang::f_rhs(formula)), collapse = " "))
@@ -2237,8 +2540,6 @@ get_formula_rhs <- function(formula, with_tilde = FALSE) {
 #' @param lst A vector to be checked.
 #'
 #' @return A logical value indicating whether the input vector is considered continuous. Returns `TRUE` if the vector is numeric and has more than two unique values; otherwise, returns `FALSE`.
-#'
-#' @export
 #'
 #' @examples
 #' # Example with a continuous variable
@@ -2270,22 +2571,17 @@ is.continuous <- function(lst) {
 #'
 #' @return A data frame where columns have been converted to numeric or factor types, and NA values have been replaced according to the method specified.
 #'
-#' @export
-#'
 #' @examples
 #' data <- data.frame(
 #'   numeric_col = c(1, 2, NA, 4),
 #'   factor_col = factor(c("A", "B", "A", NA)),
 #'   stringsAsFactors = FALSE
 #' )
-#' standardized_data <- get_standardized_data(data, na_replace = 0)
+#' standardized_data <- get_standardized_data(data = data, na_replace = 0)
 #' standardized_data
-get_standardized_data <- function(data, na_replace = stats::na.omit) {
-  # Function to convert columns to numeric or factor
-  convert_column <- function(x) {
-    if (is.continuous(stats::na.omit(x))) as.numeric(x) else x
-  }
-
+get_standardized_data <- function(
+    data,
+    na_replace = stats::na.omit) {
   # Function to replace NA values based on data type
   replace_na <- function(x) {
     if (anyNA(x)) {
@@ -2302,7 +2598,6 @@ get_standardized_data <- function(data, na_replace = stats::na.omit) {
   }
 
   # Convert columns and replace NA values
-  data <- lapply(data, convert_column)
   data <- as.data.frame(if (identical(na_replace, stats::na.omit)) {
     stats::na.omit(data)
   } else {

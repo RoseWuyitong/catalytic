@@ -2,40 +2,25 @@
 % Please edit documentation in R/misc.R
 \name{get_adjusted_cat_init}
 \alias{get_adjusted_cat_init}
-\title{Get Adjusted Data}
+\title{Adjusted Cat Initialization}
 \usage{
-get_adjusted_cat_init(cat_init, formula_rhs, type = c("glm", "cox"))
+get_adjusted_cat_init(cat_init, formula_rhs)
 }
 \arguments{
-\item{cat_init}{A list containing the initial data with components:
-\itemize{
-\item \code{x}: A matrix or data frame of raw data.
-\item \code{obs_size}: Number of observed samples.
-\item \code{size}: Total number of samples (observed + synthetic).
-}}
+\item{cat_init}{The object generated from \code{cat_glm_initialization}, \code{cat_cox_initialization} or \code{cat_lmm_initialization}}
 
-\item{formula}{A formula specifying the variables to be adjusted.}
+\item{formula_rhs}{A formula specifying the right-hand side of the model for predictors.}
 }
 \value{
-The updated \code{cat_init} list with adjusted data:
+A list containing the original \code{cat_init} with added components:
 \itemize{
-\item \code{adj_x}: Adjusted data frame for all samples.
-\item \code{adj_obs_x}: Adjusted data frame for observed samples.
-\item \code{adj_syn_x}: Adjusted data frame for synthetic samples.
+\item adj_x: The adjusted model frame for the predictors.
+\item adj_obs_x: The observed part of the adjusted predictors.
+\item adj_syn_x: The synthetic part of the adjusted predictors.
 }
 }
 \description{
-This function adjusts the data in the \code{cat_init} object according to the specified formula.
-It transforms the variables in the formula to numeric and separates the data into observed
-and synthetic parts.
-}
-\examples{
-cat_init <- list(
-  x = data.frame(a = 1:5, b = 6:10),
-  obs_size = 3,
-  size = 5
-)
-formula <- "x ~ b"
-adjusted_data <- get_adjusted_data(cat_init, formula)
-adjusted_data
+This function adjusts the categorical initialization by creating a model frame
+for the predictors specified in the right-hand side of the formula and splits
+the adjusted data into observed and synthetic parts.
 }

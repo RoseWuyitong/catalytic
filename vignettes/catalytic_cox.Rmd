@@ -2,8 +2,6 @@
 title: "catalytic_cox"
 author:
   - Wu Yitong
-  - Huang Dongming
-  - Li Weihao
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 bibliography: assets/catalytic_refs.bib
 link-citations: TRUE
@@ -18,7 +16,6 @@ vignette: >
 
 
 ```{r, include = FALSE}
-devtools::load_all()
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -33,35 +30,73 @@ knitr::opts_chunk$set(
 This vignette provides an _overview_ of how to use the functions in the 
 __catalytic__ package that focuses on COX Regression. The other __catalytic__ vignettes go into other model-estimating functions.
 
-The goal of the __catalytic__ package is to build framework for catalytic prior distributions. Stabilizing high-dimensional working models by shrinking them towards simplified models. This is achieved by supplementing observed data with weighted synthetic data generated from a predictive distribution under the simpler model.
+The goal of the __catalytic__ package is to build framework for catalytic prior distributions. Stabilizing high-dimensional working models by shrinking them towards simplified models. This is achieved by supplementing observed data with weighted synthetic data generated from a predictive distribution under the simpler model.  For more information, see [@catalytic_cox].
 
 The two steps of using catalytic package for COX Regression are
 
-1. The `cat_cox_initialization` function constructs a `cat_init` object based on the formula provided by the user to generate synthetic data. The resulting `cat_init` object is tailored to facilitate further analysis, and is integral for subsequent modeling steps in the `catalytic` package.
+1. Initialization: The `cat_cox_initialization` function constructs a `cat_init` object based on the formula provided by the user to generate synthetic data. The resulting `cat_init` object is tailored to facilitate further analysis, and is integral for subsequent modeling steps in the `catalytic` package.
 
-2. Users have the flexibility to choose from four main functions within the catalytic package: `cat_cox`, `cat_cox_tune`, `cat_cox_bayes`, and `cat_cox_bayes_joint`. Each function serves a specific purpose in modeling with catalytic priors and offers distinct capabilities tailored to different modeling scenarios for COX Regression. This approach enables users to seamlessly incorporate synthetic data with varying weights from different method into COX Regression analyses, providing flexibility and control over the modeling process.
+2. Choose Method(s): Users have the flexibility to choose from four main functions within the catalytic package: `cat_cox`, `cat_cox_tune`, `cat_cox_bayes`, and `cat_cox_bayes_joint`. Each function serves a specific purpose in modeling with catalytic priors and offers distinct capabilities tailored to different modeling scenarios for COX Regression. This approach enables users to seamlessly incorporate synthetic data with varying weights from different method into COX Regression analyses, providing flexibility and control over the modeling process.
 
 # Data Preparation{#DataPreparation}
 
 Creating a high-dimensional dataset with a low data size. This step involves increasing the number of features (dimensions) while keeping the number of observations (data size) relatively small. This is useful for testing the performance of `catalytic` models in high-dimensional settings.
 
-The `get_train_idx` function randomly selects training indices amounting to 1/5 of the dataset size. 
-
-The `cox_swim` dataset is loaded and split into training (`train_data`) and test (`cox_cox_cat_test`) datasets.
+The `pbc` dataset is loaded and split into training (`train_data`) and test (`cox_cox_cat_test`) datasets.
 
 ```{r}
-set.seed(1)
-
 library(survival)
 library(catalytic)
 
-# Utility function to get random train indices for 60 of the original data
-get_train_idx <- function(cat_cox_initset) {
-  n <- nrow(cat_cox_initset)
-  return(sample(1:n, 60))
+set.seed(1)
+
+# Compute the Partial Likelihood for the Cox Proportional Hazards Model
+get_cox_partial_likelihood <- function(X,
+                                       time,
+                                       status,
+                                       coefs,
+                                       entry_points) {
+  # Identify the risk set indices for Cox proportional hazards model
+  get_cox_risk_set_idx <- function(time_of_interest,
+                                   entry_vector,
+                                   time_vector,
+                                   status_vector) {
+    time_vector <- as.vector(time_vector)
+    entry_vector <- as.vector(entry_vector)
+    status_vector <- as.vector(status_vector)
+
+    # Find indices where subjects are at risk at the given time of interest
+    return(which((time_of_interest >= entry_vector) & (
+      (time_vector == time_of_interest & status_vector == 1) | (
+        time_vector + 1e-08 > time_of_interest))))
+  }
+
+  X <- as.matrix(X)
+  time <- as.vector(time)
+  status <- as.vector(status)
+
+  pl <- 0
+
+  # Calculate partial likelihood for each censored observation
+  for (i in which(status == 1)) {
+    risk_set_idx <- get_cox_risk_set_idx(
+      time_of_interest = time[i],
+      entry_vector = entry_points,
+      time_vector = time,
+      status_vector = status
+    )
+
+    # Compute the linear predictors for the risk set
+    exp_risk_lp <- exp(X[risk_set_idx, , drop = FALSE] %*% coefs)
+
+    # Update partial likelihood
+    pl <- pl + sum(X[i, , drop = FALSE] * coefs) - log(sum(exp_risk_lp))
+  }
+
+  return(pl)
 }
 
-# Load, preprocess and split pbc dataset for Cox proportional hazards model
+# Load pbc dataset for Cox proportional hazards model
 data("pbc")
 
 pbc <- pbc[stats::complete.cases(pbc), 2:20] # Remove NA values and `id` column
@@ -79,18 +114,18 @@ not_standarlized_index <- c(1, 2, 3, 5, 6, 7, 8, 9, 20)
 # Standardize the columns
 pbc[, -not_standarlized_index] <- scale(pbc[, -not_standarlized_index])
 
-pbc_train_idx <- get_train_idx(pbc)
-
-train_data <- pbc[pbc_train_idx, ]
-test_data <- pbc[-pbc_train_idx, ]
+# Seperate observation data into train and test data
+train_n <- (ncol(pbc) - 2) * 5
+train_idx <- sample(1:nrow(pbc), train_n)
+train_data <- pbc[train_idx, ]
+test_data <- pbc[-train_idx, ]
 
 test_x <- test_data[, -which(names(test_data) %in% c("time", "status"))]
 test_time <- test_data$time
 test_status <- test_data$status
+test_entry_points <- rep(0, nrow(test_x))
 
 dim(train_data)
-
-head(train_data)
 ```
 
 In this section, we explore the foundation steps of fitting a COX regression model (GLM) using the `survival::coxph` function with the gaussian family. 
@@ -105,7 +140,8 @@ MPLE_0 <- get_cox_partial_likelihood(
   X = test_x,
   time = test_time,
   status = test_status,
-  coefs = rep(0, (ncol(test_x)))
+  coefs = rep(0, (ncol(test_x))),
+  entry_points = test_entry_points
 )
 
 # Fit a COX regression model
@@ -121,7 +157,8 @@ cat(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cox_model)
+    coefs = coef(cox_model),
+    entry_points = test_entry_points
   ) - MPLE_0
 )
 ```
@@ -159,11 +196,10 @@ cat_init_1 <- cat_cox_initialization(
   data = train_data,
   syn_size = 100, # Default: 4 times the number of predictors
   hazard_constant = 1, # Default: calculated from observed data
-  entry_points = rep(1, nrow(train_data)), # Default: Null, which is vector of zeros
-  x_degree = c(1, 2, rep(1, 17)), # Default: NULL, which means degrees of all predictors are 1
+  entry_points = rep(0, nrow(train_data)), # Default: Null, which is vector of zeros
+  x_degree = NULL, # Default: NULL, which means degrees of all predictors are 1
   resample_only = FALSE, # Default: FALSE
-  na_replace = mean, # Default: stats::na.omit
-  singular.ok = TRUE # Additional argument for the `survival::coxph`
+  na_replace = mean # Default: stats::na.omit
 )
 
 cat_init_1
@@ -186,7 +222,7 @@ Here, let us increase the `syn_size` for better estimation later.
 cat_init <- cat_cox_initialization(
   formula = survival::Surv(time, status) ~ 1,
   data = train_data,
-  syn_size = 100
+  syn_size = 500
 )
 
 cat_init
@@ -246,11 +282,7 @@ cat_init$obs_size
 cat_init$syn_x_resample_inform
 ```
 
-## Setp 2.1: Frequentist Approaches{#FrequentistApproaches}
-
-This section explores frequentist approaches to modeling using the catalytic package. These methods rely on traditional statistical techniques where model parameters are estimated through point estimation using a specific `tau`(synthetic data downweight factor) or tuning over a range of tau values(`tau_seq`).
-
-### 2.1.1. Point Estimate{#PointEstimate}
+## Step 2.1: Choose Method(s) - Estimation with Fixed tau{#cat_cox}
 
 The `cat_cox` function fits a Generalized COX Model (GLM) with a catalytic prior on the regression coefficients. It utilizes information from the `cat_init` object generated during the initialization step, which includes both observed and synthetic data, plus other relevant information. 
 
@@ -262,21 +294,19 @@ To fit a Cox Proportional-Hazards Model using the `catalytic` package, the `cat_
 
 Here's a breakdown of the parameters used:
 
-* `formula`: Specifies the model formula, indicating the time and status variables used for the Cox model. See `?survival::coxph` for details on formula syntax.
+* `formula`: This parameter specifies the model formula used in the Cox model. It defines the relationship between the response variable and the predictors. Alternatively, besides using in fomat `survival:Surv(TIME, STATUS) ~ COVARIATES`, user can also use `~ COVARIATES` without specifying the response name, since the response name is defined in the initialization step.
 
-* `data_`: The initialized data object created from `catalytic::cat_cox_initialization`.
+* `cat_init`: This parameter is essential and represents the initialization object (`cat_init`) created by using [`cat_cox_initialization`](#Initialization). It contains both observed and synthetic data, plus other relevant information, necessary for model fitting.
 
-* `tau`: A regularization parameter. Default is `NULL`, which sets tau to the number of predictors.
+* `tau`: This parameter determines the down-weight assigned to synthetic data relative to observed data. It influences the influence of synthetic data in the model fitting process. If not specified (`NULL`), it defaults to a one forth of the number of predictors.
 
 * `method`: The method for fitting the Cox model, either "CRE" (Catalytic-regularized Estimator) or "WME" (weighted Mixture Estimator). Default is "CRE".
 
-* `init_coefficients`: Initial coefficients for the Cox model. Default is `NULL`, which is all zeros.
+* `init_coefficients`: Initial coefficient values before iteration. Defaults to zero if not provided (if using `CRE`).
 
-* `tol`: The tolerance for convergence. Default is 1e-5.
+* `tol`: Convergence tolerance for iterative methods. Default is `1e-5` (if using `CRE`).
 
-* `max_iter`: The maximum number of iterations for convergence. Default is 25.
-
-* `...` (ellipsis): Additional arguments passed to the `survival::coxph`.Allows users to specify additional arguments that are passed directly to the simple model. This model is used within the function to generate synthetic responses by fitting observation data using `survival::coxph`. By leveraging `...`, users can customize the behavior of `survival::coxph` within cat_glm_initialization with additional options such as `control`, `method`, or other model-specific settings.
+*  `max_iter`: Maximum number of iterations allowed for convergence. Default is `25` (if using `CRE`).
 
 ```{r}
 cat_cox_1 <- cat_cox(
@@ -312,7 +342,8 @@ cat(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cat_cox_2)
+    coefs = coef(cat_cox_2),
+    entry_points = test_entry_points
   ) - MPLE_0
 )
 ```
@@ -329,7 +360,7 @@ Here's a breakdown of all attributes except the input parameters:
 
 * `iter`: The number of iterations performed (only for "CRE" method).
 
-* `iter_collect`: The collected coefficients for each iteration (only for "CRE" method).
+* `iteration_log`: The collected coefficients for each iteration (only for "CRE" method).
 
 For more details, please check `?cat_cox`.
 
@@ -347,36 +378,34 @@ cat_cox_2$formula
 cat_cox_2$coefficients
 ```
 
-### 2.1.2. Tuning{#Tuning}
+## Step 2.2: Choose Method(s) - Estimation with Selective tau {#cat_cox_tune}
 
 The `cat_cox_tune` function fits a with a catalytic prior on the regression coefficients and provides options for optimizing model performance over a range of tau values(`tau_seq`).
 
 These methods empower users to fit and optimize models with catalytic priors, leveraging both observed and synthetic data to enhance model performance and robustness in various statistical analyses.
 
-#### Cross-validation (risk_estimate_method = "cross_validation"){#CrossValidation}
+### Cross-validation (risk_estimate_method = "cross_validation"){#CrossValidation}
 
-This method computes the partial likelihood across a specified range of tau values (`tau_seq`). It iterates through each tau value, evaluating its performance based on cross-validation folds (`cv_fold_num`) to select the optimal tau that minimizes the discrepancy error.
+This method computes the partial likelihood across a specified range of tau values (`tau_seq`). It iterates through each tau value, evaluating its performance based on cross-validation folds (`cross_validation_fold_num`) to select the optimal tau that minimizes the discrepancy error.
 
 Here's a breakdown of the parameters used:
 
-* `formula`, `cat_init` and `...`(ellipsis) are same as [above](#PointEstimate).
-
-* `method`: Method for fitting the model, either "CRE" (Conditional Ridge Estimation) or "WME" (Weighted Maximum Estimation). Defaults to "CRE".
-
-* `discrepancy_method`: Method for evaluating model likelihood. Defaults to "cross_validation".
+* `formula`, `cat_init` and `method` are same as [above](#PointEstimate).
 
 * `tau_seq`: Vector of positive numeric values for downweighting synthetic data. Defaults to a sequence around the number of predictors.
 
-* `cv_fold_num`: Number of folds for cross-validation. Defaults to 5.
+* `cross_validation_fold_num`: Number of folds for cross-validation. Defaults to 5.
+
+* `...` (ellipsis): Additional arguments passed to the `cat_cox` function for model fitting.
 
 ```{r}
 cat_cox_tune_1 <- cat_cox_tune(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .`
   cat_init = cat_init,
   method = "CRE", # Default: "CRE"
-  likelihood_method = "cross_validation", # Default: "cross_validation"
-  tau_seq = seq(1, 50, 0.5), # Default is a numeric sequence around the number of predictors
-  cv_fold_num = 3 # Default: 5
+  tau_seq = seq(1, 10, 0.5), # Default is a numeric sequence around the number of predictors
+  cross_validation_fold_num = 3, # Default: 5
+  tol = 1e-2 # Additional arguments passed to the `cat_cox` function
 )
 
 cat_cox_tune_1
@@ -384,7 +413,7 @@ cat_cox_tune_1
 User can plot the tau_seq (x) against discrepancy error (y) using the `plot()` function. This plot will show the lowest discrepancy error at the optimal tau value.
 
 ```{r}
-plot(cat_cox_tune_1, text_pos = 1, legend_pos = "bottomright")
+plot(cat_cox_tune_1, text_pos = 2, legend_pos = "bottomright")
 ```
 
 Here shows how users can simplify the input for `cat_cox_tune`. User do not have to specify `tau_seq` or some other augments, as most of the augments has default values, which mentioned above.
@@ -407,7 +436,8 @@ cat(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cat_cox_tune_2)
+    coefs = coef(cat_cox_tune_2),
+    entry_points = test_entry_points
   ) - MPLE_0
 )
 ```
@@ -418,15 +448,13 @@ Here's a breakdown of all attributes except the input parameters:
 
 * `function_name`: The name of the function (`cat_cox_tune`).
 
-* `likelihood_collect`: The collected likelihood values for each tau.
+* `likelihood_list`: The collected likelihood values for each tau.
 
 * `tau`: Selected optimal tau value from `tau_seq` that maximizes likelihood score.
 
 * `model`: The fitted COX model object obtained with the selected optimal tau (`tau`).
 
 * `coefficients`: The estimated coefficients from the fitted COX model (`model`).
-
-* `max_likelihood`: The maximum likelihood value achieved. `likelihood_collect`, indicating the optimal tau.
 
 For more details, please check `?cat_cox_tune`.
 
@@ -437,50 +465,32 @@ names(cat_cox_tune_2)
 User can extract items mentioned above from `cat_cox_tune` object.
 
 ```{r}
-# The method used for maximun likelihood selection
-cat_cox_tune_2$likelihood_method
+# The estimated coefficients from the fitted model
+cat_cox_tune_2$coefficients
 
 # Selected optimal tau value from `tau_seq` that maximize the likelihood
 cat_cox_tune_2$tau
 ```
 
-## Setp 2.2: Bayesian Approaches{#BayesianApproches}
+## Setp 2.3: Bayesian Posterior Sampling with Fixed tau{#cat_cox_bayes}
 
 Now, we will explore advanced Bayesian modeling techniques tailored for COX using the `catalytic` package. Bayesian inference offers a powerful framework to estimate model parameters and quantify uncertainty by integrating prior knowledge with observed data. 
 
-Below functions enable Bayesian inference for COX Regression Model with catalytic priors. This function utilizes Markov chain Monte Carlo (MCMC) methods, implemented using the `rstan` package, to sample from the posterior distribution of model parameters. Users can specify various options such as the number of MCMC chains (`stan_chains`), iterations (`stan_iter`), warmup steps (`stan_warmup`), and the MCMC algorithm (`stan_algorithm`). User could also apply other attributes to `rstan::sampling`, like `refresh` and `control`.
-
-### 2.2.1. Bayesian with Fixed Tau{#BayesWithFixedTau}
+Below functions enable Bayesian inference for COX Regression Model with catalytic priors. This function utilizes Markov chain Monte Carlo (MCMC) methods, implemented using the `rstan` package, to sample from the posterior distribution of model parameters. Users can specify various options such as the number of MCMC chains (`chains`), iterations (`iter`) and warmup steps (`warmup`). User could also apply other attributes to `rstan::sampling`, like `refresh` and `control`.
 
 In this section, we explore Bayesian approaches using the `cat_cox_bayes` function from the `catalytic` package. This function can fit a Bayesian Generalized COX Model (GLM) using a fixed tau value. The MCMC sampling process will generate posterior distributions for the coefficients based on the specified tau.
 
 Here's a breakdown of the parameters used:
 
-* `formula` and `cat_init` are same as [above](#PointEstimate).
+* `formula`, `cat_init` and `tau` are same as [above](#cat_glm).
 
-* `tau_seq`: Similar to the `tau_seq` in [`cat_cox_tune`](#Tuning). But here, you can also input only one tau value for Bayesian analysis.
+* `chains`: Number of Markov chains to run during MCMC sampling in `rstan::sampling`. Defaults to 4.
 
-* `stan_chains`: Number of Markov chains to run during MCMC sampling in `rstan`. Defaults to 4.
+* `iter`: Total number of iterations per chain in the MCMC sampling process in `rstan::sampling`. Defaults to 2000.
 
-* `stan_iter`: Total number of iterations per chain in the MCMC sampling process in `rstan`. Defaults to 2000.
+* `warmup`: Number of warmup iterations in the MCMC sampling process in `rstan::sampling`, discarded as burn-in. Defaults to 1000.
 
-* `stan_warmup`: Number of warmup iterations in the MCMC sampling process in `rstan`, discarded as burn-in. Defaults to 1000.
-
-* `tune_method`: Method for fitting the model, either "CRE" (Conditional Ridge Estimation) or "WME" (Weighted Maximum Estimation). Defaults to "CRE". Details in [`cat_cox_tune`](#Tuning)
-
-* `tune_likelihood_method`: Method for evaluating model likelihood, default is "cross_validation". Details in [`cat_cox_tune`](#Tuning)
-
-* `tune_cv_fold_num`: Number of cross-validation folds. Default is 5. Details in [`cat_cox_tune`](#Tuning) 
-
-* `tune_initial_values`: Initial values for the parameters in the Stan model. Default is NULL. Details in [`cat_cox_tune`](#Tuning) 
-
-* `tune_tol`: Tolerance for the optimization process. Default is 1e-5. Details in [`cat_cox_tune`](#Tuning) 
-
-* `tune_max_iter`: Maximum number of iterations for the optimization process. Default is 25. Details in [`cat_cox_tune`](#Tuning) 
-
-* `c_0`: Hyperparameter for the prior distribution of the baseline hazard. Default is 2.
-
-* `H_star_list`: Initial values for the cumulative baseline hazard. Default is NULL, which leads to get the initial guess of `H_star_list` from a intercept-only weibull regression model based on the observation data.
+* `hazard_beta`: Shape parameter for the Gamma distribution in the hazard model. Defaults to 2.
 
 * `...` (ellipsis): Denotes additional arguments that can be passed directly to the underlying `rstan::sampling` function used within `cat_cox_bayes` to fit the Bayesian model. These arguments allow for customization of the Bayesian fitting process, such as `control`, `refresh`, or other model-specific settings.
 
@@ -490,25 +500,17 @@ For more details, please refer to `?cat_cox_bayes`.
 cat_cox_bayes_1 <- cat_cox_bayes(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .
   cat_init = cat_init,
-  tau_seq = c(1, 2), # Default: NULL
-  stan_chains = 2, # Default: 4
-  stan_iter = 100, # Default: 2000
-  stan_warmup = 50, # Default: 1000
-  tune_method = "CRE", # Default: CRE
-  tune_likelihood_method = "cross_validation", # Default: "cross_validation"
-  tune_cv_fold_num = 3, # Default: 5
-  tune_initial_values = NULL, # Default: NULL
-  tune_tol = 0.001, # Default: 1e-5
-  tune_max_iter = 50, # Default: 25
-  c_0 = 2, # Default: 2
-  H_star_list = NULL, # Default: NULL
-  init = "0" # Additional attribute for `rstan::sampling`
+  tau = 1, # Default: NULL
+  chains = 2, # Default: 4
+  iter = 100, # Default: 2000
+  warmup = 50, # Default: 1000
+  hazard_beta = 2 # Default: 2
 )
 
 cat_cox_bayes_1
 ```
 
-Here shows how users can simplify the input for `cat_cox_bayes`. User do not have to specify `family`, `tau` and other attributes, as `family` can derived from `cat_init` , while `tau` and other attributes have default value, which mentioned above.
+Here shows how users can simplify the input for `cat_cox_bayes`. User do not have to specify `tau` and other attributes, as `tau` and other attributes have default value, which mentioned above.
 
 ```{r}
 cat_cox_bayes_2 <- cat_cox_bayes(
@@ -540,7 +542,8 @@ cat(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cat_cox_bayes_2)
+    coefs = coef(cat_cox_bayes_2),
+    entry_points = test_entry_points
   ) - MPLE_0
 )
 ```
@@ -551,7 +554,7 @@ Here's a breakdown of all attributes except the input parameters:
 
 * `function_name`: The name of the function (`cat_cox_bayes`).
 
-* `tau`: The optimal tau value selected from `tau_seq`.
+* `stan_data`: The data list used for `rstan::sampling`.
 
 * `stan_model`: The `rstan::stan_model` object used for Bayesian modeling.
 
@@ -571,13 +574,13 @@ User can extract items mentioned above from `cat_cox_bayes` object.
 
 ```{r}
 # The number of Markov chains used during MCMC sampling in `rstan`.
-cat_cox_bayes_2$stan_chain
+cat_cox_bayes_2$chain
 
 # The mean estimated coefficients from the Bayesian model
 cat_cox_bayes_2$coefficients
 ```
 
-### 2.2.2. Bayesian with Adaptive Tau{#BayesWithAdapTau}
+## 2.4 Bayesian Posterior Sampling with Adaptive Tau{#cat_cox_bayes_joint}
 
 In this section, we delve into Bayesian methodologies employing the `cat_cox_bayes_joint` function within the `catalytic` package. Unlike its non-adaptive counterpart (`cat_cox_bayes`), this method employs a joint tau prior approach where tau is treated as a parameter within the MCMC sampling process, improving the robustness and accuracy of parameter estimation in Bayesian gaussian modeling.
 
@@ -585,21 +588,15 @@ In this section, we explore Bayesian approaches using the `cat_cox_bayes_joint` 
 
 Here's a breakdown of the parameters used:
 
-* `formula`, `family`, and `cat_init` are same as [above](#PointEstimate).
+* `formula` and `cat_init` are same as [above](#cat_cox).
 
-* `stan_chains`, `stan_iter`, `stan_warmup` and `stan_algorithm` are same in section [Bayesian with Fixed Tau](#BayesWithFixedTau).
+* `chains`, `iter`, `warmup` and `hazard_beta` are same in section [Bayesian Posterior Sampling with Fixed Tau](#cat_cox_bayes).
 
-* `alpha`: Alpha parameter controlling degrees of freedom for distribution in the joint tau approach. Default is 2.
+* `tau_alpha`: Alpha parameter controlling degrees of freedom for distribution in the joint tau approach. Default is 2.
 
-* `gamma`: Gamma parameter in the joint tau approach. Default is 1.
+* `tau_gamma`: Gamma parameter in the joint tau approach. Default is 1.
 
-* `binomial_use_theta`: Logical. If TRUE, use theta parameter in the binomial model. Default is FALSE. More explanation in [binomial section](#catalytic_cox_binomial).
-
-* `binomial_joint_alpha`: Logical. If TRUE, use joint alpha in the binomial model. Default is FALSE. More explanation in [binomial section](#catalytic_cox_binomial).
-
-* `binomial_tau_lower`: Lower limit for the tau parameter in the binomial model. Default is 0.05. More explanation in [binomial section](#catalytic_cox_binomial).
-
-* `...`(ellipsis): Denotes additional arguments that can be passed directly to the underlying `rstan::sampling` function used within `cat_cox_bayes` to fit the Bayesian model. These arguments allow for customization of the Bayesian fitting process, such as `control`, `refresh`, or other model-specific settings.
+* `...`(ellipsis): Denotes additional arguments that can be passed directly to the underlying `rstan::sampling` function used within `cat_cox_bayes_joint` to fit the Bayesian model. These arguments allow for customization of the Bayesian fitting process, such as `control`, `refresh`, or other model-specific settings.
 
 For more details, please refer to `?cat_cox_bayes_joint`.
 
@@ -607,20 +604,18 @@ For more details, please refer to `?cat_cox_bayes_joint`.
 cat_cox_bayes_joint_1 <- cat_cox_bayes_joint(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .
   cat_init = cat_init,
-  stan_chains = 2, # Default: 4
-  stan_iter = 100, # Default: 2000
-  stan_warmup = 50, # Default: 1000
-  alpha = 2, # Default: 2
-  gamma = 1, # Default: 1
-  c_0 = 2, # Default: 2
-  H_star_list = NULL, # Default: NULL
-  init = "0" # Additional attribute for `rstan::sampling`
+  chains = 2, # Default: 4
+  iter = 100, # Default: 2000
+  warmup = 50, # Default: 1000
+  tau_alpha = 2, # Default: 2
+  tau_gamma = 1, # Default: 1
+  hazard_beta = 2 # Default: 2
 )
 
 cat_cox_bayes_joint_1
 ```
 
-Here shows how users can simplify the input for `cat_cox_bayes_joint`. User do not have to specify `stan_chains` and other attributes, as they have default values, which mentioned above.
+Here shows how users can simplify the input for `cat_cox_bayes_joint`. User do not have to specify `chains` and other attributes, as they have default values, which mentioned above.
 
 ```{r}
 cat_cox_bayes_joint_2 <- cat_cox_bayes_joint(
@@ -637,7 +632,7 @@ User can also get the traceplot of the `rstan` model by using `traceplot()` dire
 traceplot(cat_cox_bayes_joint_2)
 ```
 
-Like the [`traceplot` shown in the `cat_cox_bayes` function](#BayesWithFixedTau) , user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
+Like the [`traceplot` shown in the `cat_cox_bayes` function](#cat_cox_bayes) , user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
 
 ```{r}
 traceplot(cat_cox_bayes_joint_2, inc_warmup = TRUE)
@@ -652,7 +647,8 @@ cat(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cat_cox_bayes_joint_2)
+    coefs = coef(cat_cox_bayes_joint_2),
+    entry_point = test_entry_points
   ) - MPLE_0
 )
 ```
@@ -665,13 +661,7 @@ Here's a breakdown of all attributes except the input parameters:
 
 * `tau`: The estimated tau parameter from the MCMC sampling `rstan::sampling`, depending on the model configuration.
 
-* `kappa_`: The calculated kappa value used in the model.
-
-* `stan_model`: The `rtan::stan_model` object used for Bayesian modeling.
-
-* `stan_sample_model`: The result object obtained from `rstan::sampling`, encapsulating the MCMC sampling results.
-
-* `coefficients`: The mean estimated coefficients from the Bayesian model, extracted from `rstan::summary(stan_sample_model)$summary`.
+* `stan_data`, `stan_model`, `stan_sample_model`, `coefficients` and `increment_cumulative_baseline_hazard` are same in section [Bayesian Posterior Sampling with Fixed Tau](#cat_glm_bayes).
 
 For more details, please refer to `?cat_cox_bayes_joint`.
 

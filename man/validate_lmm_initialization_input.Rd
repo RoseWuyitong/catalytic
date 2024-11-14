@@ -2,7 +2,7 @@
 % Please edit documentation in R/misc.R
 \name{validate_lmm_initialization_input}
 \alias{validate_lmm_initialization_input}
-\title{Validate Initialization Inputs for LMM Model}
+\title{Validate Inputs for Catalytic Linear Mixed Model (LMM) Initialization}
 \usage{
 validate_lmm_initialization_input(
   formula,
@@ -15,24 +15,38 @@ validate_lmm_initialization_input(
 )
 }
 \arguments{
-\item{formula}{A model formula, not applicable for survival analysis.}
+\item{formula}{An object of class \code{formula} representing the model formula, typically including fixed and random effects for LMMs or for GLMs.}
 
-\item{data}{A \code{data.frame} containing predictor and outcome variables.}
+\item{data}{A \code{data.frame} containing the data for model fitting. This should include all columns specified in \code{x_cols}, \code{y_col}, \code{z_cols}, and \code{group_col}.}
 
-\item{x_cols}{Names of predictor columns in \code{data}.}
+\item{x_cols}{A character vector of column names to be used as predictor variables in the model.}
 
-\item{y_col}{Name of the outcome variable column in \code{data}.}
+\item{y_col}{A single character string specifying the name of the response variable column.}
 
-\item{z_cols}{Names of random effect columns in \code{data}.}
+\item{z_cols}{A character vector of column names to be used as additional predictors or grouping factors, depending on the model structure.}
 
-\item{group_col}{Name of the grouping column in \code{data}.}
+\item{group_col}{A single character string specifying the name of the grouping variable for random effects.}
 
-\item{syn_size}{Number of synthetic samples; should be larger than 4 * the number of columns.}
+\item{syn_size}{Optional. A positive integer indicating the synthetic data size, typically for use in data augmentation or model diagnostics.}
 }
 \value{
-The function does not return a value but throws an error if any validation check fails.
+Returns nothing if all checks pass; otherwise, raises an error or warning.
 }
 \description{
-This function validates inputs required for initializing an LMM model, including
-checks on formula complexity, data structure, and inclusion of necessary columns.
+This function validates the parameters needed for initializing a catalytic Linear Mixed Model (LMM) or Generalized Linear Model (GLM)
+based on the input formula, data, and column specifications.
+}
+\details{
+This function performs the following checks:
+\itemize{
+\item Ensures \code{syn_size} is a positive integer.
+\item Verifies that \code{formula} is not for survival analysis (e.g., does not contain \code{Surv} terms).
+\item Checks that the formula is not overly complex by confirming it has fewer terms than the total columns in \code{data}.
+\item Ensures \code{y_col} and \code{group_col} each contain only one column name.
+\item Confirms \code{data} is a \code{data.frame}.
+\item Validates that all specified columns in \code{x_cols}, \code{y_col}, \code{z_cols}, and \code{group_col} exist in \code{data} without overlap or missing values.
+\item Warns if \code{syn_size} is set too small relative to the data dimensions, recommending a larger value.
+}
+
+If any of these conditions are not met, the function raises an error or warning to guide the user.
 }

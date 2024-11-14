@@ -5,8 +5,8 @@
 \title{Compute Discrepancy Measures}
 \usage{
 get_discrepancy(
-  discrepancy_method = c("logarithmic_error", "square_error", "classification_error",
-    "logistic_deviance"),
+  discrepancy_method = c("mean_logarithmic_error", "mean_square_error",
+    "mean_classification_error", "logistic_deviance"),
   family_string = NULL,
   X = NULL,
   Y = NULL,
@@ -18,10 +18,12 @@ get_discrepancy(
 \item{discrepancy_method}{A character string specifying the discrepancy method to use. Options are:
 \describe{
 \item{"logarithmic_error"}{Logarithmic error, suitable for probabilities.}
-\item{"square_error"}{Mean squared error.}
-\item{"classification_error"}{Classification error, suitable for binary outcomes.}
+\item{"mean_square_error"}{Mean squared error.}
+\item{"mean_classification_error"}{Mean of classification error, suitable for binary outcomes.}
 \item{"logistic_deviance"}{Logistic deviance, computed using a GLM model.}
 }}
+
+\item{family_string}{A GLM family in string (e.g., "binomial") used to compute logistic deviance.}
 
 \item{X}{A matrix of predictor variables.}
 
@@ -30,8 +32,6 @@ get_discrepancy(
 \item{coefs}{A vector of coefficients for the GLM model.}
 
 \item{est_Y}{A vector of estimated values. If not provided, it will be computed using \code{get_glm_mean} with the specified \code{family}.}
-
-\item{family}{A GLM family object (e.g., "binomial") used to compute logistic deviance.}
 }
 \value{
 A numeric value representing the discrepancy between observed and estimated values.
@@ -41,11 +41,11 @@ This function computes various discrepancy measures between observed and estimat
 It supports different methods including logarithmic error, square error, classification error, and logistic deviance.
 }
 \examples{
-# Example with square error
-X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
-coefs <- c(0.5, 1.5)
-Y <- c(1, 0)
-est_Y <- get_glm_mean("binomial", X, coefs)
-discrepancy <- get_discrepancy("square_error", X = X, Y = Y, coefs = coefs, est_Y = est_Y)
-discrepancy
+get_discrepancy(
+  discrepancy_method = "mean_square_error",
+  family_string = "gaussian",
+  X = matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2),
+  Y = c(1, 0),
+  coefs = c(0.5, 1.5)
+)
 }

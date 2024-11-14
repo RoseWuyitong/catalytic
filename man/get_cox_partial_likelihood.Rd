@@ -24,13 +24,12 @@ A numeric scalar representing the partial likelihood of the Cox model.
 This function calculates the partial likelihood for the Cox proportional hazards model. The partial likelihood is computed for the censored observations in the dataset.
 }
 \examples{
-X <- matrix(rnorm(20), ncol = 4)
-time <- runif(5, 0, 10)
-status <- sample(0:1, 5, replace = TRUE)
-coefs <- rnorm(4)
-entry_points <- rep(0, 5)
-
-# Compute partial likelihood
-pl <- get_cox_partial_likelihood(X, time, status, coefs, entry_points)
+pl <- get_cox_partial_likelihood(
+  X = matrix(stats::rnorm(100), ncol = 5),
+  time = stats::rexp(20),
+  status = stats::rbinom(20, 1, 0.5),
+  coefs = stats::rnorm(5),
+  entry_points = rep(0, 20)
+)
 pl
 }

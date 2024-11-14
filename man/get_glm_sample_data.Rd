@@ -7,13 +7,13 @@
 get_glm_sample_data(family_string, n = 10, mean = 0, sd = 1)
 }
 \arguments{
+\item{family_string}{Character. The family of the GLM. Options are \code{"binomial"} or \code{"gaussian"}.}
+
 \item{n}{Integer. The number of samples to generate.}
 
 \item{mean}{Numeric. The mean of the distribution (used for both binomial and Gaussian).}
 
 \item{sd}{Numeric. The standard deviation of the distribution (used only for Gaussian).}
-
-\item{family}{Character. The family of the GLM. Options are \code{"binomial"} or \code{"gaussian"}.}
 }
 \value{
 Numeric vector of generated sample data.
@@ -24,10 +24,10 @@ binomial or Gaussian distributed data based on the provided parameters.
 }
 \examples{
 # Generate sample data for binomial family
-binomial_data <- get_glm_sample_data(family = "binomial", n = 10, mean = 0.5)
+binomial_data <- get_glm_sample_data(family_string = "binomial", n = 10, mean = 0.5)
 binomial_data
 
 # Generate sample data for Gaussian family
-gaussian_data <- get_glm_sample_data(family = "gaussian", n = 10, mean = 0, sd = 1)
+gaussian_data <- get_glm_sample_data(family_string = "gaussian", n = 10, mean = 0, sd = 1)
 gaussian_data
 }

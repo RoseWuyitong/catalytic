@@ -2,7 +2,7 @@
 % Please edit documentation in R/cat_cox.R
 \name{cat_cox}
 \alias{cat_cox}
-\title{Fit Cox Proportional-Hazards Model with Synthetic Data}
+\title{Catalytic Cox Proportional Hazards Model (COX) Fitting Function with Fixed Tau}
 \usage{
 cat_cox(
   formula,
@@ -15,53 +15,64 @@ cat_cox(
 )
 }
 \arguments{
-\item{formula}{The formula for the Cox model, specifying the time and status variables and covariates.}
+\item{formula}{A formula specifying the Cox model. Should at least include response variables (e.g. \code{~ .}).}
 
-\item{cat_init}{The initialized data object created from \code{catalytic::data_initialization_cox}.}
+\item{cat_init}{A list generated from \code{cat_cox_initialization}.}
 
-\item{tau}{A regularization parameter. Default is \code{NULL}, which sets tau to the number of covariates.}
+\item{tau}{Optional numeric scalar controlling the weight of the synthetic data in the coefficient estimation, defaults to the number of predictors.}
 
-\item{method}{The method for fitting the Cox model, either "CRE" (Cox Regression Estimator) or "WME" (Weighted Mean Estimator). Default is "CRE".}
+\item{method}{The estimation method, either \code{"CRE"} (Catalytic-regularized Estimator) or \code{"WME"} (Weighted Mixture Estimator).}
 
-\item{init_coefficients}{Initial coefficients for the Cox model. Default is \code{NULL}.}
+\item{init_coefficients}{Initial coefficient values before iteration. Defaults to zero if not provided (if using \code{CRE}).}
 
-\item{tol}{The tolerance for convergence. Default is 1e-5.}
+\item{tol}{Convergence tolerance for iterative methods. Default is \code{1e-5} (if using \code{CRE}).}
 
-\item{max_iter}{The maximum number of iterations for convergence. Default is 25.}
-
-\item{...}{Additional arguments passed to the Cox model function.}
+\item{max_iter}{Maximum number of iterations allowed for convergence. Default is \code{25} (if using \code{CRE}).}
 }
 \value{
-A list containing the fitted Cox model and various fitting details:
-\describe{
-\item{function_name}{The name of the function, \code{cat_cox}.}
-\item{formula}{The formula used for the Cox model.}
-\item{cat_init}{The initialized data object used for the model.}
-\item{tau}{The regularization parameter used.}
-\item{method}{The method used for fitting the model, either "CRE" or "WME".}
-\item{coefficients}{The coefficients of the fitted Cox model.}
-\item{model}{The fitted survival model (only for "WME" method).}
-\item{iter}{The number of iterations performed (only for "CRE" method).}
-\item{iteration_log}{The collected coefficients for each iteration (only for "CRE" method).}
-\item{init_coefficients}{The initial coefficients used (if any).}
-\item{tol}{The tolerance for convergence.}
-\item{max_iter}{The maximum number of iterations allowed.}
-}
+A list containing the values of all the arguments and the following components:
+\item{coefficients}{Estimated coefficient vector.}
+\item{model}{Fitted Cox model object (if using \code{WME}).}
+\item{iteration_log}{Matrix logging variance and coefficient values for each iteration(if using \code{CRE}).}
+\item{iter}{Number of iterations (if using \code{CRE}).}
 }
 \description{
-This function fits a Cox Proportional-Hazards Model using the specified formula and data.
-The function supports two methods for fitting the model: "CRE" (Cox Regression Estimator) and "WME" (Weighted Mean Estimator).
+Fits a Catalytic Cox proportional hazards model for survival data with specified variance parameters
+and iterative coefficient estimation, with either \code{CRE} (Catalytic-regularized Estimator) or \code{WME} (Weighted Mixture Estimator) methods.
 }
 \examples{
-# Assuming `data_cox` is an initialized data object created with `data_initialization_cox`
-formula <- survival::Surv(time, status) ~ .
-cat_cox_model <- cat_cox(
-  formula = formula,
-  data_ = data_cox,
-  tau = 5,
-  method = "CRE",
-  max_iter = 25
+library(survival)
+data("cancer")
+cancer$status[cancer$status == 1] <- 0
+cancer$status[cancer$status == 2] <- 1
+
+cat_init <- cat_cox_initialization(
+  formula = Surv(time, status) ~ 1, # formula for simple model
+  data = cancer,
+  syn_size = 200, # Synthetic data size
+  hazard_constant = 0.1, # Hazard rate value
+  entry_points = rep(0, nrow(cancer)), # Entry points of each observation
+  x_degree = rep(1, ncol(cancer) - 2), # Degrees for polynomial expansion of predictors
+  resample_only = FALSE, # Whether to perform resampling only
+  na_replace = stats::na.omit # How to handle NA values in data
 )
 
-print(cat_cox_model)
+cat_model_cre <- cat_cox(
+  formula = ~.,
+  cat_init = cat_init, # Only accept object generated from `cat_cox_initialization`
+  tau = 1, # Weight for synthetic data
+  method = "CRE", # Choose from `"CRE"` or `"WME"`
+  init_coefficients = rep(0, ncol(cat_init$x)), # Initial coefficient values (Only for `CRE`)
+  tol = 1e-4, # Tolerance for convergence criterion  (Only for `CRE`)
+  max_iter = 30 # Maximum number of iterations for convergence  (Only for `CRE`)
+)
+cat_model_cre
+
+cat_model_wme <- cat_cox(
+  formula = ~.,
+  cat_init = cat_init, # Only accept object generated from `cat_cox_initialization`
+  tau = 1, # Weight for synthetic data
+  method = "WME"
+)
+cat_model_wme
 }

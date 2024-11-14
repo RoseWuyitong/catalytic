@@ -27,12 +27,11 @@ A vector of indices representing the subjects at risk at the specified time of i
 This function returns the indices of the risk set for a given time of interest in the Cox proportional hazards model.
 }
 \examples{
-entry_vector <- c(0, 0, 0, 0, 0)
-time_vector <- c(3, 5, 8, 9, 10)
-status_vector <- c(1, 1, 0, 1, 0)
-time_of_interest <- 5
-
-# Identify risk set indices
-risk_set_idx <- get_cox_risk_set_idx(time_of_interest, entry_vector, time_vector, status_vector)
+risk_set_idx <- get_cox_risk_set_idx(
+  time_of_interest = 5,
+  entry_vector = c(0, 0, 0, 0, 0),
+  time_vector = c(3, 5, 8, 9, 10),
+  status_vector = c(1, 1, 0, 1, 0)
+)
 risk_set_idx
 }

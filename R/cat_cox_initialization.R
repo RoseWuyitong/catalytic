@@ -1,56 +1,70 @@
-#' Initialize Cox Proportional-Hazards Model with Synthetic Data
+#' Initialization for Catalytic Cox proportional hazards model (COX)
 #'
-#' This function initializes data for fitting Cox Proportional-Hazards models with synthetic data using the catalytic package.
-#' Adjust parameters such as the formula, syn_size, and x_degree to customize the initialization process.
+#' This function prepares and initializes a catalytic Cox proportional hazards model by processing input data,
+#' extracting necessary variables, generating synthetic datasets, and fitting a model.
 #'
-#' @param formula A formula specifying the model structure, which is used for generating synthetic response.
-#'                See `survival::coxph` for details on formula syntax.
-#' @param data The original dataset in `data.frame` format.
-#' @param syn_size The size of the synthetic data generated. Default is four times the number of predictors.
-#' @param hazard_constant A constant used in the hazard rate calculation. Default is the sum of observed statuses divided by the mean observed time divided by the number of observations.
-#' @param entry_points An optional vector specifying the entry points for the data. Default is a vector of zeros.
-#' @param x_degree Degrees of covariates in the synthetic data generation process. Defaults to NULL.
-#' @param resample_only Logical indicating whether to generate synthetic data only by resampling original data. Default is FALSE.
-#' @param na_replace Function used to handle missing values in the original dataset. Defaults to `stats::na.omit`.
-#' @param ... Additional arguments to be passed to the `coxph` function.
+#' @param formula A formula specifying the Cox model. Should include response and predictor variables.
+#' @param data A data frame containing the data for modeling.
+#' @param syn_size An integer specifying the size of the synthetic dataset to be generated. Default is four times the number of predictor columns.
+#' @param hazard_constant A constant hazard rate for generating synthetic time data if not using a fitted Cox model. Default is NULL and will calculate in function.
+#' @param entry_points A numeric vector for entry points of each observation. Default is NULL.
+#' @param x_degree A numeric vector indicating the degree for polynomial expansion of predictors. Default is 1 for each predictor.
+#' @param resample_only A logical indicating whether to perform resampling only. Default is FALSE.
+#' @param na_replace A function to handle NA values in the data. Default is `stats::na.omit`.
 #'
-#' @return An object of class `cat_init` containing:
-#'   \describe{
-#'     \item{function_name}{Name of the initialization function.}
-#'     \item{formula}{Formula used for model initialization.}
-#'     \item{hazard_constant}{Hazard rate constant used.}
-#'     \item{entry_points}{Entry points for the data.}
-#'     \item{x_degree}{Degrees of covariates used in synthetic data generation.}
-#'     \item{time_col_name}{Column name of the time variable.}
-#'     \item{status_col_name}{Column name of the status variable.}
-#'     \item{obs_size}{Size of the original dataset.}
-#'     \item{obs_data}{Original dataset (observations).}
-#'     \item{obs_x}{Covariates from the original dataset.}
-#'     \item{obs_time}{Time variable from the original dataset.}
-#'     \item{obs_status}{Status variable from the original dataset.}
-#'     \item{syn_size}{Size of the synthetic dataset.}
-#'     \item{syn_data}{Synthetic dataset generated (synthetic covariates and responses).}
-#'     \item{syn_x}{Synthetic covariates.}
-#'     \item{syn_time}{Synthetic times.}
-#'     \item{syn_status}{Synthetic statuses.}
-#'     \item{syn_x_resample_inform}{Information on resampled synthetic data.}
-#'     \item{size}{Size of the original dataset plus the size of the synthetic dataset.}
-#'     \item{data}{Combined observation and synthetic data.}
-#'     \item{x}{Combined observation and synthetic covariates.}
-#'     \item{time}{Combined observation and synthetic times.}
-#'     \item{status}{Combined observation and synthetic statuses.}
-#'   }
-#' @export
+#' @return A list containing the values of all the input arguments and the following components:
+#'
+#' - **Function Information**:
+#'   - `function_name`: The name of the function, "cat_cox_initialization".
+#'   - `time_col_name`: The name of the time variable in the dataset.
+#'   - `status_col_name`: The name of the status variable (event indicator) in the dataset.
+#'   - `simple_model`: If the formula has no predictors, a constant hazard rate model is used; otherwise, a fitted Cox model object.
+#'
+#' - **Observation Data Information**:
+#'   - `obs_size`: Number of observations in the original dataset.
+#'   - `obs_data`: Data frame of standardized observation data.
+#'   - `obs_x`: Predictor variables for observed data.
+#'   - `obs_time`: Observed survival times.
+#'   - `obs_status`: Event indicator for observed data.
+#'
+#' - **Synthetic Data Information**:
+#'   - `syn_size`: Number of synthetic observations generated.
+#'   - `syn_data`: Data frame of synthetic predictor and response variables.
+#'   - `syn_x`: Synthetic predictor variables.
+#'   - `syn_time`: Synthetic survival times.
+#'   - `syn_status`: Event indicator for synthetic data (defaults to 1).
+#'   - `syn_x_resample_inform`: Information about resampling methods for synthetic predictors:
+#'     - Coordinate: Preserves the original data values as reference coordinates during processing.
+#'     - Deskewing: Adjusts the data distribution to reduce skewness and enhance symmetry.
+#'     - Smoothing: Reduces noise in the data to stabilize the dataset and prevent overfitting.
+#'     - Flattening: Creates a more uniform distribution by modifying low-frequency categories in categorical variables.
+#'     - Symmetrizing: Balances the data around its mean to improve statistical properties for model fitting.
+#'
+#' - **Whole Data Information**:
+#'   - `size`: Total number of combined original and synthetic observations.
+#'   - `data`: Data frame combining original and synthetic datasets.
+#'   - `x`: Combined predictor variables from original and synthetic data.
+#'   - `time`: Combined survival times from original and synthetic data.
+#'   - `status`: Combined event indicators from original and synthetic data.
 #'
 #' @examples
-#' # Assuming `my_data` is a data frame with columns `time`, `status`, and covariates
-#' formula <- survival::Surv(time, status) ~ .
-#' cat_init <- cat_cox_initialization(
-#'   formula = formula,
-#'   data = my_data
-#' )
+#' library(survival)
+#' data("cancer")
+#' cancer$status[cancer$status == 1] <- 0
+#' cancer$status[cancer$status == 2] <- 1
 #'
+#' cat_init <- cat_cox_initialization(
+#'   formula = Surv(time, status) ~ 1, # formula for simple model
+#'   data = cancer,
+#'   syn_size = 200, # Synthetic data size
+#'   hazard_constant = NULL, # Hazard rate value
+#'   entry_points = rep(0, nrow(cancer)), # Entry points of each observation
+#'   x_degree = rep(1, ncol(cancer) - 2), # Degrees for polynomial expansion of predictors
+#'   resample_only = FALSE, # Whether to perform resampling only
+#'   na_replace = stats::na.omit # How to handle NA values in data
+#' )
 #' cat_init
+#' @export
 cat_cox_initialization <- function(formula,
                                    data,
                                    syn_size = NULL,
@@ -75,6 +89,7 @@ cat_cox_initialization <- function(formula,
     data = data,
     na_replace = na_replace
   )
+  entry_points <- entry_points[as.numeric(rownames(obs_data))]
 
   ## Extract observation covariate and response
   f_lhs <- get_formula_lhs(formula)
@@ -114,18 +129,18 @@ cat_cox_initialization <- function(formula,
   if (is.null(entry_points)) entry_points <- rep(0, obs_size)
 
   ## Generate synthetic covariate by resampling observation covariate
-  syn_x_inform <- get_resampled_data(
+  syn_x_inform <- get_resampled_df(
     data = obs_x,
     resample_size = syn_size,
     data_degree = x_degree,
     resample_only = resample_only
   )
-  syn_x <- as.data.frame(syn_x_inform$resampled_data)
+  syn_x <- as.data.frame(syn_x_inform$resampled_df)
 
   # Generate synthetic time by using simple model
   if (get_formula_rhs(formula) == 1) {
     simple_model <- sum(obs_status) / mean(obs_time) / obs_size
-    syn_time <- rexp(
+    syn_time <- stats::rexp(
       syn_size,
       rate = simple_model
     )
@@ -134,7 +149,7 @@ cat_cox_initialization <- function(formula,
       formula = formula,
       data = data
     )
-    browser()
+
     syn_time <- summary(
       survival::survfit(
         simple_model,
@@ -180,13 +195,13 @@ cat_cox_initialization <- function(formula,
     syn_size = syn_size - length(syn_time_na_idx),
     syn_data = cbind(
       syn_x,
-      setNames(as.data.frame(syn_time), time_col_name),
-      setNames(as.data.frame(syn_status), status_col_name)
+      stats::setNames(as.data.frame(syn_time), time_col_name),
+      stats::setNames(as.data.frame(syn_status), status_col_name)
     ),
     syn_x = syn_x,
     syn_time = syn_time,
     syn_status = syn_status,
-    syn_x_resample_inform = syn_x_inform$resampled_data_record
+    syn_x_resample_inform = syn_x_inform$resampled_df_log
   )
 
   cat_init <- c(

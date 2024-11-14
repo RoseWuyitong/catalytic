@@ -1,0 +1,78 @@
+---
+title: "catalytic"
+output: md_document
+---
+# catalytic
+
+The `catalytic` package enhances the stability and accuracy of Generalized Linear Models (GLMs) and Cox proportional hazards models (COX) in \proglang{R}, especially in high-dimensional or sparse data settings where traditional methods struggle. By employing catalytic prior distributions, this package integrates observed data with synthetic data generated from simpler models, effectively reducing issues like overfitting. This approach provides more robust parameter estimation, making `catalytic` a valuable tool for complex and limited-data scenarios.
+
+## Installation
+
+You can install the released version of catalytic from
+[CRAN](https://CRAN.R-project.org) with:
+
+```{r}
+install.packages("catalytic")
+```
+
+## Example
+
+```{r}
+library(catalytic)
+
+set.seed(1)
+
+data <- data.frame(
+  X1 = rnorm(10),
+  X2 = rnorm(10),
+  Y = rnorm(10)
+)
+
+# Step 1: Initialization
+cat_init <- cat_glm_initialization(
+  formula = Y ~ 1, # Formula for a simple model to generate synthetic response
+  family = gaussian,
+  data = data,
+  syn_size = 100 # Synthetic data size
+)
+print(cat_init)
+
+# Step 2: Choose Method(s)
+## Method 1 - Estimation with fixed tau
+cat_glm_model <- cat_glm(
+  formula = Y ~ ., # Formula for model fitting
+  cat_init = cat_init, # Output object from `cat_glm_initialization`
+  tau = 10 # Down-weight factor for synthetic data
+)
+print(cat_glm_model)
+print(predict(cat_glm_model))
+
+## Method 2 - Estimation with selective tau
+cat_glm_tune_model <- cat_glm_tune(
+  formula = Y ~ .,
+  cat_init = cat_init,
+  tau_seq = seq(1, 10) # Vector of values for downweighting synthetic data
+)
+print(cat_glm_tune_model)
+print(predict(cat_glm_tune_model))
+plot(cat_glm_tune_model, text_pos = 2)
+
+## Method 3 - Bayesian posterior sampling with fixed tau
+cat_glm_bayes_model <- cat_glm_bayes(
+  formula = Y ~ .,
+  cat_init = cat_init,
+  tau = 10
+)
+print(cat_glm_bayes_model)
+print(predict(cat_glm_bayes_model))
+traceplot(cat_glm_bayes_model)
+
+## Method 4 - Bayesian posterior sampling with adaptive tau
+cat_glm_bayes_joint_model <- cat_glm_bayes_joint(
+  formula = Y ~ .,
+  cat_init = cat_init
+)
+print(cat_glm_bayes_joint_model)
+print(predict(cat_glm_bayes_joint_model))
+traceplot(cat_glm_bayes_joint_model)
+```

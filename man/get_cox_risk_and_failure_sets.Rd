@@ -26,7 +26,6 @@ time_vector <- rexp(10)
 status_vector <- rbinom(10, 1, 0.5)
 indicator_vector <- sort(unique(c(time_vector, time_vector + rexp(10))))
 
-# Calculate risk and failure sets
 sets <- get_cox_risk_and_failure_sets(time_vector, status_vector, indicator_vector)
 sets$risk_set
 sets$failure_set

@@ -9,7 +9,8 @@ get_glm_family_string(family, with_link = FALSE)
 \arguments{
 \item{family}{Character or function. The name of the GLM family (as a string) or a function that returns a GLM family object.}
 
-\item{with_link}{Logical. If TRUE, returns the family name along with the link function in the format "family \link{link}". If FALSE, only the family name is returned. Default is FALSE.}
+\item{with_link}{Logical. If TRUE, returns the family name along with the link function in the format "family \[link\]".
+If FALSE, only the family name is returned. Default is FALSE.}
 }
 \value{
 A character string. The name of the GLM family, or the name with the link function if \code{with_link} is TRUE.

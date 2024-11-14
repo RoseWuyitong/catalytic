@@ -15,26 +15,13 @@ get_cox_gradient(X, time, status, coefs, entry_points)
 
 \item{coefs}{A numeric vector of coefficients for the Cox model.}
 
-\item{entry_points}{(Optional) A numeric vector of entry times for the subjects. Defaults to 0.}
+\item{entry_points}{A numeric vector of entry times for the subjects. Defaults to 0.}
 }
 \value{
 A numeric vector representing the gradient of the Cox proportional hazards model.
 }
 \description{
-Compute the Gradient for Cox Proportional Hazards Model
-}
-\details{
 This function computes the gradient for the Cox proportional hazards model. The gradient
 is calculated by considering the contributions of each observation to the gradient based on the
 risk set at each event time.
-}
-\examples{
-X <- matrix(rnorm(15), ncol = 3)
-time <- rexp(5, rate = 0.1)
-status <- rbinom(5, 1, 0.5)
-coefs <- rnorm(3)
-
-# Compute the gradient
-gradient <- get_cox_gradient(X, time, status, coefs)
-gradient
 }

@@ -7,6 +7,8 @@
 get_glm_log_density(family_string, X, Y, coefs, weights = 1)
 }
 \arguments{
+\item{family_string}{Character. The GLM family to use. Options are \code{"binomial"} or \code{"gaussian"}.}
+
 \item{X}{Matrix. The design matrix (predictors) for the GLM.}
 
 \item{Y}{Vector or data frame. The response variable for the GLM. If a data frame, it is converted to a numeric vector.}
@@ -14,8 +16,6 @@ get_glm_log_density(family_string, X, Y, coefs, weights = 1)
 \item{coefs}{Numeric vector. The coefficients for the GLM.}
 
 \item{weights}{Numeric vector. Weights for the observations. Default is \code{1} (no weighting).}
-
-\item{family}{Character. The GLM family to use. Options are \code{"binomial"} or \code{"gaussian"}.}
 }
 \value{
 Numeric. The computed log density of the response variable based on the specified family.
@@ -25,9 +25,9 @@ This function calculates the log density of the response variable given a genera
 based on the specified family. The log density is computed differently for binomial and gaussian families.
 }
 \examples{
-X <- matrix(rnorm(15), ncol = 3)
-Y <- rbinom(5, 1, 0.5)
-coefs <- rnorm(4)
+X <- matrix(stats::rnorm(15), ncol = 3)
+Y <- stats::rbinom(5, 1, 0.5)
+coefs <- stats::rnorm(4)
 
 # Compute log density for a binomial family
 log_density_binomial <- get_glm_log_density("binomial", X, Y, coefs)

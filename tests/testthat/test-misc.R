@@ -1,24 +1,1320 @@
-library(catalytic)
-source("~/catalytic/tests/testthat/helper.R")
-
 set.seed(1)
 
-context("misc")
+glm_gaussian_data <- mock_glm_gaussian_data()
+cat_init_glm_gaussian <- mock_cat_glm_gaussian_initialization(glm_gaussian_data)
 
-glm_data <- glm_data
-cox_data <- cox_data
+glm_binomial_data <- mock_glm_binomial_data()
+cat_init_glm_binomial <- mock_cat_glm_binomial_initialization(glm_binomial_data)
+
+cox_data <- mock_cox_data()
+cat_init_cox <- mock_cat_cox_initialization(cox_data)
+
+lmm_data <- mock_lmm_data()
+cat_init_lmm <- mock_cat_lmm_initialization(lmm_data)
 
 
 # ----- GLMs -----
+test_that("get_glm_sample_data works correctly", {
+  # Test data generation for binomial family
+  binomial_data <- get_glm_sample_data(
+    family_string = "binomial",
+    n = 20,
+    mean = 0.3
+  )
+  expect_equal(length(binomial_data), 20)
+  expect_true(all(binomial_data %in% c(0, 1)))
 
+  # Test data generation for Gaussian family
+  gaussian_data <- get_glm_sample_data(
+    family_string = "gaussian",
+    n = 20,
+    mean = 5,
+    sd = 2
+  )
+  expect_equal(length(gaussian_data), 20)
+  expect_true(all(is.numeric(gaussian_data)))
+
+  # Check for error with an invalid family
+  expect_null(get_glm_sample_data(
+    family_string = "invalid_family",
+    n = 20,
+    mean = 5,
+    sd = 2
+  ))
+})
+
+test_that("get_hmc_mcmc_result works correctly", {
+  # Define a simple quadratic potential function and its gradient
+  neg_log_den_func <- function(pos) {
+    0.5 * sum(pos^2)
+  }
+  neg_log_den_grad_func <- function(pos) {
+    pos
+  }
+
+  # Set initial position, iteration count, scale, and steps
+  coefs_0 <- c(1, 1)
+  iter <- 10
+  hmc_scale <- 0.01
+  hmc_steps <- 5
+
+  # Run the function
+  result <- get_hmc_mcmc_result(
+    neg_log_den_func,
+    neg_log_den_grad_func,
+    coefs_0,
+    iter = iter,
+    hmc_scale = hmc_scale,
+    hmc_steps = hmc_steps
+  )
+
+  # Check the output type and length
+  expect_type(result, "double")
+  expect_equal(length(result), length(coefs_0))
+
+  result_2 <- get_hmc_mcmc_result(
+    neg_log_den_func,
+    neg_log_den_grad_func,
+    coefs_0,
+    iter = iter,
+    hmc_scale = hmc_scale,
+    hmc_steps = hmc_steps
+  )
+
+  # The results should not match exactly
+  expect_false(all(result == result_2))
+})
+
+test_that("hmc_neal_2010 works correctly", {
+  # Define a simple quadratic potential function and its gradient
+  neg_log_den_func <- function(pos) {
+    0.5 * sum(pos^2)
+  }
+  neg_log_den_grad_func <- function(pos) {
+    pos
+  }
+
+  # Set parameters for the HMC function
+  leapfrog_stepsize <- 0.1
+  leapfrog_step <- 10
+  current_pos <- c(1, 1)
+
+  # Call the HMC function
+  result <- hmc_neal_2010(
+    neg_log_den_func, neg_log_den_grad_func,
+    leapfrog_stepsize, leapfrog_step, current_pos
+  )
+
+  # Test that the output is a list
+  expect_type(result, "list")
+
+  # Test that the list has named elements position, potential_energy, and accepted
+  expect_named(result, c("position", "potential_energy", "accepted"))
+
+  # Test that position is a numeric vector of the same length as current_pos
+  expect_type(result$position, "double")
+  expect_equal(length(result$position), length(current_pos))
+
+  # Test that potential_energy is a numeric scalar
+  expect_type(result$potential_energy, "double")
+  expect_length(result$potential_energy, 1)
+
+  # Test that accepted is a logical value
+  expect_type(result$accepted, "logical")
+  expect_length(result$accepted, 1)
+
+  # Run multiple iterations to see if the function accepts/rejects states correctly
+  accept_count <- 0
+  total_runs <- 100
+
+  for (i in seq_len(total_runs)) {
+    result <- hmc_neal_2010(neg_log_den_func, neg_log_den_grad_func,
+      leapfrog_stepsize = 0.1, leapfrog_step = 10,
+      current_pos = c(1, 1)
+    )
+    if (result$accepted) accept_count <- accept_count + 1
+  }
+
+  # The function should accept some of the proposals
+  expect_gt(accept_count, 0)
+
+  # The function should also reject some proposals in the set
+  expect_lt(accept_count, total_runs)
+
+  # Test for a small step size where energy should be conserved well
+  leapfrog_stepsize <- 0.01
+  leapfrog_step <- 20
+  current_pos <- c(1, 1)
+  result_small_stepsize <- hmc_neal_2010(
+    neg_log_den_func, neg_log_den_grad_func,
+    leapfrog_stepsize, leapfrog_step, current_pos
+  )
+})
+
+test_that("get_glm_log_density_grad works correctly", {
+  X <- matrix(rnorm(20), ncol = 5)
+  Y_binomial <- c(1, 0, 1, 0)
+  Y_gaussian <- rnorm(4)
+  coefs <- rnorm(6)
+
+  # Retrieve GLM models from glm_data
+  model_binomial <- stats::glm(Y_binomial ~ X, binomial)
+  model_gaussian <- stats::glm(Y_gaussian ~ X, gaussian)
+
+  # Compute gradients
+  grad_binomial <- get_glm_log_density_grad("binomial", X, Y_binomial, coefs)
+  grad_gaussian <- get_glm_log_density_grad("gaussian", X, Y_gaussian, coefs)
+
+  # Manually compute expected gradients for comparison
+  mean_binomial <- get_glm_mean("binomial", X, coefs)
+  grad_binomial_expected <- c(t(model_binomial$prior.weights * (Y_binomial - mean_binomial)) %*% cbind(1, X))
+
+  mean_gaussian <- get_glm_mean("gaussian", X, coefs)
+  grad_gaussian_expected <- c(t(model_gaussian$prior.weights * (Y_gaussian - mean_gaussian)) %*% cbind(1, X))
+
+  # Test that computed values match expected values
+  expect_equal(grad_binomial, grad_binomial_expected)
+  expect_equal(grad_gaussian, grad_gaussian_expected)
+})
+
+test_that("get_glm_diag_approx_cov works correctly", {
+  X <- matrix(rnorm(20), ncol = 5)
+  y <- c(1, 0, 1, 0)
+
+  # Fit a GLM model
+  model <- stats::glm(y ~ X, family = binomial)
+
+  # Compute the diagonal covariance matrix
+  diag_cov <- get_glm_diag_approx_cov(X, model)
+
+  # Manually compute the expected diagonal covariance for comparison
+  hessian <- (t(cbind(1, X))) %*%
+    diag(model$fitted.values * (1 - model$fitted.values) * model$prior.weights) %*%
+    cbind(1, X)
+  expected_diag_cov <- tryCatch(
+    diag(solve(hessian)),
+    error = function(.) {
+      # Regularization for dealing with computationally singular issue
+      diag(solve(hessian + diag(ncol(hessian)) * 1e-5))
+    }
+  )
+
+  # Test that the computed and expected values match
+  expect_equal(diag_cov, expected_diag_cov)
+
+  # Check for correct error handling with mismatched dimensions (if applicable)
+  expect_error(get_glm_diag_approx_cov(matrix(1:4, ncol = 2), model))
+})
+
+test_that("get_glm_custom_var works correctly", {
+  # Call the function and check the result
+  custom_var <- get_glm_custom_var(Y ~ ., cat_init_glm_gaussian, 1)
+
+  # Expected custom variance calculation manually
+  tau_model <- do.call(
+    stats::glm,
+    list(
+      formula = Y ~ .,
+      family = cat_init_glm_gaussian$family,
+      data = cat_init_glm_gaussian$data,
+      weights = c(
+        rep(1, cat_init_glm_gaussian$obs_size),
+        rep(1 / cat_init_glm_gaussian$syn_size, cat_init_glm_gaussian$syn_size)
+      )
+    )
+  )
+  expected_custom_var <- sum(stats::residuals(tau_model)^2) / stats::df.residual(tau_model) +
+    sum(stats::residuals(tau_model)[1:cat_init_glm_gaussian$obs_size]^2) / cat_init_glm_gaussian$obs_size
+
+
+  expect_equal(custom_var, expected_custom_var)
+})
+
+test_that("get_glm_lambda works correctly", {
+  X <- matrix(rnorm(20), ncol = 5)
+  coefs <- rnorm(6)
+
+  # Expected outputs based on the given inputs
+  expected_square_error <- 2 * get_glm_mean("gaussian", X, coefs)
+  expected_classification_error <- 2 * get_glm_mean("binomial", X, coefs)
+  expected_logistic_deviance <- get_linear_predictor(X, coefs)
+
+  # Test for "square_error"
+  expect_equal(get_glm_lambda("mean_square_error", X, coefs), expected_square_error)
+
+  # Test for "classification_error"
+  expect_equal(get_glm_lambda("mean_classification_error", X, coefs), expected_classification_error)
+
+  # Test for "logistic_deviance"
+  expect_equal(get_glm_lambda("logistic_deviance", X, coefs), expected_logistic_deviance)
+
+  # Test that an error is thrown for invalid discrepancy method
+  expect_error(get_glm_lambda("invalid_method", X, coefs))
+})
+
+test_that("get_glm_log_density works correctly", {
+  X <- matrix(rnorm(20), ncol = 5)
+  coefs <- rnorm(6)
+  Y_binomial <- c(0, 1, 0, 1)
+  Y_gaussian <- rnorm(4)
+  weights <- 0.5
+
+  # Test for binomial family
+  log_density_binomial <- get_glm_log_density("binomial", X, Y_binomial, coefs, weights)
+  lp_binomial <- get_linear_predictor(X, coefs)
+  expected_log_density_binomial <- weights * sum((Y_binomial * lp_binomial - log(1 + exp(lp_binomial))))
+  expect_equal(log_density_binomial, expected_log_density_binomial, tolerance = 1e-6)
+
+  # Test for gaussian family
+  log_density_gaussian <- get_glm_log_density("gaussian", X, Y_gaussian, coefs, weights)
+  lp_gaussian <- get_linear_predictor(X, coefs)
+  expected_log_density_gaussian <- weights * -0.5 * sum((log(2 * pi * max(mean((Y_gaussian - lp_gaussian)^2), 1e-5)) + 1))
+  expect_equal(log_density_gaussian, expected_log_density_gaussian, tolerance = 1e-6)
+
+  # Test for invalid family
+  expect_null(get_glm_log_density("invalid_family", X, Y_binomial, coefs))
+})
+
+test_that("get_glm_mean works correctly", {
+  X <- matrix(rnorm(20), ncol = 5)
+  coefs <- rnorm(6)
+
+  # Test for binomial family
+  mean_binomial <- get_glm_mean("binomial", X, coefs)
+  expected_binomial <- 1 / (1 + exp(-get_linear_predictor(X, coefs)))
+  expect_equal(mean_binomial, expected_binomial, tolerance = 1e-6)
+
+  # Test for gaussian family
+  mean_gaussian <- get_glm_mean("gaussian", X, coefs)
+  expected_gaussian <- get_linear_predictor(X, coefs)
+  expect_equal(mean_gaussian, expected_gaussian, tolerance = 1e-6)
+
+  # Test for invalid family
+  expect_null(get_glm_mean("invalid_family", X, coefs))
+})
+
+test_that("get_glm_family_string works correctly", {
+  # Test retrieving the family name
+  gaussian_family_name <- get_glm_family_string("gaussian")
+  expect_equal(gaussian_family_name, "gaussian")
+
+  # Test retrieving the family name with the link function
+  poisson_family_name_with_link <- get_glm_family_string("poisson", with_link = TRUE)
+  expect_equal(poisson_family_name_with_link, "poisson [log]")
+
+  # Test handling invalid family input
+  expect_error(get_glm_family_string("invalid_family"), "'family' must be a valid GLM family.")
+  expect_error(get_glm_family_string(function() "invalid"), "'family' must be a valid GLM family.")
+})
+
+test_that("validate_glm_input works correctly", {
+  # Mock the menu function to simulate user input
+  mock_menu <- function(...) {
+    return(2) # Simulating user input "NO" to terminate
+  }
+
+  # Assign the mock_menu to replace the original menu function
+  assign("menu", mock_menu, envir = globalenv())
+
+
+  # Test for valid inputs
+  expect_silent(
+    validate_glm_input(
+      formula = Y ~ X1 + X2,
+      cat_init = cat_init_glm_binomial,
+      tau = 0.1,
+      tau_seq = seq(0.1, 1, by = 0.1),
+      tau_0 = 0.1,
+      parametric_bootstrap_iteration_times = 100,
+      cross_validation_fold_num = 5,
+      risk_estimate_method = "parametric_bootstrap",
+      discrepancy_method = "logistic_deviance",
+      binomial_tau_lower = 0.01,
+      tau_alpha = 0.5,
+      tau_gamma = 0.5,
+      gibbs_iter = 1000,
+      gibbs_warmup = 500,
+      coefs_iter = 5,
+      gaussian_variance_alpha = NULL,
+      gaussian_variance_beta = NULL
+    )
+  )
+
+  expect_silent(validate_glm_input(
+    formula = Y ~ X1 + X2,
+    cat_init = cat_init_glm_gaussian,
+    tau = 0.1,
+    tau_seq = seq(0.1, 1, by = 0.1),
+    tau_0 = 0.1,
+    parametric_bootstrap_iteration_times = 100,
+    cross_validation_fold_num = 5,
+    risk_estimate_method = "parametric_bootstrap",
+    discrepancy_method = "mean_square_error",
+    binomial_tau_lower = 0.01,
+    tau_alpha = 0.5,
+    tau_gamma = 0.5
+  ))
+
+  # Test for invalid formula with wrong response variance
+  expect_error(validate_glm_input(
+    formula = Y_wrong ~ .,
+    cat_init = cat_init_glm_gaussian
+  ))
+
+  # Test for invalid cat_init object
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_cox
+  ))
+
+  # Test for invalid tau (negative value)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    tau = -0.1
+  ))
+
+  # Test for invalid tau (vectors)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    tau = c(1, 2)
+  ))
+
+  # Test for invalid tau_seq (negative value)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    tau_seq = c(-1, 0, 1)
+  ))
+
+  # Test for invalid tau_seq (single value)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    tau_seq = 1
+  ))
+
+  # Test for invalid tau_0 (zero value)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    tau_0 = 0
+  ))
+
+  # Test for invalid tau_0 (vector)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    tau_0 = c(1, 2)
+  ))
+
+  # Test for invalid parametric_bootstrap_iteration_times (zero value)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    parametric_bootstrap_iteration_times = 0
+  ))
+
+  # Test for invalid cross_validation_fold_num (zero value)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    cross_validation_fold_num = 0
+  ))
+
+  # Test for invalid cross_validation_fold_num (greater than number of rows)
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    risk_estimate_method = "cross_validation",
+    discrepancy_method = "mean_square_error",
+    cross_validation_fold_num = 100
+  ))
+
+  # Test for family == "gaussian" & risk_estimate_method == "steinian_estimate"
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    risk_estimate_method = "steinian_estimate",
+    discrepancy_method = "mean_square_error"
+  ))
+
+  # Test for family == "binomial" & risk_estimate_method == "mallowian_estimate"
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    risk_estimate_method = "mallowian_estimate",
+    discrepancy_method = "logistic_deviance"
+  ))
+
+  # Test for family == "gaussian" & discrepancy_method != "mean_square_error"
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    risk_estimate_method = "mallowian_estimate",
+    discrepancy_method = "logistic_deviance"
+  ))
+
+  cat_init_glm_gaussian_large_size <- cat_init_glm_gaussian
+  cat_init_glm_gaussian_large_size$obs_size <- 2000
+  # Test for large data size when using parametric_bootstrap
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian_large_size,
+    risk_estimate_method = "parametric_bootstrap",
+    discrepancy_method = "mean_square_error"
+  ))
+
+  cat_init_glm_binomial_large_size <- cat_init_glm_binomial
+  cat_init_glm_binomial_large_size$obs_size <- 2000
+  # Test for large data size when using steinian_estimate
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial_large_size,
+    risk_estimate_method = "steinian_estimate",
+    discrepancy_method = "logistic_deviance"
+  ))
+
+  # Warn user when family == "binomial" & risk_estimate_method == "steinian_estimate" & discrepancy_method != "logistic_deviance"
+  expect_warning(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    risk_estimate_method = "steinian_estimate",
+    discrepancy_method = "mean_classification_error"
+  ))
+
+  # Test for family == "binomial" & discrepancy_method == "mean_square_error"
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    risk_estimate_method = "steinian_estimate",
+    discrepancy_method = "mean_square_error"
+  ))
+
+  # Test for binomial using gibbs function
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    gibbs_iter = 1000,
+    gibbs_warmup = 200,
+    coefs_iter = 5
+  ))
+
+  # Test for gibbs_warmup > gibbs_iter
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    gibbs_iter = 100,
+    gibbs_warmup = 200,
+    coefs_iter = 5
+  ))
+
+  # Test for zero gibbs_iter
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    gibbs_iter = 0,
+    gibbs_warmup = 200,
+    coefs_iter = 5
+  ))
+
+  # Test for zero gibbs_warmup
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    gibbs_iter = 100,
+    gibbs_warmup = 0,
+    coefs_iter = 5
+  ))
+
+  # Test for zero coefs_iter
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    gibbs_iter = 1000,
+    gibbs_warmup = 200,
+    coefs_iter = 0
+  ))
+
+  # Test for large coefs_iter
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    gibbs_iter = 1000,
+    gibbs_warmup = 200,
+    coefs_iter = 50
+  ))
+
+  # Test for zero gaussian_variance_alpha
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    gaussian_variance_alpha = 0
+  ))
+
+  # Test for zero gaussian_variance_beta
+  expect_error(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    gaussian_variance_beta = 0
+  ))
+
+  # Test for ignore gaussian_variance_alpha when gaussian_known_variance = TRUE
+  cat_init_glm_gaussian_known <- mock_cat_glm_gaussian_initialization(glm_gaussian_data, gaussian_known_variance = TRUE)
+  expect_warning(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian_known,
+    gaussian_variance_alpha = 1
+  ))
+
+  # Test for ignore gaussian_variance_alpha when family is binomial
+  expect_warning(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    gaussian_variance_alpha = 1
+  ))
+
+  # Test for ignore gaussian_variance_beta when gaussian_known_variance = TRUE
+  expect_warning(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian_known,
+    gaussian_variance_beta = 1
+  ))
+
+  # Test for ignore gaussian_variance_beta when family is binomial
+  expect_warning(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    gaussian_variance_beta = 1
+  ))
+
+  # Test for binomial features when family is gaussian
+  expect_warning(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    binomial_joint_theta = TRUE
+  ))
+
+  # Test for binomial features when family is gaussian
+  expect_warning(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_gaussian,
+    binomial_joint_alpha = TRUE
+  ))
+
+  # Test for binomial features when theta is not activated with alpha
+  expect_warning(validate_glm_input(
+    formula = Y ~ .,
+    cat_init = cat_init_glm_binomial,
+    binomial_joint_theta = FALSE,
+    binomial_joint_alpha = TRUE
+  ))
+})
+
+test_that("validate_glm_initialization_input checks parameters correctly", {
+  # Test for valid inputs
+  expect_silent(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = NULL,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+
+  # Test for complex formula
+  expect_error(validate_glm_initialization_input(
+    formula = Y ~ X1 + X2 + X3,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = NULL,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+  # Test for wrong data format
+  expect_error(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = as.matrix(glm_gaussian_data),
+    syn_size = NULL,
+    custom_variance = NULL,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+  # Test for empty data
+  expect_error(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = data.frame(),
+    syn_size = NULL,
+    custom_variance = NULL,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+  # Test for lmm formula
+  expect_error(validate_glm_initialization_input(
+    formula = Y ~ 1 + (1 | X1),
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = NULL,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+  # Test for cox formula
+  expect_error(validate_glm_initialization_input(
+    formula = survival::Surv(Y, X1) ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = NULL,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+  # Test for zero synthetic data size
+  expect_error(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = 0,
+    custom_variance = NULL,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+  # Test for positive synthetic data size
+  expect_silent(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = 100,
+    custom_variance = NULL,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+  # Test for custom_variance equal to zero
+  expect_error(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = 0,
+    gaussian_known_variance = TRUE,
+    x_degree = NULL
+  ))
+
+  # Test for positive custom_variance
+  expect_silent(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = 1,
+    gaussian_known_variance = TRUE,
+    x_degree = NULL
+  ))
+
+  # Test for positive custom_variance but FALSE gaussian_known_variance
+  expect_warning(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = 1,
+    gaussian_known_variance = FALSE,
+    x_degree = NULL
+  ))
+
+  # Test for positive custom_variance, TRUE gaussian_known_variance but binomial distribution
+  expect_warning(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = binomial,
+    data = glm_binomial_data,
+    syn_size = NULL,
+    custom_variance = 1,
+    gaussian_known_variance = TRUE,
+    x_degree = NULL
+  ))
+
+  # Test for x_degree being zero
+  expect_error(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = 1,
+    gaussian_known_variance = TRUE,
+    x_degree = rep(0, 3)
+  ))
+
+  # Test for x_degree being positive
+  expect_silent(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = 1,
+    gaussian_known_variance = TRUE,
+    x_degree = rep(1, 3)
+  ))
+
+  # Test for x_degree being a single value
+  expect_error(validate_glm_initialization_input(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = glm_gaussian_data,
+    syn_size = NULL,
+    custom_variance = 1,
+    gaussian_known_variance = TRUE,
+    x_degree = 1
+  ))
+})
 
 # ----- COX -----
+test_that("get_cox_risk_and_failure_sets works correctly", {
+  time_vector <- cox_data$time
+  status_vector <- cox_data$status
+  indicator_vector <- sort(unique(c(time_vector, time_vector + rexp(length(time_vector)))))
 
+  # Calculate risk and failure sets
+  sets <- get_cox_risk_and_failure_sets(time_vector, status_vector, indicator_vector)
+
+  # Test that the result is a list with two elements
+  expect_true(is.list(sets))
+  expect_equal(length(sets), 2)
+
+  # Test that the risk_set and failure_set are matrices
+  expect_true(is.matrix(sets$risk_set))
+  expect_true(is.matrix(sets$failure_set))
+
+  # Test that the dimensions of risk_set and failure_set match the input
+  expect_equal(dim(sets$risk_set), c(length(time_vector), length(indicator_vector)))
+  expect_equal(dim(sets$failure_set), c(length(time_vector), length(indicator_vector)))
+
+  # Test that failure_set has only one 1 per row where status = 1
+  expect_true(all(rowSums(sets$failure_set[status_vector == 1, ]) == 1))
+
+  # Test that failure_set is all zeros where status = 0
+  expect_true(all(sets$failure_set[status_vector == 0, ] == 0))
+
+  # Test that risk_set is all zeros or ones
+  expect_true(all(sets$risk_set %in% c(0, 1)))
+})
+
+test_that("get_cox_kappa works correctly", {
+  kappa <- get_cox_kappa(
+    X = matrix(rnorm(100), ncol = 5),
+    time = rexp(20),
+    status = rbinom(20, 1, 0.5),
+    hazard_constant = 0.02
+  )
+
+  # Test that kappa is a numeric value
+  expect_true(is.numeric(kappa))
+
+  # Test that kappa is a scalar
+  expect_equal(length(kappa), 1)
+})
+
+test_that("get_cox_partial_likelihood works correctly", {
+  partial_likelihood <- get_cox_partial_likelihood(
+    X = matrix(rnorm(100), ncol = 5),
+    time = rexp(20),
+    status = rbinom(20, 1, 0.5),
+    coefs = rnorm(5),
+    entry_points = rep(0, 20)
+  )
+
+  # Test that the partial likelihood is a numeric scalar
+  expect_true(is.numeric(partial_likelihood))
+  expect_length(partial_likelihood, 1)
+})
+
+test_that("get_cox_qr_solve works correctly", {
+  # Define valid input
+  hessian_matrix <- matrix(c(2, 1, 1, 2), ncol = 2)
+  gradient_vector <- c(5, 6)
+
+  # Test that the computed solution matches the expected solution
+  expect_equal(
+    get_cox_qr_solve(
+      hessian_matrix = hessian_matrix,
+      gradient_vector = gradient_vector
+    ),
+    solve(hessian_matrix, gradient_vector)
+  )
+
+  # Test with matrix that might produce NA values
+  expect_equal(
+    get_cox_qr_solve(
+      hessian_matrix = matrix(c(1, 1, 1, 1), ncol = 2),
+      gradient_vector = c(1, 1)
+    ),
+    c(0.0001, 0.0001)
+  )
+
+  # Test with another case that produces errors
+  expect_equal(
+    get_cox_qr_solve(
+      hessian_matrix = matrix(c(0, 0, 0, 0), ncol = 2),
+      gradient_vector = c(1, 1)
+    ),
+    c(0.0001, 0.0001)
+  )
+})
+
+test_that("get_cox_gradient works correctly", {
+  X <- matrix(rnorm(15), ncol = 3)
+  time <- rexp(5, rate = 0.1)
+  status <- rbinom(5, 1, 0.5)
+  coefs <- rnorm(3)
+  entry_points <- rep(0, 5)
+
+  gradient <- get_cox_gradient(
+    X = X,
+    time = time,
+    status = status,
+    coefs = coefs,
+    entry_points = entry_points
+  )
+
+  expect_true(is.numeric(gradient))
+  expect_equal(length(gradient), ncol(X))
+
+  # Test with no events
+  expect_equal(get_cox_gradient(
+    X = X,
+    time = time,
+    status = rep(0, length(status)),
+    coefs = coefs,
+    entry_points = entry_points
+  ), c(0, 0, 0))
+})
+
+test_that("get_cox_syn_gradient works correctly", {
+  X <- matrix(rnorm(15), ncol = 3)
+  time <- rexp(5, rate = 0.1)
+  coefs <- rnorm(3)
+
+  gradient <- get_cox_syn_gradient(
+    X = X,
+    time = time,
+    coefs = coefs,
+    hazard_constant = 0.5
+  )
+
+  # Test that the gradient is a numeric vector
+  expect_true(is.numeric(gradient))
+
+  # Test that the length of the gradient matches the number of columns in X
+  expect_equal(length(gradient), ncol(X))
+})
+
+test_that("get_cox_risk_set_idx works correctly", {
+  time_of_interest <- 5
+  entry_vector <- c(0, 0, 0, 0, 0)
+  time_vector <- c(3, 5, 8, 9, 10)
+  status_vector <- c(1, 1, 0, 1, 0)
+
+  risk_set_idx <- get_cox_risk_set_idx(
+    time_of_interest = time_of_interest,
+    entry_vector = entry_vector,
+    time_vector = time_vector,
+    status_vector = status_vector
+  )
+
+  # Test that the output is a vector
+  expect_true(is.vector(risk_set_idx))
+
+  # Test that all indices are within the range of the time_vector length
+  expect_true(all(risk_set_idx >= 1 & risk_set_idx <= length(time_vector)))
+
+  # Test that all subjects in the risk set entered before or at the time of interest
+  expect_true(all(time_of_interest >= entry_vector[risk_set_idx]))
+
+  # Test with a time_of_interest that is not in time_vector
+  risk_set_idx_new <- get_cox_risk_set_idx(
+    time_of_interest = max(time_vector) + 1,
+    entry_vector = entry_vector,
+    time_vector = time_vector,
+    status_vector = status_vector
+  )
+
+  expect_true(length(risk_set_idx_new) == 0)
+})
+
+test_that("get_cox_hessian works correctly", {
+  X <- matrix(rnorm(15), ncol = 3)
+  time <- rexp(5, rate = 0.1)
+  status <- rbinom(5, 1, 0.5)
+  coefs <- rnorm(3)
+  entry_points <- rep(0, 5)
+
+  hessian_matrix <- get_cox_hessian(
+    X = X,
+    time = time,
+    status = status,
+    coefs = coefs,
+    entry_points = entry_points
+  )
+
+  # Test if the computed Hessian is a matrix
+  expect_true(is.matrix(hessian_matrix))
+
+  # Test the dimensions of the Hessian matrix
+  expect_equal(dim(hessian_matrix), c(ncol(X), ncol(X)))
+
+  # Test that the Hessian is symmetric (should be if correctly calculated)
+  expect_true(all.equal(hessian_matrix, t(hessian_matrix), tolerance = 1e-8))
+
+  # Test with no events
+  hessian_matrix_no_event <- get_cox_hessian(
+    X = X,
+    time = time,
+    status = c(0, 0, 0, 0, 0),
+    coefs = coefs,
+    entry_points = entry_points
+  )
+  expect_equal(hessian_matrix_no_event, matrix(0, ncol = ncol(X), nrow = ncol(X)))
+})
+
+test_that("get_cox_syn_hessian works correctly", {
+  X <- matrix(rnorm(15), ncol = 3)
+  time <- rexp(5, rate = 0.1)
+  coefs <- rnorm(3)
+  hazard_constant <- 0.7
+
+  hessian_matrix <- get_cox_syn_hessian(
+    X = X,
+    time = time,
+    coefs = coefs,
+    hazard_constant = hazard_constant
+  )
+
+  # Test if the computed Hessian is a matrix
+  expect_true(is.matrix(hessian_matrix))
+
+  # Test the dimensions of the Hessian matrix
+  expect_equal(dim(hessian_matrix), c(ncol(X), ncol(X)))
+
+  # Test that the Hessian is symmetric (should be if correctly calculated)
+  expect_true(all.equal(hessian_matrix, t(hessian_matrix), tolerance = 1e-8))
+
+  # Test with no variation in time (all times the same)
+  hessian_matrix_no_var <- get_cox_syn_hessian(
+    X = X,
+    time = rep(1, nrow(X)),
+    coefs = coefs,
+    hazard_constant = hazard_constant
+  )
+
+  # Test that the Hessian is still a valid numeric matrix
+  expect_true(is.matrix(hessian_matrix_no_var))
+  expect_true(is.numeric(hessian_matrix_no_var))
+  expect_equal(dim(hessian_matrix_no_var), c(ncol(X), ncol(X)))
+})
+
+test_that("validate_cox_input checks parameters correctly", {
+  # Test for valid inputs
+  cat_init <- get_adjusted_cat_init(
+    cat_init = cat_init_cox,
+    formula_rhs = ~ X1 + X2
+  )
+
+  expect_silent(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    tau = 1,
+    tau_seq = c(1, 2),
+    init_coefficients = rep(0, ncol(cat_init$adj_x)),
+    tol = 1e-3,
+    max_iter = 30,
+    cross_validation_fold_num = 2,
+    hazard_beta = 2,
+    tau_alpha = 2,
+    tau_gamma = 1
+  ))
+
+  # Test for cat_init not generated from `cat_cox_initialization`
+  cat_init_invalid <- cat_init_lmm
+  cat_init_invalid$function_name <- "wrong_initialization"
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init_invalid
+  ))
+
+  # Test for fomrula contain wrong time/status column name
+  expect_error(validate_cox_input(
+    formula = survival::Surv(time_wrong, status_wrong) ~ X1 + X2,
+    cat_init = cat_init
+  ))
+
+  # Test for tau being negative
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    tau = -1
+  ))
+
+  # Test for tau being a vector
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    tau = c(1, 2)
+  ))
+
+  # Test for tau_seq being negative
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    tau_seq = c(-1, 1)
+  ))
+
+  # Test for tau_seq being a single value
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    tau_seq = 1
+  ))
+
+  # Test for init_coefficients being different length
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    init_coefficients = rep(0, ncol(cat_init$adj_x) + 1)
+  ))
+
+  # Test for tol being 0
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    tol = 0
+  ))
+
+  # Test for max_iter being 0
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    max_iter = 0
+  ))
+
+  # Test for cross_validation_fold_num being 0
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    cross_validation_fold_num = 0
+  ))
+
+  # Test for cross_validation_fold_num being large
+  expect_warning(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    cross_validation_fold_num = 3
+  ))
+
+  # Test for cross_validation_fold_num being too large
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    cross_validation_fold_num = 100
+  ))
+
+  # Test for hazard_beta being 0
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    hazard_beta = 0
+  ))
+
+  # Test for tau_alpha being 0
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    tau_alpha = 0
+  ))
+
+  # Test for tau_gamma being 0
+  expect_error(validate_cox_input(
+    formula = ~ X1 + X2,
+    cat_init = cat_init,
+    tau_gamma = 0
+  ))
+})
+
+test_that("validate_cox_initialization_input checks parameters correctly", {
+  # Test for valid inputs
+  expect_silent(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+
+  # Test for wrong data format
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = as.matrix(cox_data),
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for complex formula
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ X1 + X2 + X3,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for empty data
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = data.frame(),
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for lmm formula
+  expect_error(validate_cox_initialization_input(
+    formula = time ~ 1 + (1 | status),
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for glm formula
+  expect_error(validate_cox_initialization_input(
+    formula = time ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for zero synthetic data size
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = 0,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for positive synthetic data size
+  expect_silent(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = 100,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for hazard constant equal to zero
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = 0,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for positive hazard constant
+  expect_silent(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = 5,
+    entry_points = NULL,
+    x_degree = NULL
+  ))
+
+  # Test for not aligned entry point
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = c(0, 0, 0, 0, 0),
+    x_degree = NULL
+  ))
+
+  # Test for right length of entry point
+  expect_silent(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = rep(0, nrow(cox_data)),
+    x_degree = NULL
+  ))
+
+  # Test for negative entry point
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = rep(-1, nrow(cox_data)),
+    x_degree = NULL
+  ))
+
+  # Test for x_degree being zero
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = rep(0, 3)
+  ))
+
+  # Test for x_degree being positive
+  expect_silent(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = rep(1, 3)
+  ))
+
+  # Test for x_degree being a single value
+  expect_error(validate_cox_initialization_input(
+    formula = survival::Surv(time, status) ~ 1,
+    data = cox_data,
+    syn_size = NULL,
+    hazard_constant = NULL,
+    entry_points = NULL,
+    x_degree = 1
+  ))
+})
 
 # ----- LMM -----
-cat_init_lmm <- mock_lmm_cat_init()
-lmm_data <- mock_lmm_data()
-
 test_that("update_lmm_variance produces expected results for edge cases", {
   # Edge case with very small variances
   result_small_variance <- update_lmm_variance(
@@ -58,7 +1354,6 @@ test_that("validate_lmm_input checks parameters correctly", {
     cross_validation_fold_num = 5
   ))
 
-  # Test for cat_init generated from cat_glm_initialization
   # Test for cat_init not generated from `cat_lmm_initialization`
   cat_init_invalid <- cat_init_lmm
   cat_init_invalid$function_name <- "wrong_initialization"
@@ -68,91 +1363,78 @@ test_that("validate_lmm_input checks parameters correctly", {
 
   # Test for tau being negative
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     tau = -1
   ))
 
   # Test for tau being a vector
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     tau = c(1, 2)
   ))
 
   # Test for residual_variance_0 being zero
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     residual_variance_0 = 0
   ))
 
   # Test for random_effect_variance_0 being zero
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     random_effect_variance_0 = 0
   ))
 
   # Test for coefs_0 being too short for observation x
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     coefs_0 = c(1)
   ))
 
   # Test for coefs_0 being too long for observation x
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     coefs_0 = rep(1, 5)
   ))
 
   # Test for optimize_domain being negative
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     optimize_domain = c(-1, 0)
   ))
 
   # Test for optimize_domain being a single value
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     optimize_domain = 1
   ))
 
   # Test for optimize_domain being too long
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     optimize_domain = c(1, 2, 3)
   ))
 
   # Test for max_iter being too zero
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     max_iter = 0
   ))
 
   # Test for max_iter being a vector
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     max_iter = c(1, 2)
   ))
 
   # Test for tol being zero
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     tol = 0
   ))
 
   # Test for tol being a vector
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     tol = c(1, 2)
   ))
@@ -160,28 +1442,30 @@ test_that("validate_lmm_input checks parameters correctly", {
 
   # Test for tau_seq being negative
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     tau_seq = c(-1, 1)
   ))
 
   # Test for tau_seq being a single value
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     tau_seq = 1
   ))
 
-  # Test for cross_validation_fold_num being zero
+  # Test for cross_validation_fold_num being less than 2
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
-    cross_validation_fold_num = 0
+    cross_validation_fold_num = 1
+  ))
+
+  # Test for cross_validation_fold_num being larger than observation data size
+  expect_error(validate_lmm_input(
+    cat_init = cat_init_lmm,
+    cross_validation_fold_num = 100
   ))
 
   # Test for cross_validation_fold_num being a vector
   expect_error(validate_lmm_input(
-    formula = Y ~ 1,
     cat_init = cat_init_lmm,
     cross_validation_fold_num = c(1, 2)
   ))
@@ -199,7 +1483,7 @@ test_that("validate_lmm_initialization_input checks parameters correctly", {
     syn_size = NULL
   ))
 
-  # Test for data in matrix
+  # Test for wrong data format
   expect_error(validate_lmm_initialization_input(
     formula = Y ~ X1,
     data = as.matrix(lmm_data),
@@ -211,13 +1495,14 @@ test_that("validate_lmm_initialization_input checks parameters correctly", {
   ))
 
   # Test for empty data
-  expect_error(cat_lmm_initialization(
+  expect_error(validate_lmm_initialization_input(
     formula = Y ~ X1,
     data = data.frame(),
     x_cols = c("X1", "X2", "X3"),
     y_col = "Y",
     z_cols = c("Z1", "Z2", "Z3"),
-    group_col = "group"
+    group_col = "group",
+    syn_size = NULL
   ))
 
   # Test for lmm formula
@@ -330,26 +1615,26 @@ test_that("validate_lmm_initialization_input checks parameters correctly", {
     syn_size = NULL
   ))
 
-  # Test for syn_size is too small
-  expect_warning(validate_lmm_initialization_input(
+  # Test for syn_size is 0
+  expect_error(validate_lmm_initialization_input(
     formula = Y ~ X1,
     data = lmm_data,
     x_cols = c("X1", "X2", "X3"),
     y_col = "Y",
     z_cols = c("Z1", "Z2", "Z3"),
     group_col = c("group"),
-    syn_size = 1
+    syn_size = 0
   ))
 
   # Test for syn_size is positive and large enough
-  expect_warning(validate_lmm_initialization_input(
+  expect_silent(validate_lmm_initialization_input(
     formula = Y ~ X1,
     data = lmm_data,
     x_cols = c("X1", "X2", "X3"),
     y_col = "Y",
     z_cols = c("Z1", "Z2", "Z3"),
     group_col = c("group"),
-    syn_size = 50
+    syn_size = 100
   ))
 
   # Test for syn_size is zero
@@ -376,781 +1661,416 @@ test_that("validate_lmm_initialization_input checks parameters correctly", {
 })
 
 # ----- General -----
+test_that("validate_positive function works as expected", {
+  # Test for a positive scalar input, should not raise an error
+  expect_silent(validate_positive("param1", 5))
 
+  # Test for a zero scalar input, incl_0 = TRUE, should not raise an error
+  expect_silent(validate_positive("param1", 0, incl_0 = TRUE))
 
-##############
-# ----- General -----
+  # Test for a positive vector input, is_vector = TRUE, should not raise an error
+  expect_silent(validate_positive("param1", c(2, 3, 4), is_vector = TRUE))
 
-test_that("is.continuous works correctly", {
-  # Test with continuous numeric vector
-  continuous_vector <- c(1, 2, 3, 4, 5)
-  expect_true(is.continuous(continuous_vector))
+  # Test for a vector with zero values, incl_0 = TRUE, should not raise an error
+  expect_silent(validate_positive("param1", c(0, 2, 3), incl_0 = TRUE, is_vector = TRUE))
 
-  # Test with categorical vector
-  categorical_vector <- c("A", "B", "A", "B")
-  expect_false(is.continuous(categorical_vector))
-
-  # Test with binary numeric vector
-  binary_vector <- c(0, 1, 1, 0)
-  expect_false(is.continuous(binary_vector))
-
-  # Test with a numeric vector with only two unique values
-  two_unique_vector <- c(1, 1, 2, 2)
-  expect_false(is.continuous(two_unique_vector))
-
-  # Test with numeric vector with more than two unique values
-  mixed_numeric_vector <- c(1, 2, 3, 4, 5, 6)
-  expect_true(is.continuous(mixed_numeric_vector))
-})
-
-test_that("get_standardized_data works correctly", {
-  # Test with numeric and factor columns
-  data <- data.frame(
-    numeric_col = c(2, 3, NA, 4),
-    factor_col = factor(c("A", "B", "A", NA)),
-    stringsAsFactors = FALSE
+  # Test for a negative scalar input, expect an error
+  expect_error(
+    validate_positive("param1", -5),
+    "The provided `param1` should be a positive number."
   )
 
-  # Test with numeric NA replacement
-  standardized_data <- get_standardized_data(data, na_replace = 0)
-  expect_equal(standardized_data$numeric_col, c(2, 3, 0, 4))
-  expect_equal(standardized_data$factor_col, factor(c("A", "B", "A", "A")))
-
-  # Test with mode replacement for factors
-  standardized_data <- get_standardized_data(data, na_replace = mean)
-  expect_equal(standardized_data$numeric_col, c(2, 2, 3, 4))
-
-  # Test with NA omission
-  data_with_na_omit <- get_standardized_data(data, na_replace = stats::na.omit)
-  expect_equal(nrow(data_with_na_omit), 2)
-  expect_equal(ncol(data_with_na_omit), 2)
-
-  # Test with no NA values
-  data_no_na <- data.frame(
-    numeric_col = c(1, 2, 4),
-    factor_col = factor(c("A", "B", "A")),
-    stringsAsFactors = FALSE
-  )
-  standardized_data_no_na <- get_standardized_data(data_no_na)
-  expect_equal(standardized_data_no_na, data_no_na)
-})
-
-
-
-# ---- GLM Functions ----
-
-test_that("get_glm_lambda works correctly", {
-  X <- glm_data$X
-  coefs <- glm_data$coefs
-
-  # Expected outputs based on the given inputs
-  expected_square_error <- 2 * get_glm_mean("gaussian", X, coefs)
-  expected_classification_error <- 2 * get_glm_mean("binomial", X, coefs)
-  expected_logistic_deviance <- get_linear_predictor(X, coefs)
-
-  # Test for "square_error"
-  expect_equal(get_glm_lambda("square_error", X, coefs), expected_square_error)
-
-  # Test for "classification_error"
-  expect_equal(get_glm_lambda("classification_error", X, coefs), expected_classification_error)
-
-  # Test for "logistic_deviance"
-  expect_equal(get_glm_lambda("logistic_deviance", X, coefs), expected_logistic_deviance)
-
-  # Test that an error is thrown for invalid discrepancy method
-  expect_error(get_glm_lambda("invalid_method", X, coefs))
-})
-
-test_that("get_glm_diag_approx_cov works correctly", {
-  X <- glm_data$X
-  y <- glm_data$Y_binomial
-
-  # Fit a GLM model
-  model <- glm(y ~ X, family = binomial)
-
-  # Compute the diagonal covariance matrix
-  diag_cov <- get_glm_diag_approx_cov(X, model)
-
-  # Manually compute the expected diagonal covariance for comparison
-  hessian <- (t(cbind(1, X))) %*%
-    diag(model$fitted.values * (1 - model$fitted.values) * model$prior.weights) %*%
-    cbind(1, X)
-  expected_diag_cov <- diag(chol2inv(chol(hessian)))
-
-  # Test that the computed and expected values match
-  expect_equal(diag_cov, expected_diag_cov)
-
-  # Check for correct error handling with mismatched dimensions (if applicable)
-  expect_error(get_glm_diag_approx_cov(matrix(1:4, ncol = 2), model))
-})
-
-test_that("get_glm_family works correctly", {
-  # Test retrieving the family name
-  gaussian_family_name <- get_glm_family("gaussian")
-  expect_equal(gaussian_family_name, "gaussian")
-
-  # Test retrieving the family name with the link function
-  poisson_family_name_with_link <- get_glm_family("poisson", with_link = TRUE)
-  expect_equal(poisson_family_name_with_link, "poisson [log]")
-
-  # Test handling invalid family input
-  expect_error(get_glm_family("invalid_family"), "'family' must be a valid GLM family.")
-  expect_error(get_glm_family(function() "invalid"), "'family' must be a valid GLM family.")
-})
-
-test_that("get_glm_mean works correctly", {
-  X <- glm_data$X
-  coefs <- glm_data$coefs
-
-  # Test for binomial family
-  mean_binomial <- get_glm_mean("binomial", X, coefs)
-  expected_binomial <- 1 / (1 + exp(-get_linear_predictor(X, coefs)))
-  expect_equal(mean_binomial, expected_binomial, tolerance = 1e-6)
-
-  # Test for gaussian family
-  mean_gaussian <- get_glm_mean("gaussian", X, coefs)
-  expected_gaussian <- get_linear_predictor(X, coefs)
-  expect_equal(mean_gaussian, expected_gaussian, tolerance = 1e-6)
-
-  # Test for invalid family
-  expect_error(get_glm_mean("invalid_family", X, coefs), "'family' must be a valid GLM family.")
-})
-
-test_that("get_glm_log_density works correctly", {
-  X <- glm_data$X
-  Y_binomial <- glm_data$Y_binomial
-  Y_gaussian <- glm_data$Y_gaussian
-  coefs <- glm_data$coefs
-  weights <- rnorm(length(Y_binomial)) # Using radom weights
-
-  # Test for binomial family
-  log_density_binomial <- get_glm_log_density("binomial", X, Y_binomial, coefs, weights)
-  lp_binomial <- get_linear_predictor(X, coefs)
-  expected_log_density_binomial <- sum(weights * (Y_binomial * lp_binomial - log(1 + exp(lp_binomial))))
-  expect_equal(log_density_binomial, expected_log_density_binomial, tolerance = 1e-6)
-
-  # Test for gaussian family
-  log_density_gaussian <- get_glm_log_density("gaussian", X, Y_gaussian, coefs, weights)
-  residuals <- Y_gaussian - get_linear_predictor(X, coefs)
-  expected_log_density_gaussian <- 0.5 * sum(weights * (log(2 * pi * var(residuals)) + 1))
-  expect_equal(log_density_gaussian, expected_log_density_gaussian, tolerance = 1e-6)
-
-  # Test for invalid family
-  expect_error(get_glm_log_density("invalid_family", X, Y_binomial, coefs), "'family' must be a valid GLM family.")
-})
-
-test_that("get_glm_log_density_grad works correctly", {
-  X <- glm_data$X
-  Y_binomial <- glm_data$Y_binomial
-  Y_gaussian <- glm_data$Y_gaussian
-  coefs <- glm_data$coefs
-
-  # Retrieve GLM models from glm_data
-  model_binomial <- glm_data$model_binomial
-  model_gaussian <- glm_data$model_gaussian
-
-  # Compute gradients
-  grad_binomial <- get_glm_log_density_grad("binomial", X, Y_binomial, coefs)
-  grad_gaussian <- get_glm_log_density_grad("gaussian", X, Y_gaussian, coefs)
-
-  # Manually compute expected gradients for comparison
-  mean_binomial <- get_glm_mean("binomial", X, coefs)
-  grad_binomial_expected <- (model_binomial$prior.weights * (Y_binomial - mean_binomial)) %*% cbind(1, X)
-
-  mean_gaussian <- get_glm_mean("gaussian", X, coefs)
-  grad_gaussian_expected <- (model_gaussian$prior.weights * (Y_gaussian - mean_gaussian)) %*% cbind(1, X)
-
-  # Test that computed values match expected values
-  expect_equal(grad_binomial, grad_binomial_expected[1, ])
-  expect_equal(grad_gaussian, grad_gaussian_expected[1, ])
-})
-
-test_that("get_glm_sample_data works correctly", {
-  # Test data generation for binomial family
-  binomial_data <- get_glm_sample_data(family = "binomial", n = 20, mean = 0.3)
-  expect_equal(length(binomial_data), 20)
-  expect_true(all(binomial_data %in% c(0, 1)))
-
-  # Test data generation for Gaussian family
-  gaussian_data <- get_glm_sample_data(family = "gaussian", n = 20, mean = 5, sd = 2)
-  expect_equal(length(gaussian_data), 20)
-  expect_true(all(is.numeric(gaussian_data)))
-
-  # Check for error with an invalid family
-  expect_error(get_glm_sample_data(family = "invalid_family", n = 20))
-})
-
-test_that("check_glm_tune_size_and_risk_estimate_method behaves correctly", {
-  # Mock function to replace 'menu' for testing
-  mock_menu <- function(choices, title) {
-    return(1) # Simulates user choosing "YES"
-  }
-
-
-  # Mock the menu function
-  assign("menu", mock_menu, envir = globalenv())
-
-  # Test for large dataset with 'parametric_bootstrap' method
-  expect_warning(
-    check_glm_tune_size_and_risk_estimate_method(obs_size = 700, risk_estimate_method = "parametric_bootstrap"),
-    "Due to the large size of the dataset, Please consider utilizing `risk_estimate_method = cross_validation` for quicker estimate process."
+  # Test for a zero scalar input without incl_0 = TRUE, expect an error
+  expect_error(
+    validate_positive("param1", 0),
+    "The provided `param1` should be a positive number."
   )
 
-  # Test for large dataset with 'steinian_estimate' method
-  expect_warning(
-    check_glm_tune_size_and_risk_estimate_method(obs_size = 500, risk_estimate_method = "steinian_estimate"),
-    "Due to the large size of the dataset, Please consider utilizing `risk_estimate_method = cross_validation` for quicker estimate process."
+  # Test for a negative value in vector input, is_vector = TRUE, expect an error
+  expect_error(
+    validate_positive("param1", c(-1, 2, 3), is_vector = TRUE),
+    "The provided `param1` should be a vector of positive numbers."
   )
 
-  # Test for small dataset with 'cross_validation' method
-  expect_warning(
-    check_glm_tune_size_and_risk_estimate_method(obs_size = 20, risk_estimate_method = "cross_validation"),
-    "The size of the observational dataset is insufficient for cross validation to yield optimal results."
+  # Test for a non-vector input when is_vector = TRUE, expect an error
+  expect_error(
+    validate_positive("param1", 5, is_vector = TRUE),
+    "The provided `param1` should be a vector of positive numbers."
   )
 
-  # Test for medium-sized dataset with 'parametric_bootstrap' method (no warning)
-  expect_silent(
-    check_glm_tune_size_and_risk_estimate_method(obs_size = 250, risk_estimate_method = "parametric_bootstrap")
+  # Test for a single element when is_vector = TRUE and incl_0 = TRUE, expect an error if length is 1
+  expect_error(
+    validate_positive("param1", 0, incl_0 = TRUE, is_vector = TRUE),
+    "The provided `param1` should be a vector of non-negative numbers."
   )
 })
 
-
-# ---- COX Functions ----
-
-test_that("get_cox_qr_solve works correctly", {
-  # Define valid input
-  coef_matrix <- matrix(c(2, 1, 1, 2), ncol = 2)
-  constant_vector <- c(5, 6)
-
-  # Expected solution
-  expected_solution <- solve(coef_matrix, constant_vector)
-
-  # Compute the solution
-  solution <- get_cox_qr_solve(coef_matrix, constant_vector)
-
-  # Test that the computed solution matches the expected solution
-  expect_equal(solution, expected_solution)
-
-  # Test with a matrix that might produce NA values
-  coef_matrix_na <- matrix(c(1, 1, 1, 1), ncol = 2)
-  constant_vector_na <- c(1, 1)
-
-  # Compute the solution
-  solution_na <- get_cox_qr_solve(coef_matrix_na, constant_vector_na)
-
-  # Test that the solution does not contain NA values and is a vector
-  expect_true(is.numeric(solution_na))
-  expect_false(any(is.na(solution_na)))
-  expect_equal(length(solution_na), length(constant_vector_na))
-
-  # Test with another case that produces errors
-  coef_matrix_error <- matrix(c(0, 0, 0, 0), ncol = 2)
-  constant_vector_error <- c(1, 1)
-
-  # Compute the solution
-  solution_error <- get_cox_qr_solve(coef_matrix_error, constant_vector_error)
-
-  # Test that the solution is a vector of default values
-  expect_true(all(solution_error == 0.0001))
-  expect_equal(length(solution_error), length(constant_vector_error))
-})
-
-test_that("get_cox_hessian works correctly", {
-  X <- cox_data$X
-  time <- cox_data$time
-  status <- cox_data$status
-  coefs <- cox_data$coefs
-
-  # Compute Hessian matrix
-  hessian_matrix <- get_cox_hessian(X, time, status, coefs)
-
-  # Test if the computed Hessian is a matrix
-  expect_true(is.matrix(hessian_matrix))
-
-  # Test the dimensions of the Hessian matrix
-  expect_equal(dim(hessian_matrix), c(ncol(X), ncol(X)))
-
-  # Test with minimal input
-  X_small <- matrix(1, ncol = 1)
-  time_small <- c(1)
-  status_small <- c(1)
-  coefs_small <- c(1)
-  expect_silent(get_cox_hessian(X_small, time_small, status_small, coefs_small))
-
-  # Test with entry points provided
-  entry_points <- c(0, 0, 0, 0, 0)
-  expect_silent(get_cox_hessian(X, time, status, coefs, entry_points))
-
-  # Test with no events
-  status_no_event <- rbinom(5, 1, 0)
-  expect_silent(get_cox_hessian(X, time, status_no_event, coefs))
-})
-
-test_that("get_cox_syn_hessian works correctly", {
-  # Define test data from cox_data
-  X <- cox_data$X
-  time <- cox_data$time
-  coefs <- cox_data$coefs
-  hazard_constant <- 0.7
-
-  # Compute Hessian using the function
-  hessian <- get_cox_syn_hessian(X, time, coefs, hazard_constant)
-
-  # Test that the Hessian is a numeric matrix
-  expect_true(is.matrix(hessian))
-  expect_true(is.numeric(hessian))
-
-  # Test that the Hessian has the correct dimensions (number of columns in X)
-  expect_equal(dim(hessian), c(ncol(X), ncol(X)))
-
-  # Test that the Hessian is symmetric (should be if correctly calculated)
-  expect_true(all.equal(hessian, t(hessian), tolerance = 1e-8))
-
-  # Test with minimal input (edge case)
-  X_small <- matrix(1, ncol = 1)
-  time_small <- c(1)
-  coefs_small <- c(1)
-  hazard_constant_small <- 0.5
-
-  # Compute the Hessian with minimal input
-  hessian_small <- get_cox_syn_hessian(X_small, time_small, coefs_small, hazard_constant_small)
-
-  # Test that the Hessian is a 1x1 numeric matrix
-  expect_true(is.matrix(hessian_small))
-  expect_true(is.numeric(hessian_small))
-  expect_equal(dim(hessian_small), c(1, 1))
-
-  # Test that the Hessian with minimal input has a valid value (should be a negative number)
-  expect_lt(hessian_small, 0)
-
-  # Test with no variation in time (all times the same)
-  time_same <- rep(1, nrow(X))
-  hessian_time_same <- get_cox_syn_hessian(X, time_same, coefs, hazard_constant)
-
-  # Test that the Hessian is still a valid numeric matrix
-  expect_true(is.matrix(hessian_time_same))
-  expect_true(is.numeric(hessian_time_same))
-  expect_equal(dim(hessian_time_same), c(ncol(X), ncol(X)))
-
-  # Test with a different hazard constant
-  hazard_constant_diff <- 1.2
-  hessian_diff <- get_cox_syn_hessian(X, time, coefs, hazard_constant_diff)
-
-  # Test that the Hessian changes with a different hazard constant
-  expect_false(isTRUE(hessian == hessian_diff))
-})
-
-
-test_that("get_cox_gradient works correctly", {
-  # Define test data
-  X <- cox_data$X
-  time <- cox_data$time
-  status <- cox_data$status
-  coefs <- cox_data$coefs
-
-  # Compute gradient
-  gradient <- get_cox_gradient(X, time, status, coefs)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient))
-
-  # Test that the length of the gradient matches the number of columns in X
-  expect_equal(length(gradient), ncol(X))
-
-  # Test with minimal input
-  X_small <- matrix(1, ncol = 1)
-  time_small <- c(1)
-  status_small <- c(1)
-  coefs_small <- c(1)
-
-  # Compute the gradient with minimal input
-  gradient_small <- get_cox_gradient(X_small, time_small, status_small, coefs_small)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient_small))
-  expect_equal(length(gradient_small), ncol(X_small))
-
-  # Test with entry points provided
-  entry_points <- c(0, 0, 0, 0, 0)
-  gradient_entry <- get_cox_gradient(X, time, status, coefs, entry_points)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient_entry))
-  expect_equal(length(gradient_entry), ncol(X))
-
-  # Test with no events
-  status_no_event <- rep(0, length(status))
-  gradient_no_event <- get_cox_gradient(X, time, status_no_event, coefs)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient_no_event))
-  expect_equal(length(gradient_no_event), ncol(X))
-})
-
-test_that("get_cox_syn_gradient works correctly", {
-  X <- cox_data$X
-  time <- cox_data$time
-  coefs <- cox_data$coefs
-  hazard_constant <- 0.5 # Example hazard constant
-
-  # Compute gradient
-  gradient <- get_cox_syn_gradient(X, time, coefs, hazard_constant)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient))
-
-  # Test that the length of the gradient matches the number of columns in X
-  expect_equal(length(gradient), ncol(X))
-
-  # Test with minimal input
-  X_small <- matrix(1, ncol = 1)
-  time_small <- c(1)
-  coefs_small <- c(1)
-  hazard_constant_small <- 0.5
-
-  # Compute the gradient with minimal input
-  gradient_small <- get_cox_syn_gradient(X_small, time_small, coefs_small, hazard_constant_small)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient_small))
-  expect_equal(length(gradient_small), ncol(X_small))
-
-  # Test with a different hazard constant
-  hazard_constant_diff <- 1.0
-  gradient_diff <- get_cox_syn_gradient(X, time, coefs, hazard_constant_diff)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient_diff))
-  expect_equal(length(gradient_diff), ncol(X))
-})
-test_that("get_cox_syn_gradient works correctly", {
-  X <- cox_data$X
-  time <- cox_data$time
-  coefs <- cox_data$coefs
-  hazard_constant <- 0.5 # Example hazard constant
-
-  # Compute gradient
-  gradient <- get_cox_syn_gradient(X, time, coefs, hazard_constant)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient))
-
-  # Test that the length of the gradient matches the number of columns in X
-  expect_equal(length(gradient), ncol(X))
-
-  # Test with minimal input
-  X_small <- matrix(1, ncol = 1)
-  time_small <- c(1)
-  coefs_small <- c(1)
-  hazard_constant_small <- 0.5
-
-  # Compute the gradient with minimal input
-  gradient_small <- get_cox_syn_gradient(X_small, time_small, coefs_small, hazard_constant_small)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient_small))
-  expect_equal(length(gradient_small), ncol(X_small))
-
-  # Test with a different hazard constant
-  hazard_constant_diff <- 1.0
-  gradient_diff <- get_cox_syn_gradient(X, time, coefs, hazard_constant_diff)
-
-  # Test that the gradient is a numeric vector
-  expect_true(is.numeric(gradient_diff))
-  expect_equal(length(gradient_diff), ncol(X))
-})
-
-test_that("get_cox_partial_likelihood works correctly", {
-  X <- cox_data$X
-  time <- cox_data$time
-  status <- cox_data$status
-  coefs <- cox_data$coefs
-  entry_points <- rep(0, length(time)) # Optional, can be omitted
-
-  # Compute partial likelihood
-  partial_likelihood <- get_cox_partial_likelihood(X, time, status, coefs, entry_points)
-
-  # Test that the partial likelihood is a numeric scalar
-  expect_true(is.numeric(partial_likelihood))
-  expect_length(partial_likelihood, 1)
-
-  # Test with minimal input
-  X_small <- matrix(1, ncol = 1)
-  time_small <- c(1)
-  status_small <- c(1)
-  coefs_small <- c(1)
-
-  # Compute the partial likelihood with minimal input
-  partial_likelihood_small <- get_cox_partial_likelihood(X_small, time_small, status_small, coefs_small)
-
-  # Test that the partial likelihood is a numeric scalar
-  expect_true(is.numeric(partial_likelihood_small))
-  expect_length(partial_likelihood_small, 1)
-})
-
-test_that("get_cox_kappa works correctly", {
-  X <- cox_data$X
-  time <- cox_data$time
-  status <- cox_data$status
-  coefs <- cox_data$coefs
-
-  # Estimate kappa
-  kappa <- get_cox_kappa(X, time, status)
-
-  # Test that kappa is a numeric value
-  expect_true(is.numeric(kappa))
-
-  # Test that kappa is a scalar
-  expect_equal(length(kappa), 1)
-
-  # Test with initial values
-  initial_values <- rep(0.1, ncol(X))
-  kappa_initial <- get_cox_kappa(X, time, status, initial_values = initial_values)
-  expect_true(is.numeric(kappa_initial))
-  expect_equal(length(kappa_initial), 1)
-
-  # Test with entry points provided
-  entry_points <- c(0, 0, 0, 0, 0)
-  kappa_entry <- get_cox_kappa(X, time, status, entry_points = entry_points)
-  expect_true(is.numeric(kappa_entry))
-  expect_equal(length(kappa_entry), 1)
-
-  # Test with a small tolerance to force early stopping
-  kappa_tol <- get_cox_kappa(X, time, status, tol = 1e-10)
-  expect_true(is.numeric(kappa_tol))
-  expect_equal(length(kappa_tol), 1)
-})
-
-test_that("get_cox_risk_and_failure_sets works correctly", {
-  time_vector <- cox_data$time
-  status_vector <- cox_data$status
-  indicator_vector <- sort(unique(c(time_vector, time_vector + rexp(length(time_vector)))))
-
-  # Calculate risk and failure sets
-  sets <- get_cox_risk_and_failure_sets(time_vector, status_vector, indicator_vector)
-
-  # Test that the result is a list with two elements
-  expect_true(is.list(sets))
-  expect_equal(length(sets), 2)
-
-  # Test that the risk_set and failure_set are matrices
-  expect_true(is.matrix(sets$risk_set))
-  expect_true(is.matrix(sets$failure_set))
-
-  # Test that the dimensions of risk_set and failure_set match the input
-  expect_equal(dim(sets$risk_set), c(length(time_vector), length(indicator_vector)))
-  expect_equal(dim(sets$failure_set), c(length(time_vector), length(indicator_vector)))
-
-  # Test that failure_set has only one 1 per row where status = 1
-  expect_true(all(rowSums(sets$failure_set[status_vector == 1, ]) == 1))
-
-  # Test that failure_set is all zeros where status = 0
-  expect_true(all(sets$failure_set[status_vector == 0, ] == 0))
-
-  # Test that risk_set is all zeros or ones
-  expect_true(all(sets$risk_set %in% c(0, 1)))
-})
-
-test_that("get_cox_risk_set_idx works correctly", {
-  # Define test data from cox_data
-  time_of_interest <- 5
-  entry_vector <- cox_data$entry
-  time_vector <- cox_data$time
-  status_vector <- cox_data$status
-
-  # Compute risk set indices
-  risk_set_idx <- get_cox_risk_set_idx(time_of_interest, entry_vector, time_vector, status_vector)
-
-  # Test that the output is a vector
-  expect_true(is.vector(risk_set_idx))
-
-  # Test that all indices are within the range of the time_vector length
-  expect_true(all(risk_set_idx >= 1 & risk_set_idx <= length(time_vector)))
-
-  # Test that all subjects in the risk set entered before or at the time of interest
-  expect_true(all(time_of_interest >= entry_vector[risk_set_idx]))
-
-  # Test that all subjects in the risk set have either the event at the time of interest or are still at risk
-  expect_true(all((time_vector[risk_set_idx] == time_of_interest & status_vector[risk_set_idx] == 1) |
-    (time_vector[risk_set_idx] + 1e-08 > time_of_interest)))
-
-  # Test with a time_of_interest that is not in time_vector
-  time_of_interest_new <- max(time_vector) + 1
-  risk_set_idx_new <- get_cox_risk_set_idx(time_of_interest_new, entry_vector, time_vector, status_vector)
-  expect_true(length(risk_set_idx_new) == 0)
-})
-
-# ---- LMM Functions ----
-
-test_that("update_lmm_sigma_square_cat works correctly", {
-  sigma_square <- 1
-  sigma_u_square <- 0.5
-  d_seq <- c(2, 3)
-  d_seq_star <- c(1, 2)
-  q <- c(0.5, 1)
-  q_star <- c(0.3, 0.7)
-  tau <- 0.1
-
-  # Compute log marginal likelihood
-  log_marginal_likelihood <- update_lmm_sigma_square_cat(
-    sigma_square, sigma_u_square, d_seq, d_seq_star, q, q_star, tau
+test_that("get_stan_model loads the correct Stan model file", {
+  # Clear memoized cache to ensure each test runs independently
+  memoise::forget(get_stan_model)
+
+  # Test for default glm type with gaussian family with no additional options
+  stan_model <- get_stan_model(type = "glm", glm_family_string = "gaussian")
+  expect_s4_class(stan_model, "stanmodel") # Check that it returns a Stan model
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_gaussian") # Check filename pattern
+
+  # Test for Cox model type
+  stan_model <- get_stan_model(type = "cox")
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "cox")
+
+  # Test fwith `joint_tau = TRUE` or Cox model type
+  stan_model <- get_stan_model(type = "cox", joint_tau = TRUE)
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "cox_joint")
+
+  # Test with `glm_family_string` = "binomial"
+  stan_model <- get_stan_model(type = "glm", glm_family_string = "binomial")
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_binomial")
+
+  # Test with `joint_tau = TRUE` (and binomial family to test combined settings)
+  stan_model <- get_stan_model(type = "glm", glm_family_string = "binomial", joint_tau = TRUE)
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_binomial_joint")
+
+  # Test for `glm_gaussian_known_variance = TRUE` with gaussian family
+  stan_model <- get_stan_model(type = "glm", glm_family_string = "gaussian", glm_gaussian_known_variance = TRUE)
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_gaussian_known_variance")
+
+  # Test for `glm_gaussian_known_variance = TRUE` and `joint_tau = TRUE` with gaussian family
+  stan_model <- get_stan_model(
+    type = "glm", glm_family_string = "gaussian", joint_tau = TRUE,
+    glm_gaussian_known_variance = TRUE
   )
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_gaussian_joint_known_variance")
 
-  # Test that the output is a numeric scalar
-  expect_true(is.numeric(log_marginal_likelihood))
-  expect_length(log_marginal_likelihood, 1)
-
-  # Test with minimal input
-  sigma_square_small <- 0.1
-  sigma_u_square_small <- 0.2
-  d_seq_small <- c(1)
-  d_seq_star_small <- c(1)
-  q_small <- c(0.1)
-  q_star_small <- c(0.1)
-  tau_small <- 0.01
-
-  log_marginal_likelihood_small <- update_lmm_sigma_square_cat(
-    sigma_square_small, sigma_u_square_small, d_seq_small, d_seq_star_small, q_small, q_star_small, tau_small
+  # Test for joint_tau = TRUE` with gaussian family
+  stan_model <- get_stan_model(
+    type = "glm", glm_family_string = "gaussian", joint_tau = TRUE
   )
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_gaussian_joint")
 
-  expect_true(is.numeric(log_marginal_likelihood_small))
-  expect_length(log_marginal_likelihood_small, 1)
-
-  # Test with a larger tau
-  tau_large <- 1.0
-  log_marginal_likelihood_large_tau <- update_lmm_sigma_square_cat(
-    sigma_square, sigma_u_square, d_seq, d_seq_star, q, q_star, tau_large
+  # Test with multiple options set: `glm_binomial_joint_theta` and `glm_binomial_joint_alpha`
+  stan_model <- get_stan_model(
+    type = "glm",
+    glm_family_string = "binomial",
+    glm_binomial_joint_theta = TRUE,
+    glm_binomial_joint_alpha = TRUE
   )
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_binomial_joint_theta_alpha")
 
-  expect_true(is.numeric(log_marginal_likelihood_large_tau))
-  expect_length(log_marginal_likelihood_large_tau, 1)
-
-  expect_true(is.numeric(log_marginal_likelihood_zero_sigma))
-  expect_length(log_marginal_likelihood_zero_sigma, 1)
-})
-
-# ---- Other Functions ----
-
-test_that("get_h_matrix works correctly", {
-  # Define test data
-  obs_x <- matrix(c(1, 2, 3, 4, 5, 6), ncol = 2)
-  syn_x <- matrix(c(7, 8, 9, 10, 11, 12), ncol = 2)
-  tau <- 0.1
-
-  # Compute H matrix
-  H_matrix <- get_h_matrix(obs_x, syn_x, tau)
-
-  # Check that the output is a matrix
-  expect_true(is.matrix(H_matrix))
-
-  # Test dimensions of the result
-  expected_nrow <- nrow(obs_x)
-  expected_ncol <- nrow(obs_x)
-  expect_equal(dim(H_matrix), c(expected_nrow, expected_ncol))
-
-  # Test with minimal input
-  obs_x_small <- matrix(c(1), ncol = 1)
-  syn_x_small <- matrix(c(2), ncol = 1)
-  tau_small <- 0.01
-
-  H_matrix_small <- get_h_matrix(obs_x_small, syn_x_small, tau_small)
-  expect_true(is.matrix(H_matrix_small))
-  expect_equal(dim(H_matrix_small), c(1, 1))
-})
-
-test_that("get_adjusted_data works correctly", {
-  # Create a sample cat_init object
-  cat_init <- list(
-    x = data.frame(a = c(1, 2, 3, 4, 5), b = c(6, 7, 8, 9, 10)),
-    obs_size = 3,
-    size = 5
+  # Test with `glm_binomial_joint_theta`
+  stan_model <- get_stan_model(
+    type = "glm",
+    glm_family_string = "binomial",
+    glm_binomial_joint_theta = TRUE
   )
-  formula <- "x ~ b"
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_binomial_joint_theta")
 
-  # Adjust the data
-  adjusted_data <- get_adjusted_data(cat_init, formula)
+  # Test with `glm_binomial_joint_alpha`
+  stan_model <- get_stan_model(
+    type = "glm",
+    glm_family_string = "binomial",
+    glm_binomial_joint_alpha = TRUE
+  )
+  expect_s4_class(stan_model, "stanmodel")
+  expect_equal(attr(stan_model@model_code, "model_name2"), "glm_binomial_joint")
 
-  # Test if adjusted_data contains the expected components
-  expect_true("adj_x" %in% names(adjusted_data))
-  expect_true("adj_obs_x" %in% names(adjusted_data))
-  expect_true("adj_syn_x" %in% names(adjusted_data))
-
-  # Test the dimensions of the adjusted data
-  expect_equal(nrow(adjusted_data$adj_x), 5)
-  expect_equal(ncol(adjusted_data$adj_x), 1)
-
-  expect_equal(nrow(adjusted_data$adj_obs_x), 3)
-  expect_equal(nrow(adjusted_data$adj_syn_x), 2)
-
-  # Test if the adjusted data has numeric columns
-  expect_true(all(sapply(adjusted_data$adj_x, is.numeric)))
-  expect_true(all(sapply(adjusted_data$adj_obs_x, is.numeric)))
-  expect_true(all(sapply(adjusted_data$adj_syn_x, is.numeric)))
-
-  # Test column names consistency
-  expect_equal(colnames(adjusted_data$adj_obs_x), colnames(adjusted_data$adj_syn_x))
-  expect_equal(colnames(adjusted_data$adj_obs_x), colnames(adjusted_data$adj_x))
+  # Edge case: invalid `glm_family_string`
+  expect_error(get_stan_model(type = "glm", glm_family_string = "invalid_family"))
 })
-
-test_that("get_resampling_methods works correctly", {
-  # Create sample data
-  original_x <- rnorm(100)
-  x <- original_x + rnorm(100, 0, 0.5)
-
-  # Test the "symmetrizing" method
-  sym_x <- get_resampling_methods(x, original_x, method = "symmetrizing")
-  expect_equal(length(sym_x), length(x))
-
-  # Test the "smoothing" method
-  smoothed_x <- get_resampling_methods(x, original_x, method = "smoothing")
-  expect_equal(length(smoothed_x), length(x))
-
-  # Test the "flattening" method
-  flattened_x <- get_resampling_methods(x, original_x, method = "flattening")
-  expect_equal(length(flattened_x), length(x))
-
-  # Test the "deskewing" method
-  deskewed_x <- get_resampling_methods(x, original_x, method = "deskewing")
-  expect_equal(length(deskewed_x), length(x))
-
-  # Check if all methods return numeric vectors
-  expect_true(is.numeric(sym_x))
-  expect_true(is.numeric(smoothed_x))
-  expect_true(is.numeric(flattened_x))
-  expect_true(is.numeric(deskewed_x))
-})
-
 
 test_that("get_linear_predictor works correctly", {
   # Test with no intercept
   X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
   coefs <- c(0.5, 1.5)
 
-  linear_predictor <- get_linear_predictor(X, coefs)
-  expected_predictor <- c(0.5 * 1 + 1.5 * 3, 0.5 * 2 + 1.5 * 4)
-  expect_equal(linear_predictor, expected_predictor)
+  expect_equal(
+    get_linear_predictor(X, coefs),
+    X %*% coefs
+  )
 
   # Test with intercept
   coefs_with_intercept <- c(1, 0.5, 1.5)
 
-  linear_predictor_with_intercept <- get_linear_predictor(X, coefs_with_intercept)
-  expected_predictor_with_intercept <- c(1 + 0.5 * 1 + 1.5 * 3, 1 + 0.5 * 2 + 1.5 * 4)
-  expect_equal(linear_predictor_with_intercept, expected_predictor_with_intercept)
+  expect_equal(
+    get_linear_predictor(X, coefs_with_intercept),
+    coefs_with_intercept[1] + X %*% coefs_with_intercept[-1]
+  )
 
   # Test with dimension mismatch
-  expect_error(
-    get_linear_predictor(X, c(0.5)),
-    "Dimensions of coefs and predictor variables do not match"
-  )
+  expect_error(get_linear_predictor(X, c(0.5)))
 
   # Test with minimal input
   X_small <- matrix(1, ncol = 1)
   coefs_small <- c(1)
-  expect_equal(get_linear_predictor(X_small, coefs_small), 1)
+  expect_equal(
+    get_linear_predictor(X_small, coefs_small),
+    X_small %*% coefs_small
+  )
 
   # Test with intercept and minimal input
   coefs_small_with_intercept <- c(1, 2)
-  expect_equal(get_linear_predictor(X_small, coefs_small_with_intercept), 3)
+  expect_equal(
+    get_linear_predictor(X_small, coefs_small_with_intercept),
+    coefs_small_with_intercept[1] + X_small %*% coefs_small_with_intercept[2]
+  )
+})
+
+test_that("get_discrepancy computes in consistence", {
+  X <- matrix(rnorm(15), ncol = 3)
+  coefs <- rnorm(4)
+
+  binomial_Y <- rbinom(5, 1, 0.5)
+  gaussian_Y <- rnorm(5)
+
+  lp <- coefs[1] + c(X %*% coefs[-1])
+  binomial_est_Y <- 1 / (1 + exp(-lp))
+  gaussian_est_Y <- lp
+
+  # Test for logarithmic error
+  expect_equal(
+    get_discrepancy(
+      discrepancy_method = "mean_logarithmic_error",
+      family_string = "binomial",
+      X = X,
+      Y = binomial_Y,
+      coefs = coefs
+    ),
+    get_discrepancy(
+      discrepancy_method = "mean_logarithmic_error",
+      family_string = "binomial",
+      X = X,
+      Y = binomial_Y,
+      est_Y = binomial_est_Y
+    )
+  )
+
+  # Test for mean square error
+  expect_equal(
+    get_discrepancy(
+      discrepancy_method = "mean_square_error",
+      family_string = "gaussian",
+      X = X,
+      Y = gaussian_Y,
+      coefs = coefs
+    ),
+    get_discrepancy(
+      discrepancy_method = "mean_square_error",
+      family_string = "gaussian",
+      X = X,
+      Y = gaussian_Y,
+      est_Y = gaussian_est_Y
+    )
+  )
+
+  # Test for mean classification error
+  expect_equal(
+    get_discrepancy(
+      discrepancy_method = "mean_classification_error",
+      family_string = "binomial",
+      X = X,
+      Y = binomial_Y,
+      coefs = coefs
+    ),
+    get_discrepancy(
+      discrepancy_method = "mean_classification_error",
+      family_string = "binomial",
+      X = X,
+      Y = binomial_Y,
+      est_Y = binomial_est_Y
+    )
+  )
+
+  # Test for logistic deviance with no coefs input
+  expect_error(
+    get_discrepancy(
+      discrepancy_method = "logistic_deviance",
+      family_string = "binomial",
+      X = X,
+      Y = binomial_Y,
+      est_Y = binomial_est_Y
+    )
+  )
+
+  # Test for logistic deviance with coefs input
+  expect_silent(
+    get_discrepancy(
+      discrepancy_method = "logistic_deviance",
+      family_string = "binomial",
+      X = X,
+      Y = binomial_Y,
+      coefs = coefs
+    )
+  )
+
+  # Test for logistic deviance with different coefs input
+  expect_false(
+    get_discrepancy(
+      discrepancy_method = "logistic_deviance",
+      family_string = "binomial",
+      X = X,
+      Y = binomial_Y,
+      coefs = coefs
+    ) == get_discrepancy(
+      discrepancy_method = "logistic_deviance",
+      family_string = "binomial",
+      X = X,
+      Y = binomial_Y,
+      coefs = rnorm(4)
+    )
+  )
+})
+
+
+test_that("get_adjusted_cat_init adjusts data correctly", {
+  formula_rhs_0 <- ~1
+  formula_rhs_1 <- ~X1
+  formula_rhs_2 <- ~ X1 + X2
+  formula_rhs_3 <- ~.
+
+  # Adjust the data
+  adjusted_cat_init_0 <- get_adjusted_cat_init(cat_init_glm_gaussian, formula_rhs_0)
+  adjusted_cat_init_1 <- get_adjusted_cat_init(cat_init_glm_gaussian, formula_rhs_1)
+  adjusted_cat_init_2 <- get_adjusted_cat_init(cat_init_glm_binomial, formula_rhs_2)
+  adjusted_cat_init_3 <- get_adjusted_cat_init(cat_init_cox, formula_rhs_3)
+
+  # Check that the adjusted data frame has the expected structure
+  expect_s3_class(adjusted_cat_init_0$adj_x, "data.frame")
+  expect_s3_class(adjusted_cat_init_1$adj_x, "data.frame")
+  expect_s3_class(adjusted_cat_init_2$adj_x, "data.frame")
+  expect_s3_class(adjusted_cat_init_3$adj_x, "data.frame")
+
+  # Validate sizes and contents of adjusted observed and synthetic parts
+  expect_equal(nrow(adjusted_cat_init_0$adj_obs_x), adjusted_cat_init_0$obs_size)
+  expect_equal(nrow(adjusted_cat_init_0$adj_syn_x), adjusted_cat_init_0$size - adjusted_cat_init_0$obs_size)
+
+  expect_equal(nrow(adjusted_cat_init_1$adj_obs_x), adjusted_cat_init_1$obs_size)
+  expect_equal(nrow(adjusted_cat_init_1$adj_syn_x), adjusted_cat_init_1$size - adjusted_cat_init_1$obs_size)
+
+  expect_equal(nrow(adjusted_cat_init_2$adj_obs_x), adjusted_cat_init_2$obs_size)
+  expect_equal(nrow(adjusted_cat_init_2$adj_syn_x), adjusted_cat_init_2$size - adjusted_cat_init_2$obs_size)
+
+  expect_equal(nrow(adjusted_cat_init_3$adj_obs_x), adjusted_cat_init_3$obs_size)
+  expect_equal(nrow(adjusted_cat_init_3$adj_syn_x), adjusted_cat_init_3$size - adjusted_cat_init_3$obs_size)
+
+  # Verify that the adjusted data contains the expected columns based on the formulas
+  expect_equal(ncol(adjusted_cat_init_0$adj_x), 0)
+  expect_true(all(c("X1") %in% colnames(adjusted_cat_init_1$adj_x)))
+  expect_true(all(c("X1", "X2") %in% colnames(adjusted_cat_init_2$adj_x)))
+  expect_true(all(c("X1", "X2", "X3") %in% colnames(adjusted_cat_init_3$adj_x)))
+
+  expect_equal(ncol(adjusted_cat_init_0$adj_obs_x), 0)
+  expect_true(all(c("X1") %in% colnames(adjusted_cat_init_1$adj_obs_x)))
+  expect_true(all(c("X1", "X2") %in% colnames(adjusted_cat_init_2$adj_obs_x)))
+  expect_true(all(c("X1", "X2", "X3") %in% colnames(adjusted_cat_init_3$adj_obs_x)))
+
+  expect_equal(ncol(adjusted_cat_init_0$adj_syn_x), 0)
+  expect_true(all(c("X1") %in% colnames(adjusted_cat_init_1$adj_syn_x)))
+  expect_true(all(c("X1", "X2") %in% colnames(adjusted_cat_init_2$adj_syn_x)))
+  expect_true(all(c("X1", "X2", "X3") %in% colnames(adjusted_cat_init_3$adj_syn_x)))
+})
+
+test_that("get_resampled_df works correctly for various cases", {
+  mock_data <- data.frame(
+    X1 = c(1, 2, 3, 1, 2, 3, 1, 2, 3, 1000), # Continuous variable (Test for Deskewing)
+    X2 = c(0, 1, 1, 1, 1, 1, 1, 1, 1, 1), # Categorical variable (Test for Flattening)
+    X3 = c(1, 1, 1, 2, 2, 2, 3, 3, 3, 4), # Another continuous variable (Test for Smoothing)
+    X4 = c(1, 2, 3, 4, 5, 1, 2, 3, 4, 5) # Another continuous variable (Test for no action)
+  )
+  data_degree <- c(1, 1, 3, 1)
+
+  # Test basic resampling functionality
+  resample_size <- 50
+  result <- get_resampled_df(
+    data = mock_data,
+    resample_size = resample_size,
+    data_degree = data_degree
+  )
+
+  expect_false(setequal(unique(result$resampled_df[, 1]), unique(mock_data[, 1])))
+  expect_true(setequal(unique(result$resampled_df[, 2]), unique(mock_data[, 2])))
+  expect_false(setequal(unique(result$resampled_df[, 3]), unique(mock_data[, 3])))
+  expect_true(setequal(unique(result$resampled_df[, 4]), unique(mock_data[, 4])))
+
+  # Validate that each column are identified with correct type
+  expect_equal(result$resampled_df_log$Type[1], "Continuous")
+  expect_equal(result$resampled_df_log$Type[2], "Category")
+  expect_equal(result$resampled_df_log$Type[3], "Continuous")
+  expect_equal(result$resampled_df_log$Type[4], "Continuous")
+
+  # Validate that each column is processed according to its type
+  expect_true(grepl("Deskewing", result$resampled_df_log$Process[1]))
+  expect_false(grepl("Flattening", result$resampled_df_log$Process[1]))
+  expect_false(grepl("Smoothing", result$resampled_df_log$Process[1]))
+
+  expect_false(grepl("Deskewing", result$resampled_df_log$Process[2]))
+  expect_true(grepl("Flattening", result$resampled_df_log$Process[2]))
+  expect_false(grepl("Smoothing", result$resampled_df_log$Process[2]))
+
+  expect_false(grepl("Deskewing", result$resampled_df_log$Process[3]))
+  expect_false(grepl("Flattening", result$resampled_df_log$Process[3]))
+  expect_true(grepl("Smoothing", result$resampled_df_log$Process[3]))
+
+  expect_false(grepl("Deskewing", result$resampled_df_log$Process[4]))
+  expect_false(grepl("Flattening", result$resampled_df_log$Process[4]))
+  expect_false(grepl("Smoothing", result$resampled_df_log$Process[4]))
+
+  # Check that the resampled data frame has the correct dimensions
+  expect_equal(nrow(result$resampled_df), resample_size)
+  expect_equal(ncol(result$resampled_df), ncol(mock_data))
+
+  # Check that the resampled log is created correctly
+  expect_true(!is.null(result$resampled_df_log))
+  expect_equal(nrow(result$resampled_df_log), ncol(mock_data))
+
+  # Validate that resampling processes are logged correctly
+  expect_true(all(c("Covariate", "Type", "Process") %in% colnames(result$resampled_df_log)))
+
+  # Test with resample_only = TRUE
+  result_resample_only <- get_resampled_df(
+    data = mock_data,
+    resample_size = resample_size,
+    resample_only = TRUE
+  )
+  expect_true(setequal(unique(result_resample_only$resampled_df[, 1]), unique(mock_data[, 1])))
+  expect_true(setequal(unique(result_resample_only$resampled_df[, 2]), unique(mock_data[, 2])))
+  expect_true(setequal(unique(result_resample_only$resampled_df[, 3]), unique(mock_data[, 3])))
+  expect_true(setequal(unique(result_resample_only$resampled_df[, 4]), unique(mock_data[, 4])))
+  expect_null(result_resample_only$resampled_df_log)
+
+  # Test without data_degree parameter
+  result_without_degree <- get_resampled_df(
+    data = mock_data,
+    resample_size = resample_size,
+    data_degree = NULL
+  )
+
+  # Check if processes are logged with degree
+  expect_false(is.null(result_without_degree$resampled_df_log))
+
+  # Validate that each column is processed according to its type
+  expect_true(grepl("Deskewing", result_without_degree$resampled_df_log$Process[1]))
+  expect_false(grepl("Flattening", result_without_degree$resampled_df_log$Process[1]))
+  expect_false(grepl("Smoothing", result_without_degree$resampled_df_log$Process[1]))
+
+  expect_false(grepl("Deskewing", result_without_degree$resampled_df_log$Process[2]))
+  expect_true(grepl("Flattening", result_without_degree$resampled_df_log$Process[2]))
+  expect_false(grepl("Smoothing", result_without_degree$resampled_df_log$Process[2]))
+
+  expect_false(grepl("Deskewing", result_without_degree$resampled_df_log$Process[3]))
+  expect_false(grepl("Flattening", result_without_degree$resampled_df_log$Process[3]))
+  expect_false(grepl("Smoothing", result_without_degree$resampled_df_log$Process[3]))
+
+  expect_false(grepl("Deskewing", result_without_degree$resampled_df_log$Process[4]))
+  expect_false(grepl("Flattening", result_without_degree$resampled_df_log$Process[4]))
+  expect_false(grepl("Smoothing", result_without_degree$resampled_df_log$Process[4]))
 })
 
 test_that("get_formula_string works correctly", {
@@ -1212,196 +2132,57 @@ test_that("get_formula_rhs works correctly", {
   expect_equal(get_formula_rhs(formula_complex, with_tilde = TRUE), expected_rhs_complex_with_tilde)
 })
 
-test_that("get_discrepancy works correctly", {
-  # Sample data for testing
-  X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
-  coefs <- c(0.5, 1.5)
-  Y <- c(1, 0)
-  est_Y <- get_glm_mean("binomial", X, coefs)
 
-  # Test logarithmic error
-  discrepancy_log <- get_discrepancy("logarithmic_error", X = X, Y = Y, coefs = coefs, est_Y = est_Y)
-  expected_log <- mean(Y * log(pmax(0.0001, pmin(0.9999, Y)) / pmax(0.0001, pmin(0.9999, est_Y))) +
-    (1 - Y) * log((1 - pmax(0.0001, pmin(0.9999, Y))) / (1 - pmax(0.0001, pmin(0.9999, est_Y)))))
-  expect_equal(discrepancy_log, expected_log, tolerance = 0.01)
+test_that("is.continuous works correctly", {
+  # Test with continuous numeric vector
+  continuous_vector <- c(1, 2, 3, 4, 5)
+  expect_true(is.continuous(continuous_vector))
 
-  # Test square error
-  discrepancy_sq <- get_discrepancy("square_error", X = X, Y = Y, coefs = coefs, est_Y = est_Y)
-  expected_sq <- mean((Y - est_Y)^2)
-  expect_equal(discrepancy_sq, expected_sq, tolerance = 1e-6)
+  # Test with categorical vector
+  categorical_vector <- c("A", "B", "A", "B", "C")
+  expect_false(is.continuous(categorical_vector))
 
-  # Test classification error
-  discrepancy_class <- get_discrepancy("classification_error", X = X, Y = Y, coefs = coefs, est_Y = est_Y)
-  expected_class <- mean(Y - 2 * Y * est_Y + est_Y)
-  expect_equal(discrepancy_class, expected_class, tolerance = 1e-6)
+  # Test with binary numeric vector
+  binary_vector <- c(0, 1, 1, 0, 1)
+  expect_false(is.continuous(binary_vector))
 
-  # Test logistic deviance
-  # Note: Requires a valid implementation of get_glm_log_density
-  discrepancy_logistic <- get_discrepancy("logistic_deviance", family = "binomial", X = X, Y = Y, coefs = coefs)
-  expected_logistic <- -get_glm_log_density("binomial", X, Y, coefs)
-  expect_equal(discrepancy_logistic, expected_logistic, tolerance = 1e-6)
+  # Test with a numeric vector with only two unique values
+  two_unique_vector <- c(1, 1, 2, 2, 1)
+  expect_false(is.continuous(two_unique_vector))
+
+  # Test with numeric vector with more than two unique values
+  mixed_numeric_vector <- c(1, 2, 3, 4, 5, 6)
+  expect_true(is.continuous(mixed_numeric_vector))
 })
 
-# ---- Identification Functions ----
+test_that("get_standardized_data works correctly", {
+  # Test with numeric and factor columns
+  data <- data.frame(
+    numeric_col = c(2, 3, NA, 4),
+    factor_col = factor(c("A", "B", "A", NA)),
+    stringsAsFactors = FALSE
+  )
 
+  # Test with numeric NA replacement
+  standardized_data <- get_standardized_data(data, na_replace = 0)
+  expect_equal(standardized_data$numeric_col, c(2, 3, 0, 4))
+  expect_equal(standardized_data$factor_col, factor(c("A", "B", "A", "A")))
 
-test_that("is.formula works correctly", {
-  # Test with a formula object
-  formula_obj <- y ~ x + z
-  expect_true(is.formula(formula_obj))
+  # Test with mode replacement for factors
+  standardized_data <- get_standardized_data(data, na_replace = mean)
+  expect_equal(standardized_data$numeric_col, c(2, 3, 3, 4))
 
-  # Test with a non-formula object (numeric vector)
-  non_formula_obj <- c(1, 2, 3)
-  expect_false(is.formula(non_formula_obj))
+  # Test with NA omission
+  data_with_na_omit <- get_standardized_data(data, na_replace = stats::na.omit)
+  expect_equal(nrow(data_with_na_omit), 2)
+  expect_equal(ncol(data_with_na_omit), 2)
 
-  # Test with a non-formula object (character string)
-  formula_string <- "y ~ x + z"
-  expect_true(is.formula(formula_string))
-
-  # Test with a formula that has no tilde (not really a formula)
-  no_tilde_obj <- "y + x"
-  expect_false(is.formula(no_tilde_obj))
-})
-
-test_that("is.formula_glm works correctly", {
-  # Mock functions for formula checks
-  is.formula_lmm <- function(f) {
-    grepl("\\(1\\|", deparse(f))
-  }
-  is.formula_surv <- function(f) {
-    grepl("Surv\\(", deparse(f))
-  }
-
-  # Test with a GLM formula
-  glm_formula <- y ~ x + z
-  expect_true(is.formula_glm(glm_formula))
-
-  # Test with an LMM formula
-  lmm_formula <- y ~ x + (1 | group)
-  expect_false(is.formula_glm(lmm_formula))
-
-  # Test with a Survival Analysis formula
-  surv_formula <- Surv(time, status) ~ x
-  expect_false(is.formula_glm(surv_formula))
-
-  # Test with a non-formula object
-  non_formula_obj <- c(1, 2, 3)
-  expect_false(is.formula_glm(non_formula_obj))
-})
-
-test_that("is.formula_lmm works correctly", {
-  # Example with an LMM formula
-  formula_lmm <- as.formula("response ~ predictor + (1 | group)")
-  expect_true(is.formula_lmm(formula_lmm))
-
-  # Example with a GLM formula
-  formula_glm <- as.formula("response ~ predictor")
-  expect_false(is.formula_lmm(formula_glm))
-
-  # Example with a formula for a survival model
-  formula_surv <- as.formula("Surv(time, status) ~ predictor")
-  expect_false(is.formula_lmm(formula_surv))
-
-  # Example with a non-formula object
-  non_formula <- "response ~ predictor"
-  expect_false(is.formula_lmm(non_formula))
-})
-
-test_that("is.formula_surv works correctly", {
-  # Example with a survival formula
-  formula_surv <- as.formula("Surv(time, status) ~ predictor")
-  expect_true(is.formula_surv(formula_surv))
-
-  # Example with a GLM formula
-  formula_glm <- as.formula("response ~ predictor")
-  expect_false(is.formula_surv(formula_glm))
-
-  # Example with an LMM formula
-  formula_lmm <- as.formula("response ~ predictor + (1 | group)")
-  expect_false(is.formula_surv(formula_lmm))
-
-  # Example with a non-formula object
-  non_formula <- "Surv(time, status) ~ predictor"
-  expect_true(is.formula_surv(non_formula))
-})
-
-test_that("is.cat_glm_init works correctly", {
-  # Example of creating a cat_initialization object with correct function_name
-  init_obj <- list(function_name = "cat_glm_initialization")
-  class(init_obj) <- "cat_initialization"
-  expect_true(is.cat_glm_init(init_obj))
-
-  # Example with a different function_name
-  init_obj_diff <- list(function_name = "cat_other_initialization")
-  class(init_obj_diff) <- "cat_initialization"
-  expect_false(is.cat_glm_init(init_obj_diff))
-
-  # Example with a non-cat_initialization object
-  non_cat_obj <- list(function_name = "cat_glm_initialization")
-  expect_false(is.cat_glm_init(non_cat_obj))
-})
-
-test_that("is.cat_lmm_init works correctly", {
-  # Example of creating a cat_initialization object with correct function_name
-  init_obj <- list(function_name = "cat_lmm_initialization")
-  class(init_obj) <- "cat_initialization"
-  expect_true(is.cat_lmm_init(init_obj))
-
-  # Example with a different function_name
-  init_obj_diff <- list(function_name = "cat_other_initialization")
-  class(init_obj_diff) <- "cat_initialization"
-  expect_false(is.cat_lmm_init(init_obj_diff))
-
-  # Example with a non-cat_initialization object
-  non_cat_obj <- list(function_name = "cat_lmm_initialization")
-  expect_false(is.cat_lmm_init(non_cat_obj))
-})
-
-test_that("is.cat_cox_init works correctly", {
-  # Example of creating a cat_initialization object with correct function_name
-  init_obj <- list(function_name = "cat_cox_initialization")
-  class(init_obj) <- "cat_initialization"
-  expect_true(is.cat_cox_init(init_obj))
-
-  # Example with a different function_name
-  init_obj_diff <- list(function_name = "cat_other_initialization")
-  class(init_obj_diff) <- "cat_initialization"
-  expect_false(is.cat_cox_init(init_obj_diff))
-
-  # Example with a non-cat_initialization object
-  non_cat_obj <- list(function_name = "cat_cox_initialization")
-  expect_false(is.cat_cox_init(non_cat_obj))
-})
-
-test_that("is.subset_membership works correctly", {
-  # Example with all elements of whole_set in the subset
-  whole_set <- c(1, 2, 3)
-  subset <- c(1, 2, 3)
-  expect_true(is.subset_membership(whole_set, subset))
-
-  # Example with all elements of whole_set in the subsets
-  whole_set <- c(1, 2, 3)
-  subset_1 <- c(1, 2)
-  subset_2 <- c(3)
-  expect_true(is.subset_membership(whole_set, subset_1, subset_2))
-
-  # Example with missing elements in the subset
-  whole_set <- c(1, 2, 3)
-  subset <- c(1, 2)
-  expect_false(is.subset_membership(whole_set, subset))
-
-  # Example with duplicate elements in the subset
-  whole_set <- c(1, 2, 3)
-  subset <- c(1, 2, 2, 3)
-  expect_false(is.subset_membership(whole_set, subset))
-
-  # Example with empty subset and whole_set
-  whole_set <- c()
-  subset <- c()
-  expect_true(is.subset_membership(whole_set, subset))
-
-  # Example with non-empty whole_set and empty subset
-  whole_set <- c(1, 2, 3)
-  subset <- c()
-  expect_false(is.subset_membership(whole_set, subset))
+  # Test with no NA values
+  data_no_na <- data.frame(
+    numeric_col = c(1, 2, 4),
+    factor_col = factor(c("A", "B", "A")),
+    stringsAsFactors = FALSE
+  )
+  standardized_data_no_na <- get_standardized_data(data_no_na)
+  expect_equal(standardized_data_no_na, data_no_na)
 })

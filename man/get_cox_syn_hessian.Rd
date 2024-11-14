@@ -19,20 +19,16 @@ get_cox_syn_hessian(X, time, coefs, hazard_constant)
 A matrix representing the synthetic Hessian of the Cox model.
 }
 \description{
-Compute the Synthetic Hessian Matrix for Cox Proportional Hazards Model
-}
-\details{
 This function computes the synthetic Hessian matrix for the Cox proportional hazards model.
 The Hessian is calculated by summing the contributions from each individual observation, scaled by
 the hazard constant and the time of the event.
 }
 \examples{
-X <- matrix(rnorm(15), ncol = 3)
-time <- rexp(5, rate = 0.1)
-coefs <- rnorm(3)
-hazard_constant <- 1
-
-# Compute the synthetic Hessian matrix
-hessian_matrix <- get_cox_syn_hessian(X, time, coefs, hazard_constant)
+hessian_matrix <- get_cox_syn_hessian(
+  X = matrix(stats::rnorm(15), ncol = 3),
+  time = stats::rexp(5, rate = 0.1),
+  coefs = stats::rnorm(3),
+  hazard_constant = 0.7
+)
 hessian_matrix
 }

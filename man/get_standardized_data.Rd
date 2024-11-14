@@ -27,6 +27,6 @@ data <- data.frame(
   factor_col = factor(c("A", "B", "A", NA)),
   stringsAsFactors = FALSE
 )
-standardized_data <- get_standardized_data(data, na_replace = 0)
+standardized_data <- get_standardized_data(data = data, na_replace = 0)
 standardized_data
 }

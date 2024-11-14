@@ -1,4 +1,4 @@
-#' Initialization for catalytic Linear Mixed Model (LMM)
+#' Initialization for Catalytic Linear Mixed Model (LMM)
 #'
 #' This function prepares and initializes a catalytic linear mixed model by processing input data,
 #' extracting necessary variables, generating synthetic datasets, and fitting a model.
@@ -8,57 +8,64 @@
 #' @param x_cols A character vector of column names for fixed effects (predictors).
 #' @param y_col A character string for the name of the response variable.
 #' @param z_cols A character vector of column names for random effects.
-#' @param group_col A character string for the grouping variable (optional). If NULL, it is extracted from the formula.
-#' @param syn_size An integer specifying the size of the synthetic dataset to be generated (default is length(x_cols) * 4).
-#' @param resample_by_group A logical indicating whether to resample by group (default is FALSE).
-#' @param resample_only A logical indicating whether to perform resampling only (default is FALSE).
-#' @param na_replace A function to replace NA values in the data (default is mean).
+#' @param group_col A character string for the grouping variable (optional). If didnt given (NULL), it is extracted from the formula.
+#' @param syn_size An integer specifying the size of the synthetic dataset to be generated, default is length(x_cols) * 4.
+#' @param resample_by_group A logical indicating whether to resample by group, default is FALSE.
+#' @param resample_only A logical indicating whether to perform resampling only, default is FALSE.
+#' @param na_replace A function to replace NA values in the data, default is mean.
 #'
-#' @return A list containing the values of all the arguments and the following components:
-#' \item{function_name}{A character string representing the name of the function, "cat_lmm_initialization".}
-#' \item{simple_model}{An object of class `lmer` or `lm`, representing the fitted model for generating synthetic response from the original data.}
+#' @return A list containing the values of all the input arguments and the following components:
 #'
-#' # Observation Data Information
-#' \item{obs_size}{An integer representing the number of observations in the original dataset.}
-#' \item{obs_data}{The original data used for fitting the model, returned as a data frame.}
-#' \item{obs_x}{A data frame containing the standardized predictor variables from the original dataset.}
-#' \item{obs_y}{A numeric vector of the standardized response variable from the original dataset.}
-#' \item{obs_z}{A data frame containing the standardized random effect variables from the original dataset.}
-#' \item{obs_group}{A numeric vector representing the grouping variable for the original observations.}
+#' - **Function Information**:
+#'   - `function_name`: A character string representing the name of the function, "cat_lmm_initialization".
+#'   - `simple_model`: An object of class `lme4::lmer` or `stats::lm`, representing the fitted model for generating synthetic response from the original data.
 #'
-#' # Synthetic Data Information
-#' \item{syn_size}{An integer representing the number of synthetic observations generated.}
-#' \item{syn_data}{A data frame containing the synthetic dataset, combining synthetic predictor and response variables.}
-#' \item{syn_x}{A data frame containing the synthetic predictor variables.}
-#' \item{syn_y}{A numeric vector of the synthetic response variable values.}
-#' \item{syn_z}{A data frame containing the synthetic random effect variables.}
-#' \item{syn_group}{A numeric vector representing the grouping variable for the synthetic observations.}
-#' \item{syn_x_resample_inform}{A data frame containing information about the resampling process for synthetic predictors.}
-#' \item{syn_z_resample_inform}{A data frame containing information about the resampling process for synthetic random effects.}
+#' - **Observation Data Information**:
+#'   - `obs_size`: An integer representing the number of observations in the original dataset.
+#'   - `obs_data`: The original data used for fitting the model, returned as a data frame.
+#'   - `obs_x`: A data frame containing the standardized predictor variables from the original dataset.
+#'   - `obs_y`: A numeric vector of the standardized response variable from the original dataset.
+#'   - `obs_z`: A data frame containing the standardized random effect variables from the original dataset.
+#'   - `obs_group`: A numeric vector representing the grouping variable for the original observations.
 #'
-#' # Whole Data Information
-#' \item{size}{An integer representing the total size of the combined original and synthetic datasets.}
-#' \item{data}{A combined data frame of the original and synthetic datasets.}
-#' \item{x}{A combined data frame of the original and synthetic predictor variables.}
-#' \item{y}{A combined numeric vector of the original and synthetic response variables.}
-#' \item{z}{A combined data frame of the original and synthetic random effect variables.}
-#' \item{group}{A combined numeric vector representing the grouping variable for both original and synthetic datasets.}
+#' - **Synthetic Data Information**:
+#'   - `syn_size`: An integer representing the number of synthetic observations generated.
+#'   - `syn_data`: A data frame containing the synthetic dataset, combining synthetic predictor and response variables.
+#'   - `syn_x`: A data frame containing the synthetic predictor variables.
+#'   - `syn_y`: A numeric vector of the synthetic response variable values.
+#'   - `syn_z`: A data frame containing the synthetic random effect variables.
+#'   - `syn_group`: A numeric vector representing the grouping variable for the synthetic observations.
+#'   - `syn_x_resample_inform`: A data frame containing information about the resampling process for synthetic predictors:
+#'     - Coordinate: Preserves the original data values as reference coordinates during processing.
+#'     - Deskewing: Adjusts the data distribution to reduce skewness and enhance symmetry.
+#'     - Smoothing: Reduces noise in the data to stabilize the dataset and prevent overfitting.
+#'     - Flattening: Creates a more uniform distribution by modifying low-frequency categories in categorical variables.
+#'     - Symmetrizing: Balances the data around its mean to improve statistical properties for model fitting.
+#'   - `syn_z_resample_inform`: A data frame containing information about the resampling process for synthetic random effects. The resampling methods are the same as those from `syn_x_resample_inform`.
+#'
+#' - **Whole Data Information**:
+#'   - `size`: An integer representing the total size of the combined original and synthetic datasets.
+#'   - `data`: A combined data frame of the original and synthetic datasets.
+#'   - `x`: A combined data frame of the original and synthetic predictor variables.
+#'   - `y`: A combined numeric vector of the original and synthetic response variables.
+#'   - `z`: A combined data frame of the original and synthetic random effect variables.
+#'   - `group`: A combined numeric vector representing the grouping variable for both original and synthetic datasets.
 #'
 #' @examples
 #' data(mtcars)
 #' cat_init <- cat_lmm_initialization(
 #'   formula = mpg ~ wt + (1 | cyl), # formula for simple model
 #'   data = mtcars,
-#'   x_cols = c("wt"),  # Fixed effects
-#'   y_col = "mpg",     # Response variable
-#'   z_cols = c("disp", "hp", "drat", "qsec", "vs", "am", "gear", "carb"),  # Random effects
-#'   group_col = "cyl",  # Grouping column
-#'   syn_size = 100,  # Synthetic data size
-#'   resample_by_group = FALSE,  # Resampling option
-#'   resample_only = FALSE,  # Resampling method
-#'   na_replace = mean  # NA replacement method
+#'   x_cols = c("wt"), # Fixed effects
+#'   y_col = "mpg", # Response variable
+#'   z_cols = c("disp", "hp", "drat", "qsec", "vs", "am", "gear", "carb"), # Random effects
+#'   group_col = "cyl", # Grouping column
+#'   syn_size = 100, # Synthetic data size
+#'   resample_by_group = FALSE, # Resampling option
+#'   resample_only = FALSE, # Resampling method
+#'   na_replace = mean # NA replacement method
 #' )
-#'cat_init
+#' cat_init
 #' @export
 cat_lmm_initialization <- function(formula,
                                    data,
@@ -101,21 +108,22 @@ cat_lmm_initialization <- function(formula,
   )
 
   ## Extract observation fixed effect, group, response and random effect
-  obs_x <- as.data.frame(obs_data[, x_cols, drop=FALSE])
+  obs_x <- as.data.frame(obs_data[, x_cols, drop = FALSE])
   obs_group <- obs_data[, group_col]
   obs_y <- obs_data[, y_col]
-  obs_z <- as.data.frame(obs_data[, z_cols, drop=FALSE])
+  obs_z <- as.data.frame(obs_data[, z_cols, drop = FALSE])
 
   # Generate Synthetic Dataset
   if (is.null(syn_size)) syn_size <- length(x_cols) * 4
 
   ## Generating synthetic group by resampling observation group
-  syn_group_inform <- get_resampled_data(
+  syn_group_inform <- get_resampled_df(
     data = as.data.frame(obs_group),
     resample_size = syn_size,
     resample_only = TRUE
   )
-  syn_group <- as.numeric(syn_group_inform$resampled_data[[1]])
+
+  syn_group <- as.numeric(syn_group_inform$resampled_df[[1]])
 
   ## Generate synthetic fixed effect and random effect
   if (resample_by_group) {
@@ -134,34 +142,34 @@ cat_lmm_initialization <- function(formula,
     for (g in unique(c(obs_group)[[1]])) {
       group_idx <- which(syn_group == g)
 
-      syn_x_inform <- get_resampled_data(
-        obs_data = obs_x[which(obs_group == g), ],
+      syn_x_inform <- get_resampled_df(
+        data = obs_x[which(obs_group == g), ],
         resample_size = length(group_idx)
       )
-      syn_x[group_idx, ] <- syn_x_inform$resampled_data
+      syn_x[group_idx, ] <- syn_x_inform$resampled_df
 
-      syn_z_inform <- get_resampled_data(
+      syn_z_inform <- get_resampled_df(
         data = obs_z[which(obs_group == g), ],
         resample_size = length(group_idx)
       )
-      syn_z[group_idx, ] <- syn_z_inform$resampled_data
+      syn_z[group_idx, ] <- syn_z_inform$resampled_df
     }
 
     syn_x_inform <- NULL
     syn_z_inform <- NULL
   } else {
-    syn_x_inform <- get_resampled_data(
+    syn_x_inform <- get_resampled_df(
       data = obs_x,
       resample_size = syn_size
     )
 
-    syn_z_inform <- get_resampled_data(
+    syn_z_inform <- get_resampled_df(
       data = obs_z,
       resample_size = syn_size
     )
 
-    syn_x <- syn_x_inform$resampled_data
-    syn_z <- syn_z_inform$resampled_data
+    syn_x <- syn_x_inform$resampled_df
+    syn_z <- syn_z_inform$resampled_df
   }
 
   ## Generate synthetic response by using simple model
@@ -185,16 +193,15 @@ cat_lmm_initialization <- function(formula,
   syn_data <- cbind(
     syn_x,
     syn_z,
-    setNames(as.data.frame(syn_group), group_col)
+    stats::setNames(as.data.frame(syn_group), group_col)
   )
-  syn_y <- as.numeric(predict(simple_model, newdata = syn_data))
+  syn_y <- as.numeric(stats::predict(simple_model, newdata = syn_data))
 
   # Finalize Setup and Output
   cat_init <- list(
     function_name = "cat_lmm_initialization",
     ## Input/Processed parameters
     formula = formula,
-    data = data,
     x_cols = x_cols,
     y_col = y_col,
     z_cols = z_cols,
@@ -213,13 +220,13 @@ cat_lmm_initialization <- function(formula,
     obs_group = obs_group,
     ## Synthetic data information
     syn_size = syn_size,
-    syn_data = cbind(syn_data, setNames(as.data.frame(syn_y), y_col)),
+    syn_data = cbind(syn_data, stats::setNames(as.data.frame(syn_y), y_col)),
     syn_x = syn_x,
     syn_y = syn_y,
     syn_z = syn_z,
     syn_group = syn_group,
-    syn_x_resample_inform = syn_x_inform$resampled_data_record,
-    syn_z_resample_inform = syn_z_inform$resampled_data_record
+    syn_x_resample_inform = syn_x_inform$resampled_df_log,
+    syn_z_resample_inform = syn_z_inform$resampled_df_log
   )
 
   cat_init <- c(

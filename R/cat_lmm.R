@@ -1,17 +1,50 @@
-#' Title
+#' Catalytic Linear Mixed Model (LMM) Fitting Function with fixed tau
 #'
-#' @param cat_init
-#' @param tau
-#' @param ...
-#' @param max_iter
-#' @param tol
-#' @param variance_params_0
-#' @param coefs_0
+#' Fits a Catalytic linear mixed model (LMM) for observation and synthetic data with specified variance parameters
+#' and iterative coefficient estimation. This function initializes model parameters,
+#' sorts synthetic data, calculates eigen decompositions, and iteratively optimizes
+#' variance and coefficient values to convergence, by a single given tau value.
 #'
-#' @return
-#' @export
+#' @param cat_init A list generated from `cat_lmm_initialization`.
+#' @param tau Optional numeric scalar controlling the weight of the synthetic data in the coefficient estimation, defaults to \code{ncol(cat_init$obs_x) / 4}.
+#' @param residual_variance_0 Initial value for residual variance, default is 1.
+#' @param random_effect_variance_0 Initial value for random effect variance, default is 1.
+#' @param coefs_0 Optional initial coefficient vector, default is \code{NULL} which initializes randomly.
+#' @param optimize_domain Numeric vector of length 2 defining optimization range for variance parameters, default is \code{c(0, 30)}.
+#' @param max_iter Integer specifying maximum number of iterations for convergence, default is 500.
+#' @param tol Tolerance for convergence criterion, default is 1e-08.
+#'
+#' @return A list containing the values of all the arguments and the following components:
+#' \item{coefficients}{Estimated coefficient vector.}
+#' \item{iteration_log}{Matrix logging variance and coefficient values for each iteration.}
 #'
 #' @examples
+#' data(mtcars)
+#' cat_init <- cat_lmm_initialization(
+#'   formula = mpg ~ wt + (1 | cyl), # formula for simple model
+#'   data = mtcars,
+#'   x_cols = c("wt"), # Fixed effects
+#'   y_col = "mpg", # Response variable
+#'   z_cols = c("disp", "hp", "drat", "qsec", "vs", "am", "gear", "carb"), # Random effects
+#'   group_col = "cyl", # Grouping column
+#'   syn_size = 100, # Synthetic data size
+#'   resample_by_group = FALSE, # Resampling option
+#'   resample_only = FALSE, # Resampling method
+#'   na_replace = mean # NA replacement method
+#' )
+#'
+#' cat_model <- cat_lmm(
+#'   cat_init = cat_init, # Only accept object generated from cat_lmm_initialization
+#'   tau = 1, # Weight for synthetic data
+#'   residual_variance_0 = 1, # Initial value for residual variance
+#'   random_effect_variance_0 = 1, # Initial value for random effect variance
+#'   coefs_0 = c(1), # Initial coefficient vector
+#'   optimize_domain = c(0, 30), # Optimization range for residual and random effect variance
+#'   max_iter = 500, # Maximum number of iterations for convergence
+#'   tol = 1e-08 # Tolerance for convergence criterion
+#' )
+#' cat_model
+#' @export
 cat_lmm <- function(
     cat_init,
     tau = NULL,
@@ -38,16 +71,16 @@ cat_lmm <- function(
   # Sort synthetic data by group
   sorted_syn_data <- cbind(
     cat_init$syn_x,
-    setNames(as.data.frame(cat_init$syn_y), cat_init$y_col),
+    stats::setNames(as.data.frame(cat_init$syn_y), cat_init$y_col),
     cat_init$syn_z,
-    setNames(as.data.frame(cat_init$syn_group), cat_init$group_col)
+    stats::setNames(as.data.frame(cat_init$syn_group), cat_init$group_col)
   )[order(cat_init$syn_group), ]
 
   cat_init$syn_data <- sorted_syn_data
-  cat_init$syn_x <- sorted_syn_data$syn_x
-  cat_init$syn_y <- sorted_syn_data$syn_y
-  cat_init$syn_z <- sorted_syn_data$syn_z
-  cat_init$syn_group <- sorted_syn_data$syn_group
+  cat_init$syn_x <- sorted_syn_data[, cat_init$x_cols, drop = FALSE]
+  cat_init$syn_y <- sorted_syn_data[, cat_init$y_col]
+  cat_init$syn_z <- sorted_syn_data[, cat_init$z_cols, drop = FALSE]
+  cat_init$syn_group <- sorted_syn_data[[cat_init$group_col]]
 
   # Calculates the eigenvalues and eigenvectors of obs_z
   obs_z_eigen <- eigen(tcrossprod(as.matrix(cat_init$obs_z)))
@@ -61,15 +94,14 @@ cat_lmm <- function(
 
   for (g in unique(cat_init$group)) {
     group_idx <- which(cat_init$syn_group == g)
-
-    syn_z_eigen <- eigen(tcrossprod(cat_init$syn_z[group_idx, ]))
+    syn_z_eigen <- eigen(tcrossprod(as.matrix(cat_init$syn_z[group_idx, ])))
     syn_z_eigenvalues[group_idx] <- syn_z_eigen$values
     syn_z_eigenvectors[((1:nrow(syn_z_eigen$vectors)) + row_offset), group_idx] <- syn_z_eigen$vectors
 
     row_offset <- row_offset + nrow(syn_z_eigen$vectors)
   }
 
-  coefs <- if (is.null(coefs_0)) rnorm(ncol(cat_init$obs_x)) else coefs_0
+  coefs <- if (is.null(coefs_0)) stats::rnorm(ncol(cat_init$obs_x)) else coefs_0
   residual_variance <- residual_variance_0
   random_effect_variance <- random_effect_variance_0
 
@@ -81,7 +113,7 @@ cat_lmm <- function(
   colnames(iteration_log) <- c(
     "residual_variance",
     "random_effect_variance",
-    paste0("prev_coefs[", 1:length(coefs), "]")
+    cat_init$x_cols
   )
 
   iter <- 0
@@ -104,14 +136,14 @@ cat_lmm <- function(
 
     # Update coefficients using generalized inverse and current parameter estimates
     coefs <- MASS::ginv(
-      (tau / cat_init$syn_size) * quadform::quad.form(syn_z_inv, cat_init$syn_x) +
-        quadform::quad.form(obs_z_inv, cat_init$obs_x)
+      (tau / cat_init$syn_size) * quadform::quad.form(syn_z_inv, as.matrix(cat_init$syn_x)) +
+        quadform::quad.form(obs_z_inv, as.matrix(cat_init$obs_x))
     ) %*% (
-      quadform::quad.3form(obs_z_inv, cat_init$obs_x, cat_init$obs_y) +
-        tau / cat_init$syn_size * quadform::quad.3form(syn_z_inv, cat_init$syn_x, cat_init$syn_y))
+      quadform::quad.3form(obs_z_inv, as.matrix(cat_init$obs_x), cat_init$obs_y) +
+        tau / cat_init$syn_size * quadform::quad.3form(syn_z_inv, as.matrix(cat_init$syn_x), cat_init$syn_y))
 
-    obs_adjusted_residuals <- t(obs_z_eigenvectors) %*% (cat_init$obs_y - cat_init$obs_x %*% coefs)
-    syn_adjusted_residuals <- t(syn_z_eigenvectors) %*% (cat_init$syn_y - cat_init$syn_x %*% coefs)
+    obs_adjusted_residuals <- t(obs_z_eigenvectors) %*% (cat_init$obs_y - as.matrix(cat_init$obs_x) %*% coefs)
+    syn_adjusted_residuals <- t(syn_z_eigenvectors) %*% (cat_init$syn_y - as.matrix(cat_init$syn_x) %*% coefs)
 
     random_effect_variance <- stats::optimize(update_lmm_variance,
       optimize_domain,
@@ -134,8 +166,13 @@ cat_lmm <- function(
     )$minimum
 
     if ((norm(
-      c(residual_variance, random_effect_variance) -
-        c(prev_residual_variance, prev_random_effect_variance),
+      c(
+        residual_variance,
+        random_effect_variance
+      ) - c(
+        prev_residual_variance,
+        prev_random_effect_variance
+      ),
       "2"
     ) < tol) & (norm(coefs - prev_coefs, "2") < tol)) {
       parameters_converged <- TRUE
@@ -162,10 +199,10 @@ cat_lmm <- function(
     tol = tol,
     ## Result
     coefficients = as.numeric(coefs),
-    iteration_log = iteration_log,
+    iteration_log = iteration_log
   )
 
-  class(cat_model) <- c(cat_model$class, "cat_lmm")
+  class(cat_model) <- c(cat_model$class, "cat", "cat_lmm")
 
   return(cat_model)
 }

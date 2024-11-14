@@ -22,12 +22,11 @@ A numeric vector representing the gradient of the synthetic Cox model.
 This function calculates the gradient of the synthetic Cox proportional hazards model using a vectorized approach.
 }
 \examples{
-X <- matrix(c(1, 2, 3, 4, 5, 6), ncol = 2)
-time <- c(1, 2, 3)
-coefs <- c(0.5, -0.3)
-hazard_constant <- 0.7
-
-# Compute gradient
-gradient <- get_cox_syn_gradient(X, time, coefs, hazard_constant)
+gradient <- get_cox_syn_gradient(
+  X = matrix(stats::rnorm(15), ncol = 3),
+  time = stats::rexp(5, rate = 0.1),
+  coefs = stats::rnorm(3),
+  hazard_constant = 0.3
+)
 gradient
 }

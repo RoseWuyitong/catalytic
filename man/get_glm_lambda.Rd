@@ -5,15 +5,16 @@
 \title{Compute Lambda Based on Discrepancy Method}
 \usage{
 get_glm_lambda(
-  discrepancy_method = c("square_error", "classification_error", "logistic_deviance"),
+  discrepancy_method = c("mean_square_error", "mean_classification_error",
+    "logistic_deviance"),
   X,
   coefs
 )
 }
 \arguments{
 \item{discrepancy_method}{Character. A string specifying the type of discrepancy method
-to use. Options are \code{"square_error"}, \code{"classification_error"}, or \code{"logistic_deviance"}.
-Default is \code{"square_error"}.}
+to use. Options are \code{"mean_square_error"}, \code{"mean_classification_error"}, or \code{"logistic_deviance"}.
+Default is \code{"mean_square_error"}.}
 
 \item{X}{Matrix. The design matrix (predictors) for the GLM.}
 
@@ -28,9 +29,9 @@ for a generalized linear model (GLM). The discrepancy method determines the
 type of error or deviance used in the calculation.
 }
 \examples{
-X <- matrix(rnorm(15), ncol = 3)
-coefs <- rnorm(4)
+X <- matrix(stats::rnorm(15), ncol = 3)
+coefs <- stats::rnorm(4)
 
-lambda <- get_glm_lambda(discrepancy_method = "square_error", X, coefs)
+lambda <- get_glm_lambda(discrepancy_method = "mean_square_error", X, coefs)
 lambda
 }

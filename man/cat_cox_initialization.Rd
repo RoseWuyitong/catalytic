@@ -2,7 +2,7 @@
 % Please edit documentation in R/cat_cox_initialization.R
 \name{cat_cox_initialization}
 \alias{cat_cox_initialization}
-\title{Initialize Cox Proportional-Hazards Model with Synthetic Data}
+\title{Initialization for Catalytic Cox proportional hazards model (COX)}
 \usage{
 cat_cox_initialization(
   formula,
@@ -16,64 +16,85 @@ cat_cox_initialization(
 )
 }
 \arguments{
-\item{formula}{A formula specifying the model structure, which is used for generating synthetic response.
-See \code{survival::coxph} for details on formula syntax.}
+\item{formula}{A formula specifying the Cox model. Should include response and predictor variables.}
 
-\item{data}{The original dataset in \code{data.frame} format.}
+\item{data}{A data frame containing the data for modeling.}
 
-\item{syn_size}{The size of the synthetic data generated. Default is four times the number of predictors.}
+\item{syn_size}{An integer specifying the size of the synthetic dataset to be generated. Default is four times the number of predictor columns.}
 
-\item{hazard_constant}{A constant used in the hazard rate calculation. Default is the sum of observed statuses divided by the mean observed time divided by the number of observations.}
+\item{hazard_constant}{A constant hazard rate for generating synthetic time data if not using a fitted Cox model. Default is NULL and will calculate in function.}
 
-\item{entry_points}{An optional vector specifying the entry points for the data. Default is a vector of zeros.}
+\item{entry_points}{A numeric vector for entry points of each observation. Default is NULL.}
 
-\item{x_degree}{Degrees of covariates in the synthetic data generation process. Defaults to NULL.}
+\item{x_degree}{A numeric vector indicating the degree for polynomial expansion of predictors. Default is 1 for each predictor.}
 
-\item{resample_only}{Logical indicating whether to generate synthetic data only by resampling original data. Default is FALSE.}
+\item{resample_only}{A logical indicating whether to perform resampling only. Default is FALSE.}
 
-\item{na_replace}{Function used to handle missing values in the original dataset. Defaults to \code{stats::na.omit}.}
-
-\item{...}{Additional arguments to be passed to the \code{coxph} function.}
+\item{na_replace}{A function to handle NA values in the data. Default is \code{stats::na.omit}.}
 }
 \value{
-An object of class \code{cat_init} containing:
-\describe{
-\item{function_name}{Name of the initialization function.}
-\item{formula}{Formula used for model initialization.}
-\item{hazard_constant}{Hazard rate constant used.}
-\item{entry_points}{Entry points for the data.}
-\item{x_degree}{Degrees of covariates used in synthetic data generation.}
-\item{time_col_name}{Column name of the time variable.}
-\item{status_col_name}{Column name of the status variable.}
-\item{obs_size}{Size of the original dataset.}
-\item{obs_data}{Original dataset (observations).}
-\item{obs_x}{Covariates from the original dataset.}
-\item{obs_time}{Time variable from the original dataset.}
-\item{obs_status}{Status variable from the original dataset.}
-\item{syn_size}{Size of the synthetic dataset.}
-\item{syn_data}{Synthetic dataset generated (synthetic covariates and responses).}
-\item{syn_x}{Synthetic covariates.}
-\item{syn_time}{Synthetic times.}
-\item{syn_status}{Synthetic statuses.}
-\item{syn_x_resample_inform}{Information on resampled synthetic data.}
-\item{size}{Size of the original dataset plus the size of the synthetic dataset.}
-\item{data}{Combined observation and synthetic data.}
-\item{x}{Combined observation and synthetic covariates.}
-\item{time}{Combined observation and synthetic times.}
-\item{status}{Combined observation and synthetic statuses.}
+A list containing the values of all the input arguments and the following components:
+\itemize{
+\item \strong{Function Information}:
+\itemize{
+\item \code{function_name}: The name of the function, "cat_cox_initialization".
+\item \code{time_col_name}: The name of the time variable in the dataset.
+\item \code{status_col_name}: The name of the status variable (event indicator) in the dataset.
+\item \code{simple_model}: If the formula has no predictors, a constant hazard rate model is used; otherwise, a fitted Cox model object.
+}
+\item \strong{Observation Data Information}:
+\itemize{
+\item \code{obs_size}: Number of observations in the original dataset.
+\item \code{obs_data}: Data frame of standardized observation data.
+\item \code{obs_x}: Predictor variables for observed data.
+\item \code{obs_time}: Observed survival times.
+\item \code{obs_status}: Event indicator for observed data.
+}
+\item \strong{Synthetic Data Information}:
+\itemize{
+\item \code{syn_size}: Number of synthetic observations generated.
+\item \code{syn_data}: Data frame of synthetic predictor and response variables.
+\item \code{syn_x}: Synthetic predictor variables.
+\item \code{syn_time}: Synthetic survival times.
+\item \code{syn_status}: Event indicator for synthetic data (defaults to 1).
+\item \code{syn_x_resample_inform}: Information about resampling methods for synthetic predictors:
+\itemize{
+\item Coordinate: Preserves the original data values as reference coordinates during processing.
+\item Deskewing: Adjusts the data distribution to reduce skewness and enhance symmetry.
+\item Smoothing: Reduces noise in the data to stabilize the dataset and prevent overfitting.
+\item Flattening: Creates a more uniform distribution by modifying low-frequency categories in categorical variables.
+\item Symmetrizing: Balances the data around its mean to improve statistical properties for model fitting.
+}
+}
+\item \strong{Whole Data Information}:
+\itemize{
+\item \code{size}: Total number of combined original and synthetic observations.
+\item \code{data}: Data frame combining original and synthetic datasets.
+\item \code{x}: Combined predictor variables from original and synthetic data.
+\item \code{time}: Combined survival times from original and synthetic data.
+\item \code{status}: Combined event indicators from original and synthetic data.
+}
 }
 }
 \description{
-This function initializes data for fitting Cox Proportional-Hazards models with synthetic data using the catalytic package.
-Adjust parameters such as the formula, syn_size, and x_degree to customize the initialization process.
+This function prepares and initializes a catalytic Cox proportional hazards model by processing input data,
+extracting necessary variables, generating synthetic datasets, and fitting a model.
 }
 \examples{
-# Assuming `my_data` is a data frame with columns `time`, `status`, and covariates
-formula <- survival::Surv(time, status) ~ .
-cat_init <- cat_cox_initialization(
-  formula = formula,
-  data = my_data
-)
+library(survival)
+data("cancer")
+cancer$status[cancer$status == 1] <- 0
+cancer$status[cancer$status == 2] <- 1
 
+cat_init <- cat_cox_initialization(
+  formula = Surv(time, status) ~ 1, # formula for simple model
+  data = cancer,
+  syn_size = 200, # Synthetic data size
+  hazard_constant = NULL, # Hazard rate value
+  entry_points = rep(0, nrow(cancer)), # Entry points of each observation
+  x_degree = rep(1, ncol(cancer) - 2), # Degrees for polynomial expansion of predictors
+  resample_only = FALSE, # Whether to perform resampling only
+  na_replace = stats::na.omit # How to handle NA values in data
+)
 cat_init
 }

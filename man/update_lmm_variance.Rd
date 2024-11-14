@@ -39,6 +39,13 @@ using residual and random-effect variance terms to determine the fit
 of variance parameters in the mixed model context.
 }
 \examples{
-# Example parameters for testing
-#
+update_lmm_variance(
+  residual_variance = 0.5,
+  random_effect_variance = 1.2,
+  obs_z_eigenvalues = c(0.8, 1.1, 1.3),
+  syn_z_eigenvalues = c(0.7, 1.0, 1.2),
+  obs_adjusted_residuals = c(0.2, -0.1, 0.05),
+  syn_adjusted_residuals = c(-0.1, 0.05, 0.2),
+  tau = 1.5
+)
 }
