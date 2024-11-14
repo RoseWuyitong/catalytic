@@ -13,11 +13,9 @@ get_adjusted_cat_init(cat_init, formula_rhs)
 }
 \value{
 A list containing the original \code{cat_init} with added components:
-\itemize{
-\item adj_x: The adjusted model frame for the predictors.
-\item adj_obs_x: The observed part of the adjusted predictors.
-\item adj_syn_x: The synthetic part of the adjusted predictors.
-}
+- \code{adj_x}: The adjusted model frame for the predictors.
+- \code{adj_obs_x}: The observed part of the adjusted predictors.
+- \code{adj_syn_x}: The synthetic part of the adjusted predictors.
 }
 \description{
 This function adjusts the categorical initialization by creating a model frame

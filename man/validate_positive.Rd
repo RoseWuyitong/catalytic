@@ -23,31 +23,3 @@ This function checks whether a parameter value is positive (or non-negative if \
 It can handle both single numeric values and vectors, and it raises an error with an informative
 message if the validation fails.
 }
-\examples{
-# Passes: 1 is positive
-validate_positive(
-  param_name = "alpha",
-  param_value = 1
-)
-
-# Passes: all values are non-negative, treated as a vector
-validate_positive(
-  param_name = "delta",
-  param_value = c(0, 1),
-  incl_0 = TRUE,
-  is_vector = TRUE
-)
-
-# Error: input should not be a single number
-validate_positive(
-  param_name = "beta",
-  param_value = c(0, 2, 3),
-  incl_0 = TRUE
-)
-
-# Error: -1 is not positive
-validate_positive(
-  param_name = "gamma",
-  param_value = -1
-)
-}

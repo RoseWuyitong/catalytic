@@ -48,7 +48,6 @@ This function performs the following checks:
 \item Validates that \code{x_degree} has the correct length relative to the number of predictors in \code{data}.
 \item Warns if \code{syn_size} is too small relative to the number of columns in \code{data}.
 \item Issues warnings if \code{custom_variance} or \code{gaussian_known_variance} are used with incompatible families.
-}
-
 If any of these conditions are not met, the function raises an error or warning to guide the user.
+}
 }

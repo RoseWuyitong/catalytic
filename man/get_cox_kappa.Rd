@@ -19,14 +19,5 @@ get_cox_kappa(X, time, status, hazard_constant)
 A numeric value representing the estimated kappa for the synthetic Cox model.
 }
 \description{
-This function iteratively estimates the kappa value for the synthetic Cox proportional hazards model using a vectorized approach for efficiency.
-}
-\examples{
-kappa <- get_cox_kappa(
-  X = matrix(stats::rnorm(100), ncol = 5),
-  time = stats::rexp(20),
-  status = stats::rbinom(20, 1, 0.5),
-  hazard_constant = 0.02
-)
-kappa
+This function iterative estimates the kappa value for the synthetic Cox proportional hazards model using a vectorized approach for efficiency.
 }

@@ -28,7 +28,7 @@ cat_lmm_initialization(
 
 \item{z_cols}{A character vector of column names for random effects.}
 
-\item{group_col}{A character string for the grouping variable (optional). If didnt given (NULL), it is extracted from the formula.}
+\item{group_col}{A character string for the grouping variable (optional). If not given (NULL), it is extracted from the formula.}
 
 \item{syn_size}{An integer specifying the size of the synthetic dataset to be generated, default is length(x_cols) * 4.}
 

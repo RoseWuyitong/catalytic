@@ -23,12 +23,3 @@ This function computes the synthetic Hessian matrix for the Cox proportional haz
 The Hessian is calculated by summing the contributions from each individual observation, scaled by
 the hazard constant and the time of the event.
 }
-\examples{
-hessian_matrix <- get_cox_syn_hessian(
-  X = matrix(stats::rnorm(15), ncol = 3),
-  time = stats::rexp(5, rate = 0.1),
-  coefs = stats::rnorm(3),
-  hazard_constant = 0.7
-)
-hessian_matrix
-}

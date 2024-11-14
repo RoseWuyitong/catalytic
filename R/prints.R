@@ -401,7 +401,7 @@ extract_dim <- function(cat_init) {
 #' with appropriate names, and rounds each coefficient to the specified number of decimal places.
 #' Optionally, the intercept can be included or excluded from the output.
 #'
-#' @param x A model object generataed from `catalytic` that containing model coefficients.
+#' @param x A model object generated from `catalytic` that containing model coefficients.
 #' @param digit An integer specifying the number of decimal places for rounding coefficients. Default is 3.
 #'
 #' @return A named numeric vector of model coefficients, rounded to the specified number of decimal places.
@@ -427,7 +427,7 @@ extract_coefs <- function(
 #' If the sequence contains more than 10 values, only the first 3 and last 3 values are shown,
 #' with ellipsis ("...") in between.
 #'
-#' @param x A model object generataed from `catalytic` that containing a sequence of tau values.
+#' @param x A model object generated from `catalytic` that containing a sequence of tau values.
 #' @param digit An integer specifying the number of decimal places to which tau values should
 #' be rounded. Default is 3.
 #'
@@ -457,7 +457,7 @@ extract_tau_seq <- function(
 #' of decimal places. By default, the function includes an intercept term in the summary if
 #' present.
 #'
-#' @param x A model object generataed from `catalytic` that containing a fitted Stan model.
+#' @param x A model object generated from `catalytic` that containing a fitted Stan model.
 #' @param digit An integer specifying the number of decimal places to which the summary
 #' statistics should be rounded. Default is 3.
 #' @param with_intercept A logical value indicating whether the intercept should be included

@@ -35,21 +35,6 @@ A compiled Stan model loaded by \code{rstan::stan_model}.
 }
 \description{
 This function retrieves a Stan model file based on a combination of input parameters,
-constructs the file path, and loads the Stan model. The function is memoized, so repeated
+constructs the file path, and loads the Stan model. The function is memorized, so repeated
 calls with the same parameters will retrieve a cached result.
-}
-\examples{
-# Load a basic GLM binomial model with joint theta and alpha parameters
-model_1 <- get_stan_model(
-  type = "glm",
-  glm_family_string = "binomial",
-  joint_tau = TRUE,
-  glm_binomial_joint_theta = TRUE,
-  glm_binomial_joint_alpha = TRUE
-)
-print(model_1)
-
-# Load a Cox model
-model_2 <- get_stan_model(type = "cox")
-print(model_2)
 }

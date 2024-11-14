@@ -15,16 +15,3 @@ A logical value indicating whether the input vector is considered continuous. Re
 \description{
 This function checks whether a given vector represents a continuous variable. A continuous variable is numeric and has more than two unique values.
 }
-\examples{
-# Example with a continuous variable
-continuous_vector <- c(1, 2, 3, 4, 5)
-is.continuous(continuous_vector) # TRUE
-
-# Example with a categorical variable
-categorical_vector <- c("A", "B", "A", "B")
-is.continuous(categorical_vector) # FALSE
-
-# Example with a binary variable
-binary_vector <- c(0, 1, 1, 0)
-is.continuous(binary_vector) # FALSE
-}

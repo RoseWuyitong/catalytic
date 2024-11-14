@@ -2,7 +2,7 @@
 % Please edit documentation in R/cat_glm_tune.R
 \name{mallowian_estimate}
 \alias{mallowian_estimate}
-\title{Perform Mallowian Estimate for Model Risk (Only Applicable for Gussian Family)}
+\title{Perform Mallowian Estimate for Model Risk (Only Applicable for Gaussian Family)}
 \usage{
 mallowian_estimate(formula, cat_init, tau_seq, ...)
 }

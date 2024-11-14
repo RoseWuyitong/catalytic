@@ -11,7 +11,7 @@ get_glm_custom_var(formula, cat_init, tau)
 
 \item{cat_init}{A list object containing the initialization data for the model. Generated from \code{cat_initialization}}
 
-\item{tau}{A numeric value representing a scaling factor for the synthetic data's weights.}
+\item{tau}{A numeric value representing a scaling factor for down-weighting synthetic data}
 }
 \value{
 A numeric value representing the custom variance for the GLM model.
@@ -20,21 +20,4 @@ A numeric value representing the custom variance for the GLM model.
 This function calculates a custom variance for a Generalized Linear Model (GLM) based on the specified formula,
 the model initialization object, and a scaling factor \code{tau}. The custom variance is computed by adjusting
 the residuals of the fitted model and returning a weighted sum of squared residuals.
-}
-\examples{
-formula <- y ~ x1 + x2
-cat_init <- list(
-  family = gaussian,
-  data = data.frame(
-    y = stats::rnorm(10),
-    x1 = stats::rnorm(10),
-    x2 = stats::rnorm(10)
-  ),
-  obs_size = 4,
-  syn_size = 6
-)
-tau <- 0.5
-
-custom_variance <- get_glm_custom_var(formula, cat_init, tau)
-custom_variance
 }

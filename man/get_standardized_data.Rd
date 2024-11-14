@@ -21,12 +21,3 @@ This function standardizes a dataset by converting columns to numeric or factor 
 For continuous variables, NA values are replaced with either a specific numeric value or a computed statistic.
 For categorical variables, NA values are replaced with the mode of the column.
 }
-\examples{
-data <- data.frame(
-  numeric_col = c(1, 2, NA, 4),
-  factor_col = factor(c("A", "B", "A", NA)),
-  stringsAsFactors = FALSE
-)
-standardized_data <- get_standardized_data(data = data, na_replace = 0)
-standardized_data
-}

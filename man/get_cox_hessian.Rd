@@ -25,13 +25,3 @@ This function computes the Hessian matrix of the Cox proportional hazards model,
 which is used for estimating the covariance matrix of the coefficients. The Hessian is calculated
 by summing contributions from each event time in the risk set.
 }
-\examples{
-hessian_matrix <- get_cox_hessian(
-  X = matrix(stats::rnorm(15), ncol = 3),
-  time = stats::rexp(5, rate = 0.1),
-  status = stats::rbinom(5, 1, 0.5),
-  coefs = stats::rnorm(3),
-  entry_points = rep(0, 5)
-)
-hessian_matrix
-}

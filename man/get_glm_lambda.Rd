@@ -28,10 +28,3 @@ This function calculates a lambda value based on the selected discrepancy method
 for a generalized linear model (GLM). The discrepancy method determines the
 type of error or deviance used in the calculation.
 }
-\examples{
-X <- matrix(stats::rnorm(15), ncol = 3)
-coefs <- stats::rnorm(4)
-
-lambda <- get_glm_lambda(discrepancy_method = "mean_square_error", X, coefs)
-lambda
-}

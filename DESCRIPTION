@@ -1,6 +1,6 @@
 Package: catalytic
 Title: Catalytic Prior Distribution 
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R: c(
     person("Yitong", "Wu", , "ywu039@e.ntu.edu.sg", role = c("aut"),
             comment = c(ORCID = "0009-0000-8683-5129")),
@@ -27,14 +27,14 @@ Imports:
     lme4,
     quadform,
     survival,
-    methods,
-    pROC,
-    memoise
+    methods
 Depends: 
     R (>= 3.5.0)
 LazyData: true
 Suggests: 
     knitr,
     rmarkdown,
-    testthat
+    testthat,
+    pROC,
+    memoise
 VignetteBuilder: knitr

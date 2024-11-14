@@ -19,11 +19,3 @@ A vector of linear predictor values.
 This function computes the linear predictor from a matrix of predictor variables and a vector of coefficients.
 It handles cases with and without an intercept term.
 }
-\examples{
-X <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
-coefs <- c(0.5, 1.5)
-get_linear_predictor(X = X, coefs = coefs)
-
-coefs_with_intercept <- c(1, 0.5, 1.5)
-get_linear_predictor(X = X, coefs = coefs_with_intercept)
-}

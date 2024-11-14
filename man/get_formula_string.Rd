@@ -15,10 +15,3 @@ A character string representing the formula.
 \description{
 This function converts a formula object to a character string. It removes extra whitespace and formats the formula as a single line.
 }
-\examples{
-formula <- y ~ x1 + x2
-get_formula_string(formula)
-
-formula_with_interaction <- y ~ x1 * x2
-get_formula_string(formula_with_interaction)
-}

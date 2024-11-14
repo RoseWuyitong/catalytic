@@ -8,7 +8,7 @@
 #' @param x_cols A character vector of column names for fixed effects (predictors).
 #' @param y_col A character string for the name of the response variable.
 #' @param z_cols A character vector of column names for random effects.
-#' @param group_col A character string for the grouping variable (optional). If didnt given (NULL), it is extracted from the formula.
+#' @param group_col A character string for the grouping variable (optional). If not given (NULL), it is extracted from the formula.
 #' @param syn_size An integer specifying the size of the synthetic dataset to be generated, default is length(x_cols) * 4.
 #' @param resample_by_group A logical indicating whether to resample by group, default is FALSE.
 #' @param resample_only A logical indicating whether to perform resampling only, default is FALSE.

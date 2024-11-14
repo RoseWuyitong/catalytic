@@ -17,14 +17,6 @@ Numeric vector. The diagonal elements of the approximate covariance matrix.
 }
 \description{
 This function computes the diagonal elements of the approximate covariance matrix
-for the coefs in a generalized linear model (GLM). The covariance is derived
+for the coefficients in a generalized linear model (GLM). The covariance is derived
 from the second derivative (Hessian) of the log-likelihood function.
-}
-\examples{
-X <- matrix(stats::rnorm(15), ncol = 3)
-y <- stats::rbinom(5, 1, 0.5)
-model <- stats::glm(y ~ X, family = binomial)
-
-diag_cov <- get_glm_diag_approx_cov(X, model)
-diag_cov
 }

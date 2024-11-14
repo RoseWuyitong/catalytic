@@ -30,38 +30,20 @@ This function includes various resampling methods applied to input data for each
 for analysis. These methods help to transform the data distribution and improve model fitting.
 }
 \details{
-\strong{Coordinate}:
-This method refers to the preservation of the original data values as reference coordinates during processing.
-It ensures that the transformations applied are based on the data's initial structure.
-
-\strong{Deskewing}:
-Deskewing is the process of adjusting the data distribution to reduce skewness, making it more symmetric.
+\itemize{
+\item \strong{Coordinate}: This method refers to the preservation of the original data values as reference coordinates during processing.
+It ensures that the transformations applied are based on the initial structure of the data.
+\item \strong{Deskewing}:Deskewing is the process of adjusting the data distribution to reduce skewness, making it more symmetric.
 If the absolute value of skewness is greater than or equal to 1, deskewing techniques will be applied
 to normalize the distribution, which can enhance model performance.
-
-\strong{Smoothing}:
-Smoothing techniques reduce noise in the data by averaging or modifying data points.
+\item \strong{Smoothing}: Smoothing techniques reduce noise in the data by averaging or modifying data points.
 This is especially useful when there are many unique values in the original data column, as it helps
 to stabilize the dataset and prevent overfitting during model training.
-
-\strong{Flattening}:
-Flattening modifies the data to create a more uniform distribution across its range.
+\item \strong{Flattening}: Flattening modifies the data to create a more uniform distribution across its range.
 This method is employed when the frequency of certain categories in categorical variables is low,
 replacing some original values with randomly selected unique values from the dataset to reduce sparsity.
-
-\strong{Symmetrizing}:
-Symmetrizing adjusts the data so that it becomes more balanced around its mean.
+\item \strong{Symmetrizing}: Symmetrizing adjusts the data so that it becomes more balanced around its mean.
 This is crucial for achieving better statistical properties and improving the robustness of the model
 fitting process.
 }
-\examples{
-data <- data.frame(
-  x1 = c(1, 2, 3, 4, 5),
-  x2 = factor(c("A", "B", "A", "B", "A")),
-  x3 = c(1.1, 1.1, 1.1, 4.4, 100.1)
-)
-resampled <- get_resampled_df(data, resample_size = 10)
-
-print(resampled$resampled_df)
-print(resampled$resampled_df_log)
 }

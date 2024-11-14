@@ -31,12 +31,14 @@ of the system.}
 }
 \value{
 A list containing the following elements:
-\item{position}{The position of the system after the leapfrog steps, which is
+\itemize{
+\item \code{position}: The position of the system after the leapfrog steps, which is
 the proposed new position if accepted, or the current position
-if rejected.}
-\item{potential_energy}{The potential energy of the proposed position.}
-\item{accepted}{A logical value indicating whether the proposal was accepted
-(TRUE) or rejected (FALSE).}
+if rejected.
+\item \code{potential_energy}: The potential energy of the proposed position.
+\item \code{accepted}: A logical value indicating whether the proposal was accepted
+(TRUE) or rejected (FALSE).
+}
 }
 \description{
 This function implements the Hamiltonian Monte Carlo algorithm as
@@ -48,23 +50,6 @@ criterion to decide whether to accept or reject the new position.
 \details{
 This function was written for illustrative purposes. More elaborate
 on Radford M. Neal's personal webpage (http://www.cs.utoronto.ca/~radford/).
-}
-\examples{
-neg_log_den_func <- function(pos) {
-  0.5 * sum(pos^2)
-}
-neg_log_den_grad_func <- function(pos) {
-  pos
-}
-result <- hmc_neal_2010(
-  neg_log_den_func = neg_log_den_func,
-  neg_log_den_grad_func = neg_log_den_grad_func,
-  leapfrog_stepsize = 0.1,
-  leapfrog_step = 10,
-  current_pos = c(1, 1)
-)
-result
-
 }
 \references{
 Neal, R. M. (2012). MCMC using Hamiltonian dynamics.

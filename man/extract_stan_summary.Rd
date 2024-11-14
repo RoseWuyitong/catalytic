@@ -7,7 +7,7 @@
 extract_stan_summary(x, digit = 3, with_intercept = TRUE)
 }
 \arguments{
-\item{x}{A model object generataed from \code{catalytic} that containing a fitted Stan model.}
+\item{x}{A model object generated from \code{catalytic} that containing a fitted Stan model.}
 
 \item{digit}{An integer specifying the number of decimal places to which the summary
 statistics should be rounded. Default is 3.}

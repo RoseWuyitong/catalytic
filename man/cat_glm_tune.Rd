@@ -28,7 +28,7 @@ cat_glm_tune(
 \item{discrepancy_method}{Method for discrepancy calculation, chosen from "mean_square_error",
 "mean_classification_error", "logistic_deviance". Depends on the family if not provided.}
 
-\item{tau_seq}{Vector of numeric values for downweighting synthetic data.
+\item{tau_seq}{Vector of numeric values for down-weighting synthetic data.
 Defaults to a sequence around one fourth of the number of predictors for gaussian and
 the number of predictors for binomial.}
 
@@ -47,7 +47,7 @@ A list containing the values of all the arguments and the following components:
 \item{risk_estimate_list}{Collected risk estimates for each \code{tau}.}
 }
 \description{
-This function tunes a catalytic catalytic Generalized Linear Models (GLMs) by performing specified risk estimaet method
+This function tunes a catalytic catalytic Generalized Linear Models (GLMs) by performing specified risk estimate method
 to estimate the optimal value of the tuning parameter \code{tau}.  The resulting \code{cat_glm_tune} object
 encapsulates the fitted model, including estimated coefficients and family information, facilitating further analysis.
 }

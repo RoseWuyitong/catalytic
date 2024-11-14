@@ -2,8 +2,8 @@
 
 The `catalytic` package enhances the stability and accuracy of
 Generalized Linear Models (GLMs) and Cox proportional hazards models
-(COX) in , especially in high-dimensional or sparse data settings where
-traditional methods struggle. By employing catalytic prior
+(COX) in `R`, especially in high-dimensional or sparse data settings
+where traditional methods struggle. By employing catalytic prior
 distributions, this package integrates observed data with synthetic data
 generated from simpler models, effectively reducing issues like
 overfitting. This approach provides more robust parameter estimation,
@@ -17,7 +17,7 @@ You can install the released version of catalytic from
 
     install.packages("catalytic")
 
-    ## Installing package into '/private/var/folders/j5/bktz8wt94hv7m_wtcc0k6ymh0000gn/T/RtmpxH35dp/temp_libpath8b16dfa16f7'
+    ## Installing package into '/private/var/folders/j5/bktz8wt94hv7m_wtcc0k6ymh0000gn/T/RtmpO0iVHH/temp_libpath6b3d5753c261'
     ## (as 'lib' is unspecified)
 
     ## Warning: package 'catalytic' is not available for this version of R
@@ -26,16 +26,16 @@ You can install the released version of catalytic from
     ## see the ideas at
     ## https://cran.r-project.org/doc/manuals/r-patched/R-admin.html#Installing-packages
 
-## Example
-
     library(catalytic)
+
+## Example
 
     set.seed(1)
 
     data <- data.frame(
-      X1 = rnorm(10),
-      X2 = rnorm(10),
-      Y = rnorm(10)
+      X1 = stats::rnorm(10),
+      X2 = stats::rnorm(10),
+      Y = stats::rnorm(10)
     )
 
     # Step 1: Initialization
@@ -155,7 +155,7 @@ You can install the released version of catalytic from
     ## -0.39882013 -0.25973457 -0.22499036  0.07272498
 
     plot(cat_glm_tune_model, text_pos = 2)
-
+    
 ![](inst/README_files/figure-markdown_strict/unnamed-chunk-2-1.png)
 
     ## Method 3 - Bayesian posterior sampling with fixed tau
@@ -168,8 +168,8 @@ You can install the released version of catalytic from
     ## 
     ## SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
     ## Chain 1: 
-    ## Chain 1: Gradient evaluation took 2.7e-05 seconds
-    ## Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.27 seconds.
+    ## Chain 1: Gradient evaluation took 3.1e-05 seconds
+    ## Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.31 seconds.
     ## Chain 1: Adjust your expectations accordingly!
     ## Chain 1: 
     ## Chain 1: 
@@ -186,15 +186,15 @@ You can install the released version of catalytic from
     ## Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
     ## Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
     ## Chain 1: 
-    ## Chain 1:  Elapsed Time: 0.049 seconds (Warm-up)
-    ## Chain 1:                0.052 seconds (Sampling)
-    ## Chain 1:                0.101 seconds (Total)
+    ## Chain 1:  Elapsed Time: 0.057 seconds (Warm-up)
+    ## Chain 1:                0.05 seconds (Sampling)
+    ## Chain 1:                0.107 seconds (Total)
     ## Chain 1: 
     ## 
     ## SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
     ## Chain 2: 
-    ## Chain 2: Gradient evaluation took 9e-06 seconds
-    ## Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.09 seconds.
+    ## Chain 2: Gradient evaluation took 1.1e-05 seconds
+    ## Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.11 seconds.
     ## Chain 2: Adjust your expectations accordingly!
     ## Chain 2: 
     ## Chain 2: 
@@ -211,15 +211,15 @@ You can install the released version of catalytic from
     ## Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
     ## Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
     ## Chain 2: 
-    ## Chain 2:  Elapsed Time: 0.051 seconds (Warm-up)
-    ## Chain 2:                0.052 seconds (Sampling)
-    ## Chain 2:                0.103 seconds (Total)
+    ## Chain 2:  Elapsed Time: 0.056 seconds (Warm-up)
+    ## Chain 2:                0.054 seconds (Sampling)
+    ## Chain 2:                0.11 seconds (Total)
     ## Chain 2: 
     ## 
     ## SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
     ## Chain 3: 
-    ## Chain 3: Gradient evaluation took 9e-06 seconds
-    ## Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.09 seconds.
+    ## Chain 3: Gradient evaluation took 1.5e-05 seconds
+    ## Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.15 seconds.
     ## Chain 3: Adjust your expectations accordingly!
     ## Chain 3: 
     ## Chain 3: 
@@ -236,9 +236,9 @@ You can install the released version of catalytic from
     ## Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
     ## Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
     ## Chain 3: 
-    ## Chain 3:  Elapsed Time: 0.052 seconds (Warm-up)
-    ## Chain 3:                0.056 seconds (Sampling)
-    ## Chain 3:                0.108 seconds (Total)
+    ## Chain 3:  Elapsed Time: 0.048 seconds (Warm-up)
+    ## Chain 3:                0.049 seconds (Sampling)
+    ## Chain 3:                0.097 seconds (Total)
     ## Chain 3: 
     ## 
     ## SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
@@ -261,9 +261,9 @@ You can install the released version of catalytic from
     ## Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
     ## Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
     ## Chain 4: 
-    ## Chain 4:  Elapsed Time: 0.049 seconds (Warm-up)
-    ## Chain 4:                0.049 seconds (Sampling)
-    ## Chain 4:                0.098 seconds (Total)
+    ## Chain 4:  Elapsed Time: 0.047 seconds (Warm-up)
+    ## Chain 4:                0.045 seconds (Sampling)
+    ## Chain 4:                0.092 seconds (Total)
     ## Chain 4:
 
     print(cat_glm_bayes_model)
@@ -314,8 +314,8 @@ You can install the released version of catalytic from
     ## 
     ## SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
     ## Chain 1: 
-    ## Chain 1: Gradient evaluation took 4e-05 seconds
-    ## Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.4 seconds.
+    ## Chain 1: Gradient evaluation took 4.1e-05 seconds
+    ## Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.41 seconds.
     ## Chain 1: Adjust your expectations accordingly!
     ## Chain 1: 
     ## Chain 1: 
@@ -332,9 +332,9 @@ You can install the released version of catalytic from
     ## Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
     ## Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
     ## Chain 1: 
-    ## Chain 1:  Elapsed Time: 0.067 seconds (Warm-up)
-    ## Chain 1:                0.064 seconds (Sampling)
-    ## Chain 1:                0.131 seconds (Total)
+    ## Chain 1:  Elapsed Time: 0.057 seconds (Warm-up)
+    ## Chain 1:                0.055 seconds (Sampling)
+    ## Chain 1:                0.112 seconds (Total)
     ## Chain 1: 
     ## 
     ## SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
@@ -357,15 +357,15 @@ You can install the released version of catalytic from
     ## Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
     ## Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
     ## Chain 2: 
-    ## Chain 2:  Elapsed Time: 0.062 seconds (Warm-up)
-    ## Chain 2:                0.061 seconds (Sampling)
-    ## Chain 2:                0.123 seconds (Total)
+    ## Chain 2:  Elapsed Time: 0.055 seconds (Warm-up)
+    ## Chain 2:                0.052 seconds (Sampling)
+    ## Chain 2:                0.107 seconds (Total)
     ## Chain 2: 
     ## 
     ## SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
     ## Chain 3: 
-    ## Chain 3: Gradient evaluation took 1.2e-05 seconds
-    ## Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.12 seconds.
+    ## Chain 3: Gradient evaluation took 1.4e-05 seconds
+    ## Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.14 seconds.
     ## Chain 3: Adjust your expectations accordingly!
     ## Chain 3: 
     ## Chain 3: 
@@ -382,15 +382,15 @@ You can install the released version of catalytic from
     ## Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
     ## Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
     ## Chain 3: 
-    ## Chain 3:  Elapsed Time: 0.066 seconds (Warm-up)
-    ## Chain 3:                0.066 seconds (Sampling)
-    ## Chain 3:                0.132 seconds (Total)
+    ## Chain 3:  Elapsed Time: 0.06 seconds (Warm-up)
+    ## Chain 3:                0.059 seconds (Sampling)
+    ## Chain 3:                0.119 seconds (Total)
     ## Chain 3: 
     ## 
     ## SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
     ## Chain 4: 
-    ## Chain 4: Gradient evaluation took 1.2e-05 seconds
-    ## Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.12 seconds.
+    ## Chain 4: Gradient evaluation took 1e-05 seconds
+    ## Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.1 seconds.
     ## Chain 4: Adjust your expectations accordingly!
     ## Chain 4: 
     ## Chain 4: 
@@ -407,9 +407,9 @@ You can install the released version of catalytic from
     ## Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
     ## Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
     ## Chain 4: 
-    ## Chain 4:  Elapsed Time: 0.07 seconds (Warm-up)
-    ## Chain 4:                0.065 seconds (Sampling)
-    ## Chain 4:                0.135 seconds (Total)
+    ## Chain 4:  Elapsed Time: 0.059 seconds (Warm-up)
+    ## Chain 4:                0.054 seconds (Sampling)
+    ## Chain 4:                0.113 seconds (Total)
     ## Chain 4:
 
     print(cat_glm_bayes_joint_model)

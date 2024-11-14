@@ -2,7 +2,7 @@
 #'
 #' Fits a Catalytic linear mixed model (LMM) for observation and synthetic data with specified variance parameters
 #' and iterative coefficient estimation. This function initializes model parameters,
-#' sorts synthetic data, calculates eigen decompositions, and iteratively optimizes
+#' sorts synthetic data, calculates Eigen-decomposition, and iterative optimizes
 #' variance and coefficient values to convergence, by a single given tau value.
 #'
 #' @param cat_init A list generated from `cat_lmm_initialization`.

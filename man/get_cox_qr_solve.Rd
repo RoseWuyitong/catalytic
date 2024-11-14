@@ -21,17 +21,3 @@ This function solves the linear system defined by \code{hessian_matrix} and \cod
 using QR decomposition. Any NA values in the resulting solution vector are replaced with 0.0001. If there
 is an error during the solution process, a vector of default values (0.0001) is returned instead.
 }
-\examples{
-solution <- get_cox_qr_solve(
-  hessian_matrix = matrix(stats::rnorm(9), ncol = 3),
-  gradient_vector = rep(1, 3)
-)
-solution
-
-# Example with a matrix that might produce NA values
-solution_na <- get_cox_qr_solve(
-  hessian_matrix = matrix(c(1, 1, 1, 1), ncol = 2),
-  gradient_vector = c(1, 1)
-)
-solution_na
-}

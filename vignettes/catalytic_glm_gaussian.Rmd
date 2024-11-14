@@ -1,13 +1,11 @@
 ---
 title: "catalytic_glm_gaussian"
-author:
-  - Wu Yitong
-date: "`r format(Sys.time(), '%B %d, %Y')`"
+author: Yitong Wu <ywu039@e.ntu.edu.sg>
 bibliography: assets/catalytic_refs.bib
 link-citations: TRUE
 output: 
-  html_vignette: 
-    toc: TRUE
+  rmarkdown::html_vignette:
+    toc: true
 vignette: >
   %\VignetteIndexEntry{catalytic_glm_gaussian}
   %\VignetteEngine{knitr::rmarkdown}
@@ -42,7 +40,7 @@ The two steps of using catalytic package for GLM Linear Regression are
 
 Creating a high-dimensional dataset with a low data size. This step involves increasing the number of features (dimensions) while keeping the number of observations (data size) relatively small. This is useful for testing the performance of `catalytic` models in high-dimensional settings.
 
-A randomly generated dataset is splited into training (`train_data`) and test (`test_data`) datasets.
+A randomly generated dataset is splitted into training (`train_data`) and test (`test_data`) datasets.
 
 ```{r}
 library(catalytic)
@@ -223,11 +221,11 @@ cat_init$syn_x_resample_inform
 
 The `cat_glm` function fits a Generalized Linear Model (GLM) with a catalytic prior on the regression coefficients. It utilizes information from the `cat_init` object generated during the initialization step, which includes both observed and synthetic data, plus other relevant information. 
 
-The GLM model is then fitted using the specified formula, family, and a single `tau`(synthetic data downweight factor). The resulting `cat_glm` object encapsulates the fitted model, including estimated coefficients and family information, facilitating further analysis.
+The GLM model is then fitted using the specified formula, family, and a single `tau`(synthetic data down-weight factor). The resulting `cat_glm` object encapsulates the fitted model, including estimated coefficients and family information, facilitating further analysis.
 
 Here's a breakdown of the parameters used:
 
-* `formula`: This parameter specifies the model formula used in the GLM (Generalized Linear Model). It defines the relationship between the response variable and the predictors. Alternatively, besides using in fomat `RESPONSE ~ COVARIATES`, user can also use `~ COVARIATES` without specifying the response name, since the response name is defined in the initialization step.
+* `formula`: This parameter specifies the model formula used in the GLM (Generalized Linear Model). It defines the relationship between the response variable and the predictors. Alternatively, besides using in format `RESPONSE ~ COVARIATES`, user can also use `~ COVARIATES` without specifying the response name, since the response name is defined in the initialization step.
 
 * `cat_init`: This parameter is essential and represents the initialization object (`cat_init`) created by using [`cat_glm_initialization`](#Initialization). It contains both observed and synthetic data, plus other relevant information, necessary for model fitting.
 
@@ -333,7 +331,7 @@ Here's a breakdown of the parameters used:
 
 * `discrepancy_method`: Method for discrepancy calculation, chosen from "mean_square_error", "mean_classification_error", "logistic_deviance". In this example, "mean_square_error" is used because the family is `gaussian`.
 
-* `tau_seq`: Vector of positive numeric values for downweighting synthetic data. Defaults to a sequence around one fourth of the number of predictors.
+* `tau_seq`: Vector of positive numeric values for down-weighting synthetic data. Defaults to a sequence around one fourth of the number of predictors.
 
 * `cross_validation_fold_num`: Number of folds for cross-validation. Defaults to 5.
 
@@ -366,7 +364,7 @@ Here's a breakdown of other parameters used:
 
 * `parametric_bootstrap_iteration_times`: Number of bootstrap iterations for "parametric_bootstrap" risk estimation. Defaults to 100.
 
-For the breakdown of other input parameters, please check section [Cross Valiadtion](#CrossValidation)
+For the breakdown of other input parameters, please check section [Cross Validation](#CrossValidation)
 
 ```{r}
 cat_glm_tune_boots <- cat_glm_tune(
@@ -385,7 +383,7 @@ cat_glm_tune_boots
 
 This method computes the partial likelihood using a steinian estimate approach, optimizing the model based on observed and synthetic data.
 
-For the breakdown of the input parameters, please check section [Cross Valiadtion](#CrossValidation) and [Bootstrap](#Bootstrap))
+For the breakdown of the input parameters, please check section [Cross Validation](#CrossValidation) and [Bootstrap](#Bootstrap))
 
 ```{r}
 cat_glm_tune_mallows <- cat_glm_tune(
@@ -419,7 +417,7 @@ Choosing the appropriate risk_estimate_method and discrepancy_method depends on 
 
   * __GLM Family is not gaussian (family != "gaussian")__:
     * Default: "logistic_deviance"
-    * For other GLM families (e.g. binimial), "logistic_deviance" is typically used. Besides "logistic_deviance", user can also choose "classification_error" for binary outcomes. Please check `catalytic_glm_binomial` for more details.
+    * For other GLM families (e.g. binomial), "logistic_deviance" is typically used. Besides "logistic_deviance", user can also choose "classification_error" for binary outcomes. Please check `catalytic_glm_binomial` for more details.
 
 ### Automatic Parameter Selection{#AutoParamSelect}
 
@@ -427,7 +425,7 @@ Of course, user don't need to worry about specifying these parameters explicitly
 
 In this example, it is `risk_estimate_method = "parametric_bootstrap"` and `discrepancy_method = "square_error"`.
 
-For the breakdown of the input parameters, please check section [Cross Valiadtion](#CrossValidation) and [Bootstrap](#Bootstrap)
+For the breakdown of the input parameters, please check section [Cross Validation](#CrossValidation) and [Bootstrap](#Bootstrap)
 
 ```{r}
 cat_glm_tune_auto <- cat_glm_tune(
@@ -502,7 +500,7 @@ cat_glm_tune_auto$risk_estimate_method
 cat_glm_tune_auto$tau
 ```
 
-## Setp 2.3: Choose Method(s) - Bayesian Posterior Sampling with Fixed tau{#cat_glm_bayes}
+## Step 2.3: Choose Method(s) - Bayesian Posterior Sampling with Fixed tau{#cat_glm_bayes}
 
 Now, we will explore advanced Bayesian modeling techniques tailored for GLM gaussian using the `catalytic` package. Bayesian inference offers a powerful framework to estimate model parameters and quantify uncertainty by integrating prior knowledge with observed data. 
 

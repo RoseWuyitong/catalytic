@@ -18,12 +18,3 @@ A character string. The name of the GLM family, or the name with the link functi
 \description{
 This function retrieves the name of a GLM family or, optionally, the family name with the associated link function.
 }
-\examples{
-# Retrieve the name of the Gaussian family
-family_name <- get_glm_family_string("gaussian")
-family_name
-
-# Retrieve the name of the Poisson family with its link function
-family_name_with_link <- get_glm_family_string("poisson", with_link = TRUE)
-family_name_with_link
-}

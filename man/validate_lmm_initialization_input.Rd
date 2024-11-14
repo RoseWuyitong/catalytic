@@ -46,7 +46,6 @@ This function performs the following checks:
 \item Confirms \code{data} is a \code{data.frame}.
 \item Validates that all specified columns in \code{x_cols}, \code{y_col}, \code{z_cols}, and \code{group_col} exist in \code{data} without overlap or missing values.
 \item Warns if \code{syn_size} is set too small relative to the data dimensions, recommending a larger value.
-}
-
 If any of these conditions are not met, the function raises an error or warning to guide the user.
+}
 }

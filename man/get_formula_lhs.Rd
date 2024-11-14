@@ -15,10 +15,3 @@ A character string representing the left-hand side of the formula.
 \description{
 This function extracts the left-hand side (LHS) of a formula object and converts it to a character string. It uses \code{get_formula_string} to ensure consistent formatting.
 }
-\examples{
-formula <- y ~ x1 + x2
-get_formula_lhs(formula)
-
-formula_with_interaction <- y ~ x1 * x2
-get_formula_lhs(formula_with_interaction)
-}

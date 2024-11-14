@@ -40,12 +40,3 @@ A numeric value representing the discrepancy between observed and estimated valu
 This function computes various discrepancy measures between observed and estimated values.
 It supports different methods including logarithmic error, square error, classification error, and logistic deviance.
 }
-\examples{
-get_discrepancy(
-  discrepancy_method = "mean_square_error",
-  family_string = "gaussian",
-  X = matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2),
-  Y = c(1, 0),
-  coefs = c(0.5, 1.5)
-)
-}

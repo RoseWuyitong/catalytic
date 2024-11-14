@@ -22,12 +22,3 @@ Numeric vector of generated sample data.
 This function generates sample data for a specified GLM family. It can generate
 binomial or Gaussian distributed data based on the provided parameters.
 }
-\examples{
-# Generate sample data for binomial family
-binomial_data <- get_glm_sample_data(family_string = "binomial", n = 10, mean = 0.5)
-binomial_data
-
-# Generate sample data for Gaussian family
-gaussian_data <- get_glm_sample_data(family_string = "gaussian", n = 10, mean = 0, sd = 1)
-gaussian_data
-}

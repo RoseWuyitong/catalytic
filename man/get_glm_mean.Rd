@@ -20,15 +20,3 @@ Numeric vector. The computed mean of the response variable based on the specifie
 This function calculates the mean of the response variable for a generalized linear model (GLM)
 based on the specified family. The calculation depends on whether the family is binomial or gaussian.
 }
-\examples{
-X <- matrix(stats::rnorm(15), ncol = 3)
-coefs <- stats::rnorm(4)
-
-# Compute mean for a binomial family
-mean_binomial <- get_glm_mean("binomial", X, coefs)
-mean_binomial
-
-# Compute mean for a gaussian family
-mean_gaussian <- get_glm_mean("gaussian", X, coefs)
-mean_gaussian
-}

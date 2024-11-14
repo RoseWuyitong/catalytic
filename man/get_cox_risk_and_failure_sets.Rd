@@ -15,18 +15,11 @@ get_cox_risk_and_failure_sets(time_vector, status_vector, indicator_vector)
 }
 \value{
 A list containing two elements:
-\item{risk_set}{A matrix indicating which subjects are at risk at each time point.}
-\item{failure_set}{A matrix indicating which subjects experienced an event at each time point.}
+\itemize{
+\item \code{risk_set}: A matrix indicating which subjects are at risk at each time point.
+\item \code{failure_set}: A matrix indicating which subjects experienced an event at each time point.
+}
 }
 \description{
 This function calculates the risk and failure sets for subjects in a Cox proportional hazards model based on their time-to-event data, status, and an indicator vector.
-}
-\examples{
-time_vector <- rexp(10)
-status_vector <- rbinom(10, 1, 0.5)
-indicator_vector <- sort(unique(c(time_vector, time_vector + rexp(10))))
-
-sets <- get_cox_risk_and_failure_sets(time_vector, status_vector, indicator_vector)
-sets$risk_set
-sets$failure_set
 }

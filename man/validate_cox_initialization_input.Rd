@@ -41,6 +41,6 @@ This function checks:
 \item That \code{data} is a \code{data.frame}.
 \item The complexity of \code{formula} to ensure it has fewer terms than the number of columns in \code{data}.
 \item The length of \code{x_degree} and \code{entry_points} to match the dimensions of \code{data}.
-}
 If the conditions are not met, descriptive error messages are returned.
+}
 }

@@ -4,7 +4,7 @@ output: md_document
 ---
 # catalytic
 
-The `catalytic` package enhances the stability and accuracy of Generalized Linear Models (GLMs) and Cox proportional hazards models (COX) in \proglang{R}, especially in high-dimensional or sparse data settings where traditional methods struggle. By employing catalytic prior distributions, this package integrates observed data with synthetic data generated from simpler models, effectively reducing issues like overfitting. This approach provides more robust parameter estimation, making `catalytic` a valuable tool for complex and limited-data scenarios.
+The `catalytic` package enhances the stability and accuracy of Generalized Linear Models (GLMs) and Cox proportional hazards models (COX) in `R`, especially in high-dimensional or sparse data settings where traditional methods struggle. By employing catalytic prior distributions, this package integrates observed data with synthetic data generated from simpler models, effectively reducing issues like overfitting. This approach provides more robust parameter estimation, making `catalytic` a valuable tool for complex and limited-data scenarios.
 
 ## Installation
 
@@ -13,19 +13,18 @@ You can install the released version of catalytic from
 
 ```{r}
 install.packages("catalytic")
+library(catalytic)
 ```
 
 ## Example
 
 ```{r}
-library(catalytic)
-
 set.seed(1)
 
 data <- data.frame(
-  X1 = rnorm(10),
-  X2 = rnorm(10),
-  Y = rnorm(10)
+  X1 = stats::rnorm(10),
+  X2 = stats::rnorm(10),
+  Y = stats::rnorm(10)
 )
 
 # Step 1: Initialization

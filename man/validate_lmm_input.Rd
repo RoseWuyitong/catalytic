@@ -53,7 +53,6 @@ This function performs the following checks:
 \item Checks if \code{coefs_0} has the same length as the number of columns in the observation matrix of \code{cat_init}.
 \item Ensures \code{optimize_domain} is a numeric vector of length 2.
 \item Confirms that \code{cross_validation_fold_num} is greater than 1 and less than the number of observations in \code{cat_init}.
-}
-
 If any of these conditions are not met, the function raises an error to guide the user.
+}
 }

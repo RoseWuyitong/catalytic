@@ -24,12 +24,3 @@ Numeric. The computed log density of the response variable based on the specifie
 This function calculates the log density of the response variable given a generalized linear model (GLM)
 based on the specified family. The log density is computed differently for binomial and gaussian families.
 }
-\examples{
-X <- matrix(stats::rnorm(15), ncol = 3)
-Y <- stats::rbinom(5, 1, 0.5)
-coefs <- stats::rnorm(4)
-
-# Compute log density for a binomial family
-log_density_binomial <- get_glm_log_density("binomial", X, Y, coefs)
-log_density_binomial
-}

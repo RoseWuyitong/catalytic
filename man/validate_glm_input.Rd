@@ -112,6 +112,6 @@ compatible with the GLM family and that no invalid combinations are
 used.
 \item Warns if the dataset size is too large for the specified risk
 estimation method.
-}
 If any of these conditions are not met, the function raises an error or warning to guide the user.
+}
 }

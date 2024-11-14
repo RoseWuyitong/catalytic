@@ -1,6 +1,6 @@
 #' Catalytic Generalized Linear Models (GLMs) Fitting Function by Tuning tau from a Sequence of tau Values
 #'
-#' This function tunes a catalytic catalytic Generalized Linear Models (GLMs) by performing specified risk estimaet method
+#' This function tunes a catalytic catalytic Generalized Linear Models (GLMs) by performing specified risk estimate method
 #' to estimate the optimal value of the tuning parameter `tau`.  The resulting `cat_glm_tune` object
 #' encapsulates the fitted model, including estimated coefficients and family information, facilitating further analysis.
 #'
@@ -10,7 +10,7 @@
 #' "cross_validation", "mallows_estimate", "steinian_estimate". Depends on the size of the data if not provided.
 #' @param discrepancy_method Method for discrepancy calculation, chosen from "mean_square_error",
 #' "mean_classification_error", "logistic_deviance". Depends on the family if not provided.
-#' @param tau_seq Vector of numeric values for downweighting synthetic data.
+#' @param tau_seq Vector of numeric values for down-weighting synthetic data.
 #' Defaults to a sequence around one fourth of the number of predictors for gaussian and
 #' the number of predictors for binomial.
 #' @param tau_0 Initial `tau` value used for discrepancy calculation in risk estimation.
@@ -541,7 +541,7 @@ steinian_estimate <- function(
   return(risk_estimate_list)
 }
 
-#' Perform Mallowian Estimate for Model Risk (Only Applicable for Gussian Family)
+#' Perform Mallowian Estimate for Model Risk (Only Applicable for Gaussian Family)
 #'
 #' This function calculates the Mallowian estimate for model risk by fitting a sequence of
 #' Generalized Linear Models (GLMs) with varying values of `tau`. It uses the in-sample prediction

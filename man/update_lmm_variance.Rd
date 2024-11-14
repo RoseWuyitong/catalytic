@@ -20,9 +20,9 @@ update_lmm_variance(
 
 \item{random_effect_variance}{Numeric, the variance associated with random effects.}
 
-\item{obs_z_eigenvalues}{Vector, eigenvalues of the observed data's Z matrix.}
+\item{obs_z_eigenvalues}{Vector, eigenvalues of the observed Z matrix of data.}
 
-\item{syn_z_eigenvalues}{Vector, eigenvalues of the synthetic data's Z matrix.}
+\item{syn_z_eigenvalues}{Vector, eigenvalues of the synthetic Z matrix of data.}
 
 \item{obs_adjusted_residuals}{Vector, adjusted residuals of observed data.}
 
@@ -37,15 +37,4 @@ The sum of observed and synthetic log-likelihoods.
 This function evaluates the log-likelihood of observed and synthetic data,
 using residual and random-effect variance terms to determine the fit
 of variance parameters in the mixed model context.
-}
-\examples{
-update_lmm_variance(
-  residual_variance = 0.5,
-  random_effect_variance = 1.2,
-  obs_z_eigenvalues = c(0.8, 1.1, 1.3),
-  syn_z_eigenvalues = c(0.7, 1.0, 1.2),
-  obs_adjusted_residuals = c(0.2, -0.1, 0.05),
-  syn_adjusted_residuals = c(-0.1, 0.05, 0.2),
-  tau = 1.5
-)
 }

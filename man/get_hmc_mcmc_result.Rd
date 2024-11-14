@@ -34,21 +34,3 @@ This function uses Hamiltonian Monte Carlo (HMC) to generate samples for Markov 
 sampling from a target distribution specified by \code{neg_log_den_func}. Each iteration performs a full HMC update
 to generate a new sample position.
 }
-\examples{
-neg_log_den_func <- function(pos) {
-  0.5 * sum(pos^2)
-}
-neg_log_den_grad_func <- function(pos) {
-  pos
-}
-coefs_0 <- c(1, 1)
-result <- get_hmc_mcmc_result(
-  neg_log_den_func,
-  neg_log_den_grad_func,
-  coefs_0,
-  iter = 10,
-  hmc_scale = 0.01,
-  hmc_steps = 5
-)
-result
-}

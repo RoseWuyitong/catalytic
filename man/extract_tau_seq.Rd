@@ -7,7 +7,7 @@
 extract_tau_seq(x, digit = 3)
 }
 \arguments{
-\item{x}{A model object generataed from \code{catalytic} that containing a sequence of tau values.}
+\item{x}{A model object generated from \code{catalytic} that containing a sequence of tau values.}
 
 \item{digit}{An integer specifying the number of decimal places to which tau values should
 be rounded. Default is 3.}

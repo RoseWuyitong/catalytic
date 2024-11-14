@@ -7,7 +7,7 @@
 extract_coefs(x, digit = 3)
 }
 \arguments{
-\item{x}{A model object generataed from \code{catalytic} that containing model coefficients.}
+\item{x}{A model object generated from \code{catalytic} that containing model coefficients.}
 
 \item{digit}{An integer specifying the number of decimal places for rounding coefficients. Default is 3.}
 }
