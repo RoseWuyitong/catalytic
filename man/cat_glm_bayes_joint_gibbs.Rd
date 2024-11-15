@@ -70,9 +70,9 @@ cat_init <- cat_glm_initialization(
 cat_model <- cat_glm_bayes_joint_gibbs(
   formula = ~.,
   cat_init = cat_init, # Only accept object generated from `cat_glm_initialization`
-  iter = 200, # Number of Gibbs sampling iterations
-  warmup = 100, # Number of warm-up (or burn-in) iterations for initial iterations
-  coefs_iter = 3, # Number of iterations for the HMC step to update coefficients
+  iter = 100, # Number of Gibbs sampling iterations
+  warmup = 50, # Number of warm-up (or burn-in) iterations for initial iterations
+  coefs_iter = 2, # Number of iterations for the HMC step to update coefficients
   tau_alpha = 1, # Shape parameter for the gamma distribution when updating tau
   tau_gamma = 2, # Scale parameter for the gamma distribution when updating tau
   refresh = TRUE # Indicator for displaying sampling progress

@@ -65,7 +65,7 @@ cat_model <- cat_lmm(
   random_effect_variance_0 = 1, # Initial value for random effect variance
   coefs_0 = c(1), # Initial coefficient vector
   optimize_domain = c(0, 30), # Optimization range for residual and random effect variance
-  max_iter = 500, # Maximum number of iterations for convergence
+  max_iter = 5, # Maximum number of iterations for convergence
   tol = 1e-08 # Tolerance for convergence criterion
 )
 cat_model

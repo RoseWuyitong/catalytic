@@ -77,9 +77,9 @@ cat_model <- cat_glm_bayes(
   formula = ~.,
   cat_init = cat_init, # Only accept object generated from `cat_glm_initialization`
   tau = 1, # Weight for synthetic data
-  chains = 2, # Number of Markov chains to be run in the RStan sampling
-  iter = 200, # Number of iterations per chain in the RStan sampling
-  warmup = 100, # Number of warm-up (or burn-in) iterations for each chain
+  chains = 1, # Number of Markov chains to be run in the RStan sampling
+  iter = 100, # Number of iterations per chain in the RStan sampling
+  warmup = 50, # Number of warm-up (or burn-in) iterations for each chain
   algorithm = "NUTS", # Sampling algorithm to use in \code{rstan::sampling}
   gaussian_variance_alpha = 1, # The shape parameter for the inverse-gamma prior for variance
   gaussian_variance_beta = 2 # The scale parameter for the inverse-gamma prior for variance
