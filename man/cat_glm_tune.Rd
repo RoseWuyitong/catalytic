@@ -76,8 +76,8 @@ cat_model <- cat_glm_tune(
   discrepancy_method = "mean_square_error",
   tau_seq = c(1, 2, 3), # Weight for synthetic data
   tau_0 = 2,
-  parametric_bootstrap_iteration_times = 20, # Number of bootstrap iterations for "parametric_bootstrap"
-  cross_validation_fold_num = 5 # Number of folds for "cross_validation"
+  parametric_bootstrap_iteration_times = 20, # Number of bootstrap iterations
+  cross_validation_fold_num = 5 # Number of folds
 )
 cat_model
 }
