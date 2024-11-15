@@ -4,7 +4,7 @@ Version: 0.1.0
 Authors@R: c(
     person("Yitong", "Wu", , "ywu039@e.ntu.edu.sg", role = "aut",
            comment = c(ORCID = "0009-0000-8683-5129")),
-    person("Dongming", "Huang", , "ywu039@e.ntu.edu.sg", role = c("aut", "cre"),
+    person("Dongming", "Huang", , "huang.dongming@nus.edu.sg", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-4265-7708")),
     person("Weihao", "Li", , "weihao.li@u.nus.edu", role = "aut"),
     person("Ministry of Education, Singapore", role = "fnd",
