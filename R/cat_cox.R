@@ -41,7 +41,7 @@
 #'   method = "CRE", # Choose from `"CRE"` or `"WME"`
 #'   init_coefficients = rep(0, ncol(cat_init$x)), # Initial coefficient values (Only for `CRE`)
 #'   tol = 1e-4, # Tolerance for convergence criterion  (Only for `CRE`)
-#'   max_iter = 30 # Maximum number of iterations for convergence  (Only for `CRE`)
+#'   max_iter = 10 # Maximum number of iterations for convergence  (Only for `CRE`)
 #' )
 #' cat_model_cre
 #'

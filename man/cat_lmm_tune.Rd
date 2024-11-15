@@ -25,7 +25,7 @@ A list containing the values of all the arguments and the following components:
 \description{
 This function tunes a catalytic linear mixed model by performing cross-validation
 to estimate the optimal value of the tuning parameter tau. It finally uses the optimal tau value
-in the \code{lmer} function from the \code{lme4} package for model fitting.
+in the \code{lmer} function from the \code{lme4} package for model fitting. (Only consider one random effect variance)
 }
 \examples{
 data(mtcars)

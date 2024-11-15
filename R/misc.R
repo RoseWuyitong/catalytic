@@ -553,7 +553,7 @@ validate_glm_input <- function(formula,
   validate_positive("tau_0", tau_0)
   validate_positive("parametric_bootstrap_iteration_times", parametric_bootstrap_iteration_times)
   validate_positive("cross_validation_fold_num", cross_validation_fold_num)
-  validate_positive("binomial_tau_lower", binomial_tau_lower)
+  validate_positive("binomial_tau_lower", binomial_tau_lower, incl_0 = TRUE)
   validate_positive("tau_alpha", tau_alpha)
   validate_positive("tau_gamma", tau_gamma)
   validate_positive("gibbs_iter", gibbs_iter)
@@ -1831,12 +1831,12 @@ validate_positive <- function(param_name,
 #'        "known_variance" in the file name to specify known variance.
 #'
 #' @return A compiled Stan model loaded by `rstan::stan_model`.
-get_stan_model <- memoise::memoise(function(type = c("glm", "cox"),
-                                            glm_family_string = c("gaussian", "binomial"),
-                                            joint_tau = FALSE,
-                                            glm_binomial_joint_theta = FALSE,
-                                            glm_binomial_joint_alpha = FALSE,
-                                            glm_gaussian_known_variance = FALSE) {
+get_stan_model <- function(type = c("glm", "cox"),
+                           glm_family_string = c("gaussian", "binomial"),
+                           joint_tau = FALSE,
+                           glm_binomial_joint_theta = FALSE,
+                           glm_binomial_joint_alpha = FALSE,
+                           glm_gaussian_known_variance = FALSE) {
   # Ensure type and glm family is valid
   type <- match.arg(type)
   glm_family_string <- match.arg(glm_family_string)
@@ -1863,7 +1863,7 @@ get_stan_model <- memoise::memoise(function(type = c("glm", "cox"),
 
   # Load and return the Stan model
   return(rstan::stan_model(file = stan_file))
-})
+}
 
 #' Compute Linear Predictor
 #'

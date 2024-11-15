@@ -3,7 +3,7 @@
 #' Fits a Catalytic linear mixed model (LMM) for observation and synthetic data with specified variance parameters
 #' and iterative coefficient estimation. This function initializes model parameters,
 #' sorts synthetic data, calculates Eigen-decomposition, and iterative optimizes
-#' variance and coefficient values to convergence, by a single given tau value.
+#' variance and coefficient values to convergence, by a single given tau value. (Only consider one random effect variance)
 #'
 #' @param cat_init A list generated from `cat_lmm_initialization`.
 #' @param tau Optional numeric scalar controlling the weight of the synthetic data in the coefficient estimation, defaults to \code{ncol(cat_init$obs_x) / 4}.
@@ -40,7 +40,7 @@
 #'   random_effect_variance_0 = 1, # Initial value for random effect variance
 #'   coefs_0 = c(1), # Initial coefficient vector
 #'   optimize_domain = c(0, 30), # Optimization range for residual and random effect variance
-#'   max_iter = 500, # Maximum number of iterations for convergence
+#'   max_iter = 5, # Maximum number of iterations for convergence
 #'   tol = 1e-08 # Tolerance for convergence criterion
 #' )
 #' cat_model
@@ -139,8 +139,8 @@ cat_lmm <- function(
       (tau / cat_init$syn_size) * quadform::quad.form(syn_z_inv, as.matrix(cat_init$syn_x)) +
         quadform::quad.form(obs_z_inv, as.matrix(cat_init$obs_x))
     ) %*% (
-      quadform::quad.3form(obs_z_inv, as.matrix(cat_init$obs_x), cat_init$obs_y) +
-        tau / cat_init$syn_size * quadform::quad.3form(syn_z_inv, as.matrix(cat_init$syn_x), cat_init$syn_y))
+      quadform::quad3.form(obs_z_inv, as.matrix(cat_init$obs_x), cat_init$obs_y) +
+        tau / cat_init$syn_size * quadform::quad3.form(syn_z_inv, as.matrix(cat_init$syn_x), cat_init$syn_y))
 
     obs_adjusted_residuals <- t(obs_z_eigenvectors) %*% (cat_init$obs_y - as.matrix(cat_init$obs_x) %*% coefs)
     syn_adjusted_residuals <- t(syn_z_eigenvectors) %*% (cat_init$syn_y - as.matrix(cat_init$syn_x) %*% coefs)

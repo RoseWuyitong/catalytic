@@ -2,6 +2,7 @@
 #'
 #' This function prepares and initializes a catalytic linear mixed model by processing input data,
 #' extracting necessary variables, generating synthetic datasets, and fitting a model.
+#' (Only consider one random effect variance)
 #'
 #' @param formula A formula specifying the model. Should include response and predictor variables.
 #' @param data A data frame containing the data for modeling.

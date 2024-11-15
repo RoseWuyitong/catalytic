@@ -4,13 +4,15 @@
 \alias{predict.cat_cox}
 \title{Predict Linear Predictor for New Data Using a Fitted Cox Model}
 \usage{
-\method{predict}{cat_cox}(cat_model, newdata = NULL)
+\method{predict}{cat_cox}(object, newdata = NULL, ...)
 }
 \arguments{
-\item{cat_model}{A fitted model object of class \code{cat_cox}, containing the COX fit and model details.}
+\item{object}{A fitted model object of class \code{cat_cox}, containing the COX fit and model details.}
 
 \item{newdata}{An optional data frame with new predictor values. If \code{NULL},
 the function uses the observation data from the model's initialization object.}
+
+\item{...}{Additional arguments passed to other functions.}
 }
 \value{
 A vector of linear predictor values for the specified new data.

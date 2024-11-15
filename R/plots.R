@@ -41,7 +41,7 @@ plot.cat_tune <- function(x,
     y_lab <- paste0("discrepancy error (", x$discrepancy_method, ")")
     y_plot <- x$risk_estimate_list
     main <- paste0(
-      "Plot of Risk Estimates from",
+      "Plot of Risk Estimates from ",
       x$function_name,
       "\n(",
       ifelse(is.null(x$risk_estimate_method),

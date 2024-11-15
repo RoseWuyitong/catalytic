@@ -47,8 +47,8 @@
 #'   tau_alpha = 2, # Shape parameter of the Gamma-like function for tau
 #'   tau_gamma = 1, # Scale parameter of the Gamma-like function for tau
 #'   chains = 1, # Number of Markov chains to be run in the RStan sampling
-#'   iter = 1000, # Number of iterations per chain in the RStan sampling
-#'   warmup = 500 # Number of warm-up (or burn-in) iterations for each chain
+#'   iter = 100, # Number of iterations per chain in the RStan sampling
+#'   warmup = 50 # Number of warm-up (or burn-in) iterations for each chain
 #' )
 #' cat_model
 #' @export

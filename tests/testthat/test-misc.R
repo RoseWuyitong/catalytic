@@ -1706,9 +1706,6 @@ test_that("validate_positive function works as expected", {
 })
 
 test_that("get_stan_model loads the correct Stan model file", {
-  # Clear memoized cache to ensure each test runs independently
-  memoise::forget(get_stan_model)
-
   # Test for default glm type with gaussian family with no additional options
   stan_model <- get_stan_model(type = "glm", glm_family_string = "gaussian")
   expect_s4_class(stan_model, "stanmodel") # Check that it returns a Stan model

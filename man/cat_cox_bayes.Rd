@@ -69,8 +69,8 @@ cat_model <- cat_cox_bayes(
   tau = 1, # Weight for synthetic data
   hazard_beta = 2, # Shape parameter for the Gamma distribution in the hazard model
   chains = 1, # Number of Markov chains to be run in the RStan sampling
-  iter = 1000, # Number of iterations per chain in the RStan sampling
-  warmup = 500 # Number of warm-up (or burn-in) iterations for each chain
+  iter = 500, # Number of iterations per chain in the RStan sampling
+  warmup = 200 # Number of warm-up (or burn-in) iterations for each chain
 )
 cat_model
 }

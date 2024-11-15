@@ -87,6 +87,7 @@ A list containing the values of all the input arguments and the following compon
 \description{
 This function prepares and initializes a catalytic linear mixed model by processing input data,
 extracting necessary variables, generating synthetic datasets, and fitting a model.
+(Only consider one random effect variance)
 }
 \examples{
 data(mtcars)

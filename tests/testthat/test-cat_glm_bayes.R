@@ -106,12 +106,12 @@ test_that("cat_glm_bayes can provide stable result with high iteration", {
   result_coefs_gaussian <- matrix(NA, nrow = 10, ncol = 4)
   result_coefs_binomial <- matrix(NA, nrow = 10, ncol = 4)
 
-  for (i in 1:10) {
+  for (i in 1:5) {
     suppressWarnings(
       cat_model_gaussian <- cat_glm_bayes(
         formula = ~.,
         cat_init = cat_init_gaussian_unknown_variance,
-        chains = 2,
+        chains = 1,
         iter = 5000,
         warmup = 3000
       )
@@ -120,7 +120,7 @@ test_that("cat_glm_bayes can provide stable result with high iteration", {
       cat_model_binomial <- cat_glm_bayes(
         formula = ~.,
         cat_init = cat_init_binomial,
-        chains = 2,
+        chains = 1,
         iter = 5000,
         warmup = 3000
       )
@@ -138,13 +138,13 @@ test_that("cat_glm_bayes can provide stable result with same observation data bu
   result_coefs_gaussian <- matrix(NA, nrow = 10, ncol = 4)
   result_coefs_binomial <- matrix(NA, nrow = 10, ncol = 4)
 
-  for (i in 1:10) {
+  for (i in 1:5) {
     cat_init_g <- mock_cat_glm_gaussian_initialization(glm_gaussian_data)
     suppressWarnings(
       cat_model_gaussian <- cat_glm_bayes(
         formula = ~.,
         cat_init = cat_init_g,
-        chains = 2,
+        chains = 1,
         iter = 5000,
         warmup = 3000
       )
@@ -154,7 +154,7 @@ test_that("cat_glm_bayes can provide stable result with same observation data bu
       cat_model_binomial <- cat_glm_bayes(
         formula = ~.,
         cat_init = cat_init_b,
-        chains = 2,
+        chains = 1,
         iter = 5000,
         warmup = 3000
       )

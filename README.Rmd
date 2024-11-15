@@ -35,7 +35,9 @@ cat_init <- cat_glm_initialization(
   syn_size = 100 # Synthetic data size
 )
 print(cat_init)
+```
 
+```{r}
 # Step 2: Choose Method(s)
 ## Method 1 - Estimation with fixed tau
 cat_glm_model <- cat_glm(
@@ -45,7 +47,9 @@ cat_glm_model <- cat_glm(
 )
 print(cat_glm_model)
 print(predict(cat_glm_model))
+```
 
+```{r}
 ## Method 2 - Estimation with selective tau
 cat_glm_tune_model <- cat_glm_tune(
   formula = Y ~ .,
@@ -55,7 +59,9 @@ cat_glm_tune_model <- cat_glm_tune(
 print(cat_glm_tune_model)
 print(predict(cat_glm_tune_model))
 plot(cat_glm_tune_model, text_pos = 2)
+```
 
+```{r}
 ## Method 3 - Bayesian posterior sampling with fixed tau
 cat_glm_bayes_model <- cat_glm_bayes(
   formula = Y ~ .,
@@ -65,7 +71,9 @@ cat_glm_bayes_model <- cat_glm_bayes(
 print(cat_glm_bayes_model)
 print(predict(cat_glm_bayes_model))
 traceplot(cat_glm_bayes_model)
+```
 
+```{r}
 ## Method 4 - Bayesian posterior sampling with adaptive tau
 cat_glm_bayes_joint_model <- cat_glm_bayes_joint(
   formula = Y ~ .,

@@ -39,7 +39,7 @@
 #' cat_model <- cat_cox_tune(
 #'   formula = ~., # Should at least include response variables
 #'   cat_init = cat_init, # Only accept object generated from `cat_cox_initialization`
-#'   tau_seq = seq(1, 10), # Vector of weights for synthetic data
+#'   tau_seq = seq(1, 5), # Vector of weights for synthetic data
 #'   cross_validation_fold_num = 5 # number of folds for cross-validation
 #' )
 #' cat_model

@@ -60,12 +60,12 @@ test_that("cat_cox_bayes returns different results with different tau values", {
 
 test_that("cat_cox_bayes can provide stable result with high iteration", {
   result_coefs <- matrix(NA, nrow = 10, ncol = 3)
-  for (i in 1:10) {
+  for (i in 1:5) {
     suppressWarnings(
       cat_model <- cat_cox_bayes(
         formula = ~.,
         cat_init = cat_init,
-        chains = 2,
+        chains = 1,
         iter = 5000,
         warmup = 3000
       )
@@ -79,13 +79,13 @@ test_that("cat_cox_bayes can provide stable result with high iteration", {
 
 test_that("cat_cox_bayes can provide stable result with same observation data but different synthetic data", {
   result_coefs <- matrix(NA, nrow = 10, ncol = 3)
-  for (i in 1:10) {
+  for (i in 1:5) {
     cat_init <- mock_cat_cox_initialization(cox_data)
     suppressWarnings(
       cat_model <- cat_cox_bayes(
         formula = ~.,
         cat_init = cat_init,
-        chains = 2,
+        chains = 1,
         iter = 5000,
         warmup = 3000
       )

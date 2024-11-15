@@ -43,9 +43,9 @@
 #' cat_model <- cat_glm_bayes_joint_gibbs(
 #'   formula = ~.,
 #'   cat_init = cat_init, # Only accept object generated from `cat_glm_initialization`
-#'   iter = 200, # Number of Gibbs sampling iterations
-#'   warmup = 100, # Number of warm-up (or burn-in) iterations for initial iterations
-#'   coefs_iter = 3, # Number of iterations for the HMC step to update coefficients
+#'   iter = 100, # Number of Gibbs sampling iterations
+#'   warmup = 50, # Number of warm-up (or burn-in) iterations for initial iterations
+#'   coefs_iter = 2, # Number of iterations for the HMC step to update coefficients
 #'   tau_alpha = 1, # Shape parameter for the gamma distribution when updating tau
 #'   tau_gamma = 2, # Scale parameter for the gamma distribution when updating tau
 #'   refresh = TRUE # Indicator for displaying sampling progress
@@ -260,57 +260,58 @@ cat_glm_bayes_joint_gibbs <- function(formula,
       "(Total)\n",
       "Gibb's sampling: \n"
     ))
-
-    # Finalize Setup and Output
-    cat_model <- list(
-      function_name = "cat_glm_bayes_joint_gibbs",
-      ## Input/Processed parameters
-      formula = formula,
-      cat_init = cat_init,
-      iter = iter,
-      warmup = warmup,
-      coefs_iter = coefs_iter,
-      tau_0 = tau_0,
-      tau_alpha = tau_alpha,
-      tau_gamma = tau_gamma,
-      refresh = refresh,
-      sys_time = sampling_end_time,
-      ## Result
-      gibbs_iteration_log = gibbs_iteration_log,
-      inform_df = tryCatch(
-        {
-          t(apply(
-            gibbs_iteration_log,
-            2,
-            function(x) {
-              c(
-                mean = mean(x),
-                se_mean = stats::sd(x) / sqrt(length(x)),
-                sd = stats::sd(x),
-                stats::quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
-                n_eff = as.double(coda::effectiveSize(coda::as.mcmc(x)))
-              )
-            }
-          ))
-        },
-        error = function(.) {
-          t(sapply(
-            gibbs_iteration_log,
-            function(x) {
-              c(
-                mean = mean(x), se_mean = NA, sd = NA,
-                stats::quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)), n_eff = 0
-              )
-            }
-          ))
-        }
-      )
-    )
-
-    cat_model$tau <- cat_model$inform_df[(length(coefs) + 1), "mean"]
-    cat_model$coefficients <- cat_model$inform_df[1:length(coefs), "mean"]
-
-    class(cat_model) <- c(cat_model$class, "cat_gibbs", "cat_glm")
   }
+
+  # Finalize Setup and Output
+  cat_model <- list(
+    function_name = "cat_glm_bayes_joint_gibbs",
+    ## Input/Processed parameters
+    formula = formula,
+    cat_init = cat_init,
+    iter = iter,
+    warmup = warmup,
+    coefs_iter = coefs_iter,
+    tau_0 = tau_0,
+    tau_alpha = tau_alpha,
+    tau_gamma = tau_gamma,
+    refresh = refresh,
+    sys_time = sampling_end_time,
+    ## Result
+    gibbs_iteration_log = gibbs_iteration_log,
+    inform_df = tryCatch(
+      {
+        t(apply(
+          gibbs_iteration_log,
+          2,
+          function(x) {
+            c(
+              mean = mean(x),
+              se_mean = stats::sd(x) / sqrt(length(x)),
+              sd = stats::sd(x),
+              stats::quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
+              n_eff = as.double(coda::effectiveSize(coda::as.mcmc(x)))
+            )
+          }
+        ))
+      },
+      error = function(.) {
+        t(sapply(
+          gibbs_iteration_log,
+          function(x) {
+            c(
+              mean = mean(x), se_mean = NA, sd = NA,
+              stats::quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)), n_eff = 0
+            )
+          }
+        ))
+      }
+    )
+  )
+
+  cat_model$tau <- cat_model$inform_df[(length(coefs) + 1), "mean"]
+  cat_model$coefficients <- cat_model$inform_df[1:length(coefs), "mean"]
+
+  class(cat_model) <- c(cat_model$class, "cat_gibbs", "cat_glm")
+
   return(cat_model)
 }

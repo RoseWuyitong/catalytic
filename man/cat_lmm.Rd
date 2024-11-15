@@ -41,7 +41,7 @@ A list containing the values of all the arguments and the following components:
 Fits a Catalytic linear mixed model (LMM) for observation and synthetic data with specified variance parameters
 and iterative coefficient estimation. This function initializes model parameters,
 sorts synthetic data, calculates Eigen-decomposition, and iterative optimizes
-variance and coefficient values to convergence, by a single given tau value.
+variance and coefficient values to convergence, by a single given tau value. (Only consider one random effect variance)
 }
 \examples{
 data(mtcars)

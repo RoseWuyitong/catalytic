@@ -2,7 +2,7 @@
 #'
 #' This function tunes a catalytic linear mixed model by performing cross-validation
 #' to estimate the optimal value of the tuning parameter tau. It finally uses the optimal tau value
-#' in the `lmer` function from the `lme4` package for model fitting.
+#' in the `lmer` function from the `lme4` package for model fitting. (Only consider one random effect variance)
 #'
 #' @param cat_init A list generated from `cat_lmm_initialization`.
 #' @param tau_seq A numeric vector specifying the sequence of tau values to be tested.
@@ -33,7 +33,7 @@
 #'
 #' cat_model <- cat_lmm_tune(
 #'   cat_init = cat_init, # Only accept object generated from cat_lmm_initialization
-#'   tau_seq = seq(1, 10), # Vector of weights for synthetic data
+#'   tau_seq = seq(1, 5), # Vector of weights for synthetic data
 #'   cross_validation_fold_num = 5 # number of folds for cross-validation
 #' )
 #' cat_model

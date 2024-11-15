@@ -4,10 +4,10 @@
 \alias{predict.cat_glm}
 \title{Predict Outcome for New Data Using a Fitted GLM Model}
 \usage{
-\method{predict}{cat_glm}(cat_model, newdata = NULL, ...)
+\method{predict}{cat_glm}(object, newdata = NULL, ...)
 }
 \arguments{
-\item{cat_model}{A fitted model object of class \code{cat_glm}, containing the GLM fit and model details.}
+\item{object}{A fitted model object of class \code{cat_glm}, containing the GLM fit and model details.}
 
 \item{newdata}{An optional data frame containing new predictor values. If \code{NULL},
 the function uses the observation data from the model's initialization object.}
