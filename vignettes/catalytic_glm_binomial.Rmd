@@ -19,7 +19,8 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.align = "center",
   fig.width = 7,
-  fig.height = 6
+  fig.height = 6,
+  cache = TRUE
 )
 ```
 
@@ -44,7 +45,7 @@ Creating a high-dimensional dataset with a low data size. This step involves inc
 
 The `swim` dataset is loaded and split into training (`train_data`) and test (`test_data`) datasets.
 
-```{r}
+```{r, eval=FALSE}
 library(catalytic)
 
 set.seed(1)
@@ -61,7 +62,7 @@ data("swim")
 swim_data <- cbind(swim$x, swim$y)
 
 # Seperate observation data into train and test data
-n <- 3 * ncol(swim$x + 1) # Size for training data
+n <- 5 * ncol(swim$x + 1) # Size for training data
 train_idx <- sample(1:nrow(swim_data), n)
 train_data <- swim_data[train_idx, ]
 test_data <- swim_data[-train_idx, ]
@@ -71,7 +72,7 @@ dim(train_data)
 
 In this section, we explore the foundational steps of fitting a logistic regression model (GLM) using the `stats::glm` function with the binomial family. 
 
-```{r}
+```{r, eval=FALSE}
 # Fit a logistic regression model (GLM)
 glm_model <- stats::glm(
   formula = empyr1 ~ .,
@@ -96,7 +97,7 @@ cat(
 
 Let us check the ROC curve of the `predicted_y` from `glm_model` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval=FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, predicted_y)
 plot(roc_curve, main = "ROC Curve (MLE)", col = "blue", lwd = 2)
 ```
@@ -123,46 +124,23 @@ Here's a breakdown of the parameters used:
 
 * `na_replace`: Specifies the method for handling missing values in the dataset, defaulted to `stats::na.omit`. Here is `mean`, which can replace `NA` in `data` with the mean of each column.
 
-```{r}
-cat_init_1 <- cat_glm_initialization(
+```{r, eval=FALSE}
+cat_init <- cat_glm_initialization(
   formula = empyr1 ~ 1,
   family = binomial, # Default: gaussian
   data = train_data,
-  syn_size = 100, # Default: 4 times the number of predictors
+  syn_size = 50, # Default: 4 times the number of predictors
   x_degree = NULL, # Default: NULL, which means degrees of all predictors are 1
   resample_only = FALSE, # Default: FALSE
   na_replace = mean # Default: stats::na.omit
 )
 
-cat_init_1
+cat_init
 ```
 
 Here shows how users can simplify the input for `cat_glm_initialization`. User do not have to specify `syn_size` and other parameters, as they have default values, which mentioned above.
 
-```{r}
-cat_init_2 <- cat_glm_initialization(
-  formula = empyr1 ~ 1,
-  family = binomial,
-  data = train_data
-)
-
-cat_init_2
-```
-
-Here, let us increase the `syn_size` for better estimation later.
-
-```{r}
-cat_init <- cat_glm_initialization(
-  formula = empyr1 ~ 1,
-  family = binomial,
-  data = train_data,
-  syn_size = 200
-)
-
-cat_init
-```
-
-`cat_init_1`, `cat_init_2` and `cat_init` object contains a list of attributes, which is typically generated from above function [`cat_glm_initialization`](#Initialization). These attributes provide comprehensive information for below modeling tasks or for user check. 
+`cat_init` object contains a list of attributes, which is typically generated from above function [`cat_glm_initialization`](#Initialization). These attributes provide comprehensive information for below modeling tasks or for user check. 
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -196,13 +174,13 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please check `?cat_glm_initialization`.
 
-```{r}
+```{r, eval=FALSE}
 names(cat_init)
 ```
 
 And of course, user can extract items mentioned above from `cat_glm_initialization` object.
 
-```{r}
+```{r, eval=FALSE}
 # The number of observations (rows) in the original dataset (`obs_data`)
 cat_init$obs_size
 
@@ -226,32 +204,23 @@ Here's a breakdown of the parameters used:
 
 * `tau`: This parameter determines the down-weight assigned to synthetic data relative to observed data. It influences the influence of synthetic data in the model fitting process. If not specified (`NULL`), it defaults to a one forth of the number of predictors.
 
-```{r}
-cat_glm_1 <- cat_glm(
+```{r, eval=FALSE}
+cat_glm_model <- cat_glm(
   formula = empyr1 ~ female + agege35, # Same as `~ female + agege35`
   cat_init = cat_init,
   tau = 10 # Default: number of predictors / 4
 )
 
-cat_glm_1
+cat_glm_model
 ```
 
 Here shows how users can simplify the input for `cat_glm`. User do not have to specify `tau`, as `tau` has default value , which mentioned above.
 
-```{r}
-cat_glm_2 <- cat_glm(
-  formula = ~., # Same as `empyr1 ~ .`
-  cat_init = cat_init
-)
-
-cat_glm_2
-```
-
 Let's check the prediction error. 
 
-```{r}
+```{r, eval=FALSE}
 cat_glm_predicted_y <- predict(
-  cat_glm_2,
+  cat_glm_model,
   newdata = test_data
 )
 
@@ -264,14 +233,14 @@ cat(
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_predicted_y` from `cat_glm_2` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_predicted_y` from `cat_glm_model` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval=FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, cat_glm_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm)", col = "blue", lwd = 2)
 ```
 
-Both `cat_glm_1` and `cat_glm_2` objects are outputs from the `cat_glm` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_glm_model` and `cat_glm_model` objects are outputs from the `cat_glm` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -283,18 +252,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please check `?cat_glm`.
 
-```{r}
-names(cat_glm_2)
+```{r, eval=FALSE}
+names(cat_glm_model)
 ```
 
 User can extract items mentioned above from `cat_glm` object.
 
-```{r}
+```{r, eval=FALSE}
 # The formula used for modeling
-cat_glm_2$formula
+cat_glm_model$formula
 
 # The fitted GLM model object obtained from `stats::glm` with `tau`
-cat_glm_2$coefficients
+cat_glm_model$coefficients
 ```
 
 ## Step 2.2: Choose Method(s) - Estimation with Selective tau {#cat_glm_tune}
@@ -319,14 +288,14 @@ Here's a breakdown of the parameters used:
 
 * `cross_validation_fold_num`: Number of folds for cross-validation. Defaults to 5.
 
-```{r}
+```{r, eval=FALSE}
 cat_glm_tune_cv <- cat_glm_tune(
   formula = empyr1 ~ ., # Same as `~ .`
   cat_init = cat_init,
   risk_estimate_method = "cross_validation", # Default auto-select based on the data size
   discrepancy_method = "logistic_deviance", # Default auto-select based on family
-  tau_seq = seq(0.1, 20, 0.5), # Default is a numeric sequence around the number of predictors / 4. Do not recommand to including 0 for cross validation.
-  cross_validation_fold_num = 5 # Default: 5
+  tau_seq = seq(0.1, 5.1, 0.5), # Default is a numeric sequence around the number of predictors / 4. Do not recommand to including 0 for cross validation.
+  cross_validation_fold_num = 3 # Default: 5
 )
 
 cat_glm_tune_cv
@@ -334,7 +303,7 @@ cat_glm_tune_cv
 
 User can plot the tau_seq (x) against discrepancy error (y) using the `plot()` function. This plot will show the lowest discrepancy error at the optimal tau value.
 
-```{r}
+```{r, eval=FALSE}
 plot(cat_glm_tune_cv)
 ```
 
@@ -350,14 +319,14 @@ Here's a breakdown of other parameters used:
 
 For the breakdown of other input parameters, please check section [Cross Validation](#CrossValidation)
 
-```{r}
+```{r, eval=FALSE}
 cat_glm_tune_boots <- cat_glm_tune(
   formula = ~., # Same as `empyr1 ~ .`
   cat_init = cat_init,
   risk_estimate_method = "parametric_bootstrap", # Default auto-select based on the data size
   discrepancy_method = "logistic_deviance", # Default auto-select based on family
   tau_0 = 2, # Default: number of predictors / 4
-  parametric_bootstrap_iteration_times = 50, # Default: 100
+  parametric_bootstrap_iteration_times = 10, # Default: 100
 )
 
 cat_glm_tune_boots
@@ -369,7 +338,7 @@ This method computes the partial likelihood using a steinian estimate approach, 
 
 For the breakdown of the input parameters, please check section [Cross Validation](#CrossValidation) and [Bootstrap](#Bootstrap))
 
-```{r}
+```{r, eval=FALSE}
 cat_glm_tune_stein <- cat_glm_tune(
   formula = ~., # Same as `empyr1 ~ .`
   cat_init = cat_init,
@@ -411,7 +380,7 @@ In this example, it is `risk_estimate_method = "parametric_bootstrap"` and `disc
 
 For the breakdown of the input parameters, please check section [Cross Validation](#CrossValidation) and [Bootstrap](#Bootstrap)
 
-```{r}
+```{r, eval=FALSE}
 cat_glm_tune_auto <- cat_glm_tune(
   formula = ~.,
   cat_init = cat_init
@@ -422,7 +391,7 @@ cat_glm_tune_auto
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval=FALSE}
 cat_glm_tune_predicted_y <- predict(
   cat_glm_tune_auto,
   newdata = test_data
@@ -439,7 +408,7 @@ cat(
 
 Let us check the ROC curve of the `cat_glm_tune_predicted_y` from `cat_glm_tune_auto` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval=FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, cat_glm_tune_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_tune)", col = "blue", lwd = 2)
 ```
@@ -460,13 +429,13 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please check `?cat_glm_tune`.
 
-```{r}
+```{r, eval=FALSE}
 names(cat_glm_tune_auto)
 ```
 
 User can extract items mentioned above from `cat_glm_tune` object.
 
-```{r}
+```{r, eval=FALSE}
 # The method used for risk estimation
 cat_glm_tune_auto$risk_estimate_method
 
@@ -502,48 +471,39 @@ Here's a breakdown of the parameters used:
 
 For more details, please refer to `?cat_glm_bayes`.
 
-```{r}
-cat_glm_bayes_1 <- cat_glm_bayes(
+```{r, eval = FALSE}
+cat_glm_bayes_model <- cat_glm_bayes(
   formula = empyr1 ~ ., # Same as `~ .`
   cat_init = cat_init,
   tau = 50, # Default: number of predictors / 4
-  chains = 2, # Default: 4
+  chains = 1, # Default: 4
   iter = 100, # Default: 2000
   warmup = 50, # Default: 1000
   algorithm = "NUTS" # Default: NUTS
 )
 
-cat_glm_bayes_1
+cat_glm_bayes_model
 ```
 
-Here shows how users can simplify the input for `cat_glm_bayes`. User do not have to specify `tau` and other attributes, as `tau` and other attributes have default value, which mentioned above.
+Here shows how users can simplify the input for `cat_glm_bayes`. User do not have to specify `tau` and other attributes, as `tau` and other attributes have default value, which mentioned above. Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
-```{r}
-cat_glm_bayes_2 <- cat_glm_bayes(
-  formula = ~., # Same as `empyr1 ~ .`
-  cat_init = cat_init
-)
+User can also get the trace plot of the `rstan` model by using `traceplot()` directly into the output from `cat_glm_bayes`.
 
-cat_glm_bayes_2
-```
-
-User can also get the traceplot of the `rstan` model by using `traceplot()` directly into the output from `cat_glm_bayes`.
-
-```{r}
-traceplot(cat_glm_bayes_2)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_model)
 ```
 
 Plus, user can use this `catlaytic::traceplot` just like the `rstan::traceplot`, user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
 
-```{r}
-traceplot(cat_glm_bayes_2, inc_warmup = TRUE)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_model, inc_warmup = TRUE)
 ```
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_predicted_y <- predict(
-  cat_glm_bayes_2,
+  cat_glm_bayes_model,
   newdata = test_data
 )
 
@@ -556,14 +516,14 @@ cat(
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_bayes_predicted_y` from `cat_glm_bayes_2` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_bayes_predicted_y` from `cat_glm_bayes_model` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval = FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes)", col = "blue", lwd = 2)
 ```
 
-Both `cat_glm_bayes_1` and `cat_glm_bayes_2` objects are outputs from the `cat_glm_bayes` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_glm_bayes_model` and `cat_glm_bayes_model` objects are outputs from the `cat_glm_bayes` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -579,18 +539,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please refer to `?cat_glm_bayes`.
 
-```{r}
-names(cat_glm_bayes_2)
+```{r, eval = FALSE}
+names(cat_glm_bayes_model)
 ```
 
 User can extract items mentioned above from `cat_glm_bayes` object.
 
-```{r}
+```{r, eval = FALSE}
 # The number of Markov chains used during MCMC sampling in `rstan`.
-cat_glm_bayes_2$chain
+cat_glm_bayes_model$chain
 
 # The mean estimated coefficients from the Bayesian GLM model
-cat_glm_bayes_2$coefficients
+cat_glm_bayes_model$coefficients
 ```
 
 ## Step 2.4: Choose Method(s) - Bayesian Posterior Sampling with Adaptive Tau{#cat_glm_bayes_joint}
@@ -620,49 +580,40 @@ Here's a breakdown of the parameters used:
 
 For more details, please refer to `?cat_glm_bayes_joint`.
 
-```{r}
-cat_glm_bayes_joint_1 <- cat_glm_bayes_joint(
+```{r, eval = FALSE}
+cat_glm_bayes_joint_model <- cat_glm_bayes_joint(
   formula = empyr1 ~ ., # Same as `~ .`
   cat_init = cat_init,
-  chains = 2, # Default: 4
-  iter = 200, # Default: 2000
-  warmup = 100, # Default: 1000
+  chains = 1, # Default: 4
+  iter = 100, # Default: 2000
+  warmup = 50, # Default: 1000
   algorithm = "NUTS", # Default: NUTS
   tau_alpha = 2, # Default: 2
   tau_gamma = 1 # Default: 1
 )
 
-cat_glm_bayes_joint_1
+cat_glm_bayes_joint_model
 ```
 
-Here shows how users can simplify the input for `cat_glm_bayes_joint`. User do not have to specify `tau_alpha` and other attributes, as these attributes have default value, which mentioned above.
-
-```{r}
-cat_glm_bayes_joint_2 <- cat_glm_bayes_joint(
-  formula = ~., # Same as `empyr1 ~ .`
-  cat_init = cat_init
-)
-
-cat_glm_bayes_joint_2
-```
+Here shows how users can simplify the input for `cat_glm_bayes_joint`. User do not have to specify `tau_alpha` and other attributes, as these attributes have default value, which mentioned above. Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
 User can also get the traceplot of the `rstan` model by using `traceplot()` directly into the output from `cat_glm_bayes_joint`.
 
-```{r }
-traceplot(cat_glm_bayes_joint_2)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_joint_model)
 ```
 
 Like the [`traceplot` shown in the `cat_glm_bayes` function](#cat_glm_bayes) , user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
 
-```{r}
-traceplot(cat_glm_bayes_joint_2, inc_warmup = TRUE)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_joint_model, inc_warmup = TRUE)
 ```
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_predicted_y <- predict(
-  cat_glm_bayes_joint_2,
+  cat_glm_bayes_joint_model,
   newdata = test_data
 )
 
@@ -675,14 +626,14 @@ cat(
 )
 ```
 
-Let us check the ROC curve of the `cat_glm_bayes_joint_predicted_y` from `cat_glm_bayes_joint_2` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the ROC curve of the `cat_glm_bayes_joint_predicted_y` from `cat_glm_bayes_joint_model` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval = FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint)", col = "blue", lwd = 2)
 ```
 
-Both `cat_glm_bayes_joint_1` and `cat_glm_bayes_joint_2` objects are outputs from the `cat_glm_bayes_joint` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_glm_bayes_joint_model` and `cat_glm_bayes_joint_model` objects are outputs from the `cat_glm_bayes_joint` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -694,18 +645,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please refer to `?cat_glm_bayes_joint`.
 
-```{r}
-names(cat_glm_bayes_joint_2)
+```{r, eval = FALSE}
+names(cat_glm_bayes_joint_model)
 ```
 
 User can extract items mentioned above from `cat_glm_bayes_joint` object.
 
-```{r}
+```{r, eval = FALSE}
 # The estimated tau parameter from the MCMC sampling `rstan::sampling`,
-cat_glm_bayes_joint_2$tau
+cat_glm_bayes_joint_model$tau
 
 # The mean estimated coefficients from the Bayesian GLM model
-cat_glm_bayes_joint_2$coefficients
+cat_glm_bayes_joint_model$coefficients
 ```
 
 ## Step 2.5: Choose Method(s) - Special Approaches for Binomial Models{#SpecialForBinomial}
@@ -760,10 +711,10 @@ Here's a breakdown of the parameters used:
 
 * `...`(ellipsis): Denotes additional arguments that can be passed directly to the underlying `stats::glm`, for generating `init_coefficients` if user not defined, such as `control`, `offset`, or other model-specific settings.
 
-For more details, please refer to `?cat_glm_bayes_joint_gibbs`.
+For more details, please refer to `?cat_glm_bayes_joint_gibbs`. Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
-```{r}
-cat_glm_bayes_joint_gibbs_1 <- cat_glm_bayes_joint_gibbs(
+```{r, eval = FALSE}
+cat_glm_bayes_joint_gibbs_model <- cat_glm_bayes_joint_gibbs(
   formula = empyr1 ~ ., # Same as `~ .`
   cat_init = cat_init,
   iter = 100, # Default: 1000
@@ -775,37 +726,28 @@ cat_glm_bayes_joint_gibbs_1 <- cat_glm_bayes_joint_gibbs(
   refresh = TRUE # Default: TRUE
 )
 
-cat_glm_bayes_joint_gibbs_1
+cat_glm_bayes_joint_gibbs_model
 ```
 
-Here shows how users can simplify the input for `cat_glm_bayes_joint_gibbs`. User do not have to specify `tau_0` and other attributes, as these attributes have default value, which mentioned above.
-
-```{r}
-cat_glm_bayes_joint_gibbs_2 <- cat_glm_bayes_joint_gibbs(
-  formula = ~., # Same as `empyr1 ~ .`
-  cat_init = cat_init
-)
-
-cat_glm_bayes_joint_gibbs_2
-```
+Here shows how users can simplify the input for `cat_glm_bayes_joint_gibbs`. User do not have to specify `tau_0` and other attributes, as these attributes have default value, which mentioned above. Here we assign lower value to `iter` and `warmup` for quicker processing time.
 
 User can also use `traceplot()` to check the coefficients from `cat_glm_bayes_joint_gibbs`.
 
-```{r}
-traceplot(cat_glm_bayes_joint_gibbs_2)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_joint_gibbs_model)
 ```
 
 And user can select the columns they would like to check.
 
-```{r}
-traceplot(cat_glm_bayes_joint_gibbs_2, pars = c("female", "hsdip", "numchild"))
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_joint_gibbs_model, pars = c("female", "hsdip", "numchild"))
 ```
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_gibbs_predicted_y <- predict(
-  cat_glm_bayes_joint_gibbs_2,
+  cat_glm_bayes_joint_gibbs_model,
   newdata = test_data
 )
 
@@ -820,12 +762,12 @@ cat(
 
 Let us check the ROC curve of the `cat_glm_bayes_joint_gibbs_predicted_y` from `cat_glm_bayes_joint_gibbs` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval = FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_gibbs_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint_gibbs)", col = "blue", lwd = 2)
 ```
 
-Both `cat_glm_bayes_joint_gibbs_1` and `cat_glm_bayes_joint_gibbs_2` objects are outputs from the `cat_glm_bayes_joint_gibbs` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_glm_bayes_joint_gibbs_model` and `cat_glm_bayes_joint_gibbs_model` objects are outputs from the `cat_glm_bayes_joint_gibbs` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -843,18 +785,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please refer to `?cat_glm_bayes_joint_gibbs`.
 
-```{r}
-names(cat_glm_bayes_joint_gibbs_2)
+```{r, eval = FALSE}
+names(cat_glm_bayes_joint_gibbs_model)
 ```
 
 User can extract items mentioned above from `cat_glm_bayes_joint_gibbs` object.
 
-```{r}
+```{r, eval = FALSE}
 # The Date and time when sampling ended.
-cat_glm_bayes_joint_gibbs_2$sys_time
+cat_glm_bayes_joint_gibbs_model$sys_time
 
 # The summary statistics
-cat_glm_bayes_joint_gibbs_2$inform_df
+cat_glm_bayes_joint_gibbs_model$inform_df
 ```
 
 
@@ -864,13 +806,16 @@ Since the inefficiency in sampling is caused by small values of tau, a straightf
 
 `binomial_tau_lower` (default is 0.05) sets the minimum allowable value for the tau parameter in the Bayesian model, ensuring tau is greater than or equal to `number_of_predictors * binomial_tau_lower`, which defines a suitable range for model calculations. This adjustment improves the coherence of the posterior density and enhances sampling outcomes. Additionally, the density of the second derivative is not too small, indicating improved performance. 
 
-For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint).
+For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint). Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_tau_lower <- cat_glm_bayes_joint(
   formula = ~., # Same as `empyr1 ~ .`
   cat_init = cat_init,
-  binomial_tau_lower = 0.5 # Default: 0.05
+  binomial_tau_lower = 0.5, # Default: 0.05
+  chains = 1, # Default: 4
+  iter = 100, # Default: 2000
+  warmup = 50 # Default: 1000
 )
 
 cat_glm_bayes_joint_tau_lower
@@ -878,7 +823,7 @@ cat_glm_bayes_joint_tau_lower
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_tau_lower_predicted_y <- predict(
   cat_glm_bayes_joint_tau_lower,
   newdata = test_data
@@ -895,7 +840,7 @@ cat(
 
 Let us check the ROC curve of the `cat_glm_bayes_joint_tau_lower_predicted_y` from `cat_glm_bayes_joint_tau_lower` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval = FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_tau_lower_predicted_y)
 plot(roc_curve, main = "ROC Curve (MLE)", col = "blue", lwd = 2)
 ```
@@ -908,13 +853,16 @@ In the `rstan` program used in this example, `theta` serves as the inverse of ta
 
 This approach enhances flexibility in model fitting, especially when dealing with datasets exhibiting diverse and complex patterns across different dimensions.
 
-For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint).
+For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint). Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_theta <- cat_glm_bayes_joint(
   formula = ~., # Same as `empyr1 ~ .`
   cat_init = cat_init,
-  binomial_joint_theta = TRUE # Default: FALSE
+  binomial_joint_theta = TRUE, # Default: FALSE
+  chains = 1, # Default: 4
+  iter = 100, # Default: 2000
+  warmup = 50 # Default: 1000
 )
 
 cat_glm_bayes_joint_theta
@@ -922,7 +870,7 @@ cat_glm_bayes_joint_theta
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_theta_predicted_y <- predict(
   cat_glm_bayes_joint_theta,
   newdata = test_data
@@ -939,7 +887,7 @@ cat(
 
 Let us check the ROC curve of the `cat_glm_bayes_joint_theta_predicted_y` from `cat_glm_bayes_joint_theta` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval = FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_theta_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint_theta)", col = "blue", lwd = 2)
 ```
@@ -948,14 +896,17 @@ plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint_theta)", col = "blue", lw
 
 Additionally, in scenarios where adjusting the spread of data (controlled by `alpha`) significantly impacts model performance, the `cat_glm_bayes_joint` function extends the` theta = 1/tau` approach by introducing a adaptive/joint alpha parameter. This enhancement in the `rstan` model allows simultaneous adjustment of both theta and alpha parameters, aiming for better convergence and more accurate parameter estimates.
 
-For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint).
+For breakdown of input parameters and output attributes, please check section [Bayesian Posterior Sampling with Adaptive Tau](#cat_glm_bayes_joint). Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_alpha <- cat_glm_bayes_joint(
   formula = ~., # Same as `empyr1 ~ .`
   cat_init = cat_init,
   binomial_joint_theta = TRUE, # Default: FALSE
-  binomial_joint_alpha = TRUE # Default: FALSE
+  binomial_joint_alpha = TRUE, # Default: FALSE
+  chains = 1, # Default: 4
+  iter = 100, # Default: 2000
+  warmup = 50 # Default: 1000
 )
 
 cat_glm_bayes_joint_alpha
@@ -963,7 +914,7 @@ cat_glm_bayes_joint_alpha
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_alpha_predicted_y <- predict(
   cat_glm_bayes_joint_alpha,
   newdata = test_data
@@ -980,7 +931,7 @@ cat(
 
 Let us check the ROC curve of the `cat_glm_bayes_joint_alpha_predicted_y` from `cat_glm_bayes_joint_alpha` versus the `test_data$empyr1`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval = FALSE}
 roc_curve <- pROC::roc(test_data$empyr1, cat_glm_bayes_joint_alpha_predicted_y)
 plot(roc_curve, main = "ROC Curve (cat_glm_bayes_joint_alpha)", col = "blue", lwd = 2)
 ```

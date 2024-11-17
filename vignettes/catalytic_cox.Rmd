@@ -19,7 +19,8 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.align = "center",
   fig.width = 7,
-  fig.height = 6
+  fig.height = 6,
+  cache = TRUE
 )
 ```
 
@@ -42,7 +43,7 @@ Creating a high-dimensional dataset with a low data size. This step involves inc
 
 The `pbc` dataset is loaded and split into training (`train_data`) and test (`cox_cox_cat_test`) datasets.
 
-```{r}
+```{r, eval=FALSE}
 library(survival)
 library(catalytic)
 
@@ -132,7 +133,7 @@ We then proceed to evaluate model performance using the `catalytic::get_discrepa
 
 Finally, we display the computed logarithmic error to assess the model's performance in predicting the response variable `mpg`.
 
-```{r}
+```{r, eval=FALSE}
 # Calculate MPLE (Marginal Partial Likelihood Estimate) prediction score with 0 coefficients
 MPLE_0 <- get_cox_partial_likelihood(
   X = test_x,
@@ -188,8 +189,8 @@ Here's a breakdown of the parameters used:
 * `...` (ellipsis): Allows users to specify additional arguments that are passed directly to the simple model. This model is used within the function to generate synthetic responses by fitting observation data using `survival::coxph`. By leveraging `...`, users can customize the behavior of `survival::coxph` within `cat_cox_initialization` with additional options.
 
 
-```{r}
-cat_init_1 <- cat_cox_initialization(
+```{r, eval=FALSE}
+cat_init <- cat_cox_initialization(
   formula = survival::Surv(time, status) ~ 1,
   data = train_data,
   syn_size = 100, # Default: 4 times the number of predictors
@@ -200,33 +201,12 @@ cat_init_1 <- cat_cox_initialization(
   na_replace = mean # Default: stats::na.omit
 )
 
-cat_init_1
+cat_init
 ```
 
 Here shows how users can simplify the input for `cat_cox_initialization`. User do not have to specify `syn_size` and other parameters, as they have default values, which mentioned above.
 
-```{r}
-cat_init_2 <- cat_cox_initialization(
-  formula = survival::Surv(time, status) ~ 1,
-  data = train_data
-)
-
-cat_init_2
-```
-
-Here, let us increase the `syn_size` for better estimation later.
-
-```{r}
-cat_init <- cat_cox_initialization(
-  formula = survival::Surv(time, status) ~ 1,
-  data = train_data,
-  syn_size = 500
-)
-
-cat_init
-```
-
-This cat_init object contains a list of attributes, which is typically generated from the above function [`cat_cox_initialization`]{#Initialization}. These attributes provide comprehensive information for subsequent modeling tasks or for user checks.
+`cat_init` object contains a list of attributes, which is typically generated from the above function [`cat_cox_initialization`]{#Initialization}. These attributes provide comprehensive information for subsequent modeling tasks or for user checks.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -266,13 +246,13 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please check `?cat_cox_initialization`.
 
-```{r}
+```{r, eval=FALSE}
 names(cat_init)
 ```
 
 And of course, user can extract items mentioned above from `cat_cox_initialization` object.
 
-```{r}
+```{r, eval=FALSE}
 # The number of observations (rows) in the original dataset (`obs_data`)
 cat_init$obs_size
 
@@ -306,47 +286,38 @@ Here's a breakdown of the parameters used:
 
 *  `max_iter`: Maximum number of iterations allowed for convergence. Default is `25` (if using `CRE`).
 
-```{r}
-cat_cox_1 <- cat_cox(
-  formula = survival::Surv(time, status) ~ trt + age, # Same as `~ trt + age`
+```{r, eval=FALSE}
+cat_cox_model <- cat_cox(
+  formula = survival::Surv(time, status) ~ ., # Same as `~ .`
   cat_init = cat_init,
   tau = 10, # Default: number of predictors
   method = "WME", # Default: CRE
-  init_coefficients = rnorm(2), # Default: all zeros
+  init_coefficients = NULL, # Default: all zeros
   tol = 0.01, # Default: 1e-5
-  max_iter = 30 # Default: 25
+  max_iter = 5 # Default: 25
 )
 
-cat_cox_1
+cat_cox_model
 ```
 
 Here shows how users can simplify the input for `cat_cox`. User do not have to specify `tau` and so on, as `tau` and other parameters has their own default value , which mentioned above.
 
-```{r}
-cat_cox_2 <- cat_cox(
-  formula = ~., # Same as `survival::Surv(time, status) ~ .`
-  cat_init = cat_init
-)
-
-cat_cox_2
-```
-
 Let's check the prediction score. 
 
-```{r}
+```{r, eval=FALSE}
 cat(
   "Catalytic `cat_cox` - Predition Score:",
   get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cat_cox_2),
+    coefs = coef(cat_cox_model),
     entry_points = test_entry_points
   ) - MPLE_0
 )
 ```
 
-Both `cat_cox_1` and `cat_cox_2` objects are outputs from the `cat_cox` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_cox_model` and `cat_cox_model` objects are outputs from the `cat_cox` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -362,18 +333,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please check `?cat_cox`.
 
-```{r}
-names(cat_cox_2)
+```{r, eval=FALSE}
+names(cat_cox_model)
 ```
 
 User can extract items mentioned above from `cat_cox` object.
 
-```{r}
+```{r, eval=FALSE}
 # The formula used for modeling
-cat_cox_2$formula
+cat_cox_model$formula
 
 # The fitted model object obtained from `survival::coxph` with `tau`
-cat_cox_2$coefficients
+cat_cox_model$coefficients
 ```
 
 ## Step 2.2: Choose Method(s) - Estimation with Selective tau {#cat_cox_tune}
@@ -396,51 +367,42 @@ Here's a breakdown of the parameters used:
 
 * `...` (ellipsis): Additional arguments passed to the `cat_cox` function for model fitting.
 
-```{r}
-cat_cox_tune_1 <- cat_cox_tune(
+```{r, eval=FALSE}
+cat_cox_tune_model <- cat_cox_tune(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .`
   cat_init = cat_init,
   method = "CRE", # Default: "CRE"
-  tau_seq = seq(1, 10, 0.5), # Default is a numeric sequence around the number of predictors
+  tau_seq = seq(1, 5, 0.5), # Default is a numeric sequence around the number of predictors
   cross_validation_fold_num = 3, # Default: 5
-  tol = 1e-2 # Additional arguments passed to the `cat_cox` function
+  tol = 1 # Additional arguments passed to the `cat_cox` function
 )
 
-cat_cox_tune_1
+cat_cox_tune_model
 ```
 User can plot the tau_seq (x) against discrepancy error (y) using the `plot()` function. This plot will show the lowest discrepancy error at the optimal tau value.
 
-```{r}
-plot(cat_cox_tune_1, text_pos = 2, legend_pos = "bottomright")
+```{r, eval=FALSE}
+plot(cat_cox_tune_model, text_pos = 2, legend_pos = "bottomright")
 ```
 
 Here shows how users can simplify the input for `cat_cox_tune`. User do not have to specify `tau_seq` or some other augments, as most of the augments has default values, which mentioned above.
 
-```{r}
-cat_cox_tune_2 <- cat_cox_tune(
-  formula = ~., # Same as `survival::Surv(time, status) ~ .`
-  cat_init = cat_init
-)
-
-cat_cox_tune_2
-```
-
 Let's check the prediction score. 
 
-```{r}
+```{r, eval=FALSE}
 cat(
   "Catalytic `cat_cox_tune` - Predition Score:",
   get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cat_cox_tune_2),
+    coefs = coef(cat_cox_tune_model),
     entry_points = test_entry_points
   ) - MPLE_0
 )
 ```
 
-`cat_cox_tune_1` and `cat_cox_tune_2` objects are outputs from the `cat_cox_tune` function, providing a list of attributes for further analysis or user inspection.
+`cat_cox_tune_model` and `cat_cox_tune_model` objects are outputs from the `cat_cox_tune` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -456,18 +418,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please check `?cat_cox_tune`.
 
-```{r}
-names(cat_cox_tune_2)
+```{r, eval=FALSE}
+names(cat_cox_tune_model)
 ```
 
 User can extract items mentioned above from `cat_cox_tune` object.
 
-```{r}
+```{r, eval=FALSE}
 # The estimated coefficients from the fitted model
-cat_cox_tune_2$coefficients
+cat_cox_tune_model$coefficients
 
 # Selected optimal tau value from `tau_seq` that maximize the likelihood
-cat_cox_tune_2$tau
+cat_cox_tune_model$tau
 ```
 
 ## Step 2.3: Bayesian Posterior Sampling with Fixed tau{#cat_cox_bayes}
@@ -494,59 +456,50 @@ Here's a breakdown of the parameters used:
 
 For more details, please refer to `?cat_cox_bayes`.
 
-```{r}
-cat_cox_bayes_1 <- cat_cox_bayes(
+```{r, eval = FALSE}
+cat_cox_bayes_model <- cat_cox_bayes(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .
   cat_init = cat_init,
   tau = 1, # Default: NULL
-  chains = 2, # Default: 4
+  chains = 1, # Default: 4
   iter = 100, # Default: 2000
   warmup = 50, # Default: 1000
   hazard_beta = 2 # Default: 2
 )
 
-cat_cox_bayes_1
+cat_cox_bayes_model
 ```
 
-Here shows how users can simplify the input for `cat_cox_bayes`. User do not have to specify `tau` and other attributes, as `tau` and other attributes have default value, which mentioned above.
-
-```{r}
-cat_cox_bayes_2 <- cat_cox_bayes(
-  formula = ~., # Same as `survival::Surv(time, status) ~ .`
-  cat_init = cat_init
-)
-
-cat_cox_bayes_2
-```
+Here shows how users can simplify the input for `cat_cox_bayes`. User do not have to specify `tau` and other attributes, as `tau` and other attributes have default value, which mentioned above. Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
 User can also get the traceplot of the `rstan` model by using `traceplot()` directly into the output from `cat_cox_bayes`.
 
-```{r}
-traceplot(cat_cox_bayes_2)
+```{r, eval=FALSE}
+traceplot(cat_cox_bayes_model)
 ```
 
 Plus, user can use this `catlaytic::traceplot` just like the `rstan::traceplot`, user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
 
-```{r}
-traceplot(cat_cox_bayes_2, inc_warmup = TRUE)
+```{r, eval=FALSE}
+traceplot(cat_cox_bayes_model, inc_warmup = TRUE)
 ```
 
 Let's check the prediction score. 
 
-```{r}
+```{r, eval = FALSE}
 cat(
   "Catalytic `cat_cox_bayes` - Predition Score:",
   get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cat_cox_bayes_2),
+    coefs = coef(cat_cox_bayes_model),
     entry_points = test_entry_points
   ) - MPLE_0
 )
 ```
 
-Both `cat_cox_bayes_1` and `cat_cox_bayes_2` objects are outputs from the `cat_cox_bayes` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_cox_bayes_model` and `cat_cox_bayes_model` objects are outputs from the `cat_cox_bayes` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -564,18 +517,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please refer to `?cat_cox_bayes`.
 
-```{r}
-names(cat_cox_bayes_2)
+```{r, eval = FALSE}
+names(cat_cox_bayes_model)
 ```
 
 User can extract items mentioned above from `cat_cox_bayes` object.
 
-```{r}
+```{r, eval = FALSE}
 # The number of Markov chains used during MCMC sampling in `rstan`.
-cat_cox_bayes_2$chain
+cat_cox_bayes_model$chain
 
 # The mean estimated coefficients from the Bayesian model
-cat_cox_bayes_2$coefficients
+cat_cox_bayes_model$coefficients
 ```
 
 ## 2.4 Bayesian Posterior Sampling with Adaptive Tau{#cat_cox_bayes_joint}
@@ -598,11 +551,11 @@ Here's a breakdown of the parameters used:
 
 For more details, please refer to `?cat_cox_bayes_joint`.
 
-```{r}
-cat_cox_bayes_joint_1 <- cat_cox_bayes_joint(
+```{r, eval = FALSE}
+cat_cox_bayes_joint_model <- cat_cox_bayes_joint(
   formula = survival::Surv(time, status) ~ ., # Same as `~ .
   cat_init = cat_init,
-  chains = 2, # Default: 4
+  chains = 1, # Default: 4
   iter = 100, # Default: 2000
   warmup = 50, # Default: 1000
   tau_alpha = 2, # Default: 2
@@ -610,48 +563,39 @@ cat_cox_bayes_joint_1 <- cat_cox_bayes_joint(
   hazard_beta = 2 # Default: 2
 )
 
-cat_cox_bayes_joint_1
+cat_cox_bayes_joint_model
 ```
 
-Here shows how users can simplify the input for `cat_cox_bayes_joint`. User do not have to specify `chains` and other attributes, as they have default values, which mentioned above.
-
-```{r}
-cat_cox_bayes_joint_2 <- cat_cox_bayes_joint(
-  formula = ~., # Same as `survival::Surv(time, status) ~ .`
-  cat_init = cat_init
-)
-
-cat_cox_bayes_joint_2
-```
+Here shows how users can simplify the input for `cat_cox_bayes_joint`. User do not have to specify `chains` and other attributes, as they have default values, which mentioned above. Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
 User can also get the traceplot of the `rstan` model by using `traceplot()` directly into the output from `cat_cox_bayes_joint`.
 
-```{r }
-traceplot(cat_cox_bayes_joint_2)
+```{r, eval = FALSE}
+traceplot(cat_cox_bayes_joint_model)
 ```
 
 Like the [`traceplot` shown in the `cat_cox_bayes` function](#cat_cox_bayes) , user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
 
-```{r}
-traceplot(cat_cox_bayes_joint_2, inc_warmup = TRUE)
+```{r, eval = FALSE}
+traceplot(cat_cox_bayes_joint_model, inc_warmup = TRUE)
 ```
 
 Let's check the prediction score. 
 
-```{r}
+```{r, eval = FALSE}
 cat(
   "Catalytic `cat_cox_bayes_joint` - Predition Score:",
   get_cox_partial_likelihood(
     X = test_x,
     time = test_time,
     status = test_status,
-    coefs = coef(cat_cox_bayes_joint_2),
+    coefs = coef(cat_cox_bayes_joint_model),
     entry_point = test_entry_points
   ) - MPLE_0
 )
 ```
 
-Both `cat_cox_bayes_joint_1` and `cat_cox_bayes_joint_2` objects are outputs from the `cat_cox_bayes_joint` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_cox_bayes_joint_model` and `cat_cox_bayes_joint_model` objects are outputs from the `cat_cox_bayes_joint` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -663,18 +607,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please refer to `?cat_cox_bayes_joint`.
 
-```{r}
-names(cat_cox_bayes_joint_2)
+```{r, eval = FALSE}
+names(cat_cox_bayes_joint_model)
 ```
 
 User can extract items mentioned above from `cat_cox_bayes_joint` object.
 
-```{r}
+```{r, eval = FALSE}
 # The estimated tau parameter from the MCMC sampling `rstan::sampling`,
-cat_cox_bayes_joint_2$tau
+cat_cox_bayes_joint_model$tau
 
 # The mean estimated coefficients from the Bayesian model
-cat_cox_bayes_joint_2$coefficients
+cat_cox_bayes_joint_model$coefficients
 ```
 
 # References

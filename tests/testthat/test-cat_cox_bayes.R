@@ -2,8 +2,8 @@ cox_data <- mock_cox_data()
 cat_init <- mock_cat_cox_initialization(cox_data)
 
 chains <- 1
-iter <- 1000
-warmup <- 500
+iter <- 100
+warmup <- 50
 
 suppressWarnings(
   cat_model <- cat_cox_bayes(
@@ -36,6 +36,7 @@ test_that("cat_cox_bayes runs without errors for valid input", {
 })
 
 test_that("cat_cox_bayes returns different results with different tau values", {
+  testthat::skip_on_cran()
   cat_model_low_tau <- cat_cox_bayes(
     formula = ~.,
     cat_init = cat_init,

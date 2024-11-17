@@ -19,7 +19,8 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.align = "center",
   fig.width = 7,
-  fig.height = 6
+  fig.height = 6,
+  cache = TRUE
 )
 ```
 
@@ -47,8 +48,8 @@ library(catalytic)
 
 set.seed(1)
 
-n <- 50 # Number of observations
-p <- 10 # Number of predictors
+n <- 20 # Number of observations
+p <- 5 # Number of predictors
 
 obs_x <- matrix(rnorm(n * (p - 1)), ncol = (p - 1)) # Observation covariates
 true_coefs <- rnorm(p) # True coefficient
@@ -59,7 +60,7 @@ obs_data <- as.data.frame(cbind(obs_x, obs_y))
 names(obs_data) <- c(paste0("X", 1:(p - 1)), "Y")
 
 # Seperate observation data into train and test data
-train_idx <- sample(n, 15)
+train_idx <- sample(n, 10)
 train_data <- obs_data[train_idx, ]
 test_data <- obs_data[-train_idx, ]
 
@@ -128,11 +129,11 @@ Here's a breakdown of the parameters used:
 * `na_replace`: A function to handle NA values in the data. Default is `stats::na.omit`.
 
 ```{r}
-cat_init_1 <- cat_glm_initialization(
+cat_init <- cat_glm_initialization(
   formula = Y ~ 1,
   family = gaussian,
   data = train_data,
-  syn_size = 100,
+  syn_size = 50,
   custom_variance = NULL,
   gaussian_known_variance = FALSE,
   x_degree = NULL,
@@ -140,35 +141,10 @@ cat_init_1 <- cat_glm_initialization(
   na_replace = stats::na.omit
 )
 
-cat_init_1
-```
-
-Here shows how users can simplify the input for `cat_glm_initialization`. User do not have to specify `syn_size` and other parameters, as they have default values, which mentioned above.
-
-```{r}
-cat_init_2 <- cat_glm_initialization(
-  formula = Y ~ 1,
-  family = gaussian,
-  data = train_data
-)
-
-cat_init_2
-```
-
-Here, let us increase the `syn_size` for better estimation later.
-
-```{r}
-cat_init <- cat_glm_initialization(
-  formula = Y ~ 1,
-  family = gaussian,
-  data = train_data,
-  syn_size = 200
-)
-
 cat_init
 ```
 
-`cat_init_1`, `cat_init_2` and `cat_init` objects contain a list of attributes, which is typically generated from above function [`cat_glm_initialization`]{#Initialization}. These attributes provide comprehensive information for below modeling tasks or for user check. 
+Here shows how users can simplify the input for `cat_glm_initialization`. User do not have to specify `syn_size` and other parameters, as they have default values, which mentioned above. `cat_init` objects contain a list of attributes, which is typically generated from above function [`cat_glm_initialization`]{#Initialization}. These attributes provide comprehensive information for below modeling tasks or for user check. 
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -232,31 +208,22 @@ Here's a breakdown of the parameters used:
 * `tau`: This parameter determines the down-weight assigned to synthetic data relative to observed data. It influences the influence of synthetic data in the model fitting process. If not specified (`NULL`), it defaults to a one forth of the number of predictors.
 
 ```{r}
-cat_glm_1 <- cat_glm(
+cat_glm_model <- cat_glm(
   formula = Y ~ ., # Same as `~ .`
   cat_init = cat_init, # Output object from `cat_glm_initialization`
   tau = 10 # Defaults to the number of predictors / 4
 )
 
-cat_glm_1
+cat_glm_model
 ```
 
 Here shows how users can simplify the input for `cat_glm`. User do not have to specify `tau`, as `tau` has default value , which mentioned above.
-
-```{r}
-cat_glm_2 <- cat_glm(
-  formula = ~., # Same as `Y ~ .`
-  cat_init = cat_init
-)
-
-cat_glm_2
-```
 
 Let's check the prediction error. 
 
 ```{r}
 cat_glm_predicted_y <- predict(
-  cat_glm_2,
+  cat_glm_model,
   newdata = test_data
 )
 
@@ -267,11 +234,11 @@ cat(
 
 cat(
   "\nCatalytic `cat_glm` - Sum Square Error (Coefficients):",
-  sum((coef(cat_glm_2) - true_coefs)^2)
+  sum((coef(cat_glm_model) - true_coefs)^2)
 )
 ```
 
-Let us check the scatter plot of the `cat_glm_predicted_y` from `cat_glm_2` versus the `test_data$Y`, this can be a great way to visually assess the accuracy and performance of the model.
+Let us check the scatter plot of the `cat_glm_predicted_y` from `cat_glm_model` versus the `test_data$Y`, this can be a great way to visually assess the accuracy and performance of the model.
 
 ```{r}
 plot(test_data$Y,
@@ -287,7 +254,7 @@ plot(test_data$Y,
 abline(a = 0, b = 1, col = "red", lwd = 2)
 ```
 
-Both `cat_glm_1` and `cat_glm_2` objects are outputs from the `cat_glm` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_glm_model` objects are outputs from the `cat_glm` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -300,17 +267,17 @@ Here's a breakdown of all attributes except the input parameters:
 For more details, please check `?cat_glm`.
 
 ```{r}
-names(cat_glm_2)
+names(cat_glm_model)
 ```
 
 User can extract items mentioned above from `cat_glm` object.
 
 ```{r}
 # The formula used for modeling
-cat_glm_2$formula
+cat_glm_model$formula
 
 # The fitted GLM model object obtained from `stats::glm` with `tau`
-cat_glm_2$coefficients
+cat_glm_model$coefficients
 ```
 
 ## Step 2.2: Choose Method(s) - Estimation with Selective tau{#cat_glm_tune}
@@ -341,8 +308,8 @@ cat_glm_tune_cv <- cat_glm_tune(
   cat_init = cat_init,
   risk_estimate_method = "cross_validation", # Default auto-select based on the data size
   discrepancy_method = "mean_square_error", # Default auto-select based on family
-  tau_seq = seq(0, 20, 0.5), # Default is a numeric sequence around the number of predictors / 4
-  cross_validation_fold_num = 3 # Default: 5
+  tau_seq = seq(0, 5, 0.5), # Default is a numeric sequence around the number of predictors / 4
+  cross_validation_fold_num = 2 # Default: 5
 )
 
 cat_glm_tune_cv
@@ -373,27 +340,27 @@ cat_glm_tune_boots <- cat_glm_tune(
   risk_estimate_method = "parametric_bootstrap", # Default auto-select based on the data size
   discrepancy_method = "mean_square_error", # Default auto-select based on family
   tau_0 = 2, # Default: 1
-  parametric_bootstrap_iteration_times = 50, # Default: 100
+  parametric_bootstrap_iteration_times = 5, # Default: 100
 )
 
 cat_glm_tune_boots
 ```
 
-### Steinian Estimate (risk_estimate_method = "steinian_estimate"){#SteinianEstimate}
+### Mallowian Estimate (risk_estimate_method = " mallowian_estimate"){#MallowianEstimate}
 
-This method computes the partial likelihood using a steinian estimate approach, optimizing the model based on observed and synthetic data.
+This method computes the risk estimate using a mallowian estimate approach, optimizing the model based on observed and synthetic data.
 
 For the breakdown of the input parameters, please check section [Cross Validation](#CrossValidation) and [Bootstrap](#Bootstrap))
 
 ```{r}
-cat_glm_tune_mallows <- cat_glm_tune(
+cat_glm_tune_mallowian <- cat_glm_tune(
   formula = ~., # Same as `Y ~ .`
   cat_init = cat_init,
   risk_estimate_method = "mallowian_estimate", # Default auto-select based on the data size
   discrepancy_method = "mean_square_error", # Default auto-select based on family
 )
 
-cat_glm_tune_mallows
+cat_glm_tune_mallowian
 ```
 
 ### Recommendations for Choosing `risk_estimate_method` and `discrepancy_method`{#Recommendations}
@@ -413,7 +380,7 @@ Choosing the appropriate risk_estimate_method and discrepancy_method depends on 
 2. Setting `discrepancy_method`
 
   * __GLM Family is gaussian (family == "gaussian")__
-    * For gaussian GLM families, "square_error" is the only option. It calculates the discrepancy based on the linear likelihood function, suitable for linear outcomes.
+    * For gaussian GLM families, "mean_square_error" is the only option. It calculates the discrepancy based on the linear likelihood function, suitable for linear outcomes.
 
   * __GLM Family is not gaussian (family != "gaussian")__:
     * Default: "logistic_deviance"
@@ -438,7 +405,7 @@ cat_glm_tune_auto
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval=FALSE}
 cat_glm_tune_predicted_y <- predict(
   cat_glm_tune_auto,
   newdata = test_data
@@ -457,7 +424,7 @@ cat(
 
 Let us check the scatter plot of the `cat_glm_tune_predicted_y` from `cat_glm_tune_auto` versus the `test_data$Y`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval=FALSE}
 plot(test_data$Y, cat_glm_tune_predicted_y,
   main = "Scatter Plot of true Y vs Predicted Y (cat_glm_tune)",
   xlab = "true Y",
@@ -486,13 +453,13 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please check `?cat_glm_tune`.
 
-```{r}
+```{r, eval=FALSE}
 names(cat_glm_tune_auto)
 ```
 
 User can extract items mentioned above from `cat_glm_tune` object.
 
-```{r}
+```{r, eval=FALSE}
 # The method used for risk estimation
 cat_glm_tune_auto$risk_estimate_method
 
@@ -528,12 +495,12 @@ Here's a breakdown of the parameters used:
 
 For more details, please refer to `?cat_glm_bayes`.
 
-```{r}
-cat_glm_bayes_1 <- cat_glm_bayes(
+```{r, eval = FALSE}
+cat_glm_bayes_model <- cat_glm_bayes(
   formula = Y ~ ., # Same as `~ .`
   cat_init = cat_init,
   tau = 50, # Default: number of predictors / 4
-  chains = 2, # Default: 4
+  chains = 1, # Default: 4
   iter = 100, # Default: 2000
   warmup = 50, # Default: 1000
   algorithm = "NUTS", # Default: NUTS
@@ -541,37 +508,28 @@ cat_glm_bayes_1 <- cat_glm_bayes(
   gaussian_variance_beta = 1 # Default: number of predictors times variance of observation response
 )
 
-cat_glm_bayes_1
+cat_glm_bayes_model
 ```
 
-Here shows how users can simplify the input for `cat_glm_bayes`. User do not have to specify `tau` and other attributes, as `tau` and other attributes have default value, which mentioned above.
-
-```{r}
-cat_glm_bayes_2 <- cat_glm_bayes(
-  formula = ~.,
-  cat_init = cat_init
-)
-
-cat_glm_bayes_2
-```
+Here shows how users can simplify the input for `cat_glm_bayes`. User do not have to specify `tau` and other attributes, as `tau` and other attributes have default value, which mentioned above. Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
 User can also get the traceplot of the `rstan` model by using `traceplot()` directly into the output from `cat_glm_bayes`.
 
-```{r}
-traceplot(cat_glm_bayes_2)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_model)
 ```
 
 Plus, user can use this `catlaytic::traceplot` just like the `rstan::traceplot`, user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
 
-```{r}
-traceplot(cat_glm_bayes_2, inc_warmup = TRUE)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_model, inc_warmup = TRUE)
 ```
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_predicted_y <- predict(
-  cat_glm_bayes_2,
+  cat_glm_bayes_model,
   newdata = test_data
 )
 
@@ -582,13 +540,13 @@ cat(
 
 cat(
   "\nCatalytic cat_glm_bayes - Sum Square Error (Coefficients):",
-  sum((coef(cat_glm_bayes_2) - true_coefs)^2)
+  sum((coef(cat_glm_bayes_model) - true_coefs)^2)
 )
 ```
 
 Let us check the scatter plot of the `cat_glm_bayes_predicted_y` from `cat_glm_bayes` versus the `test_data$Y`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval = FALSE}
 plot(test_data$Y, cat_glm_bayes_predicted_y,
   main = "Scatter Plot of true Y vs Predicted Y (cat_glm_bayes)",
   xlab = "true Y",
@@ -601,7 +559,7 @@ plot(test_data$Y, cat_glm_bayes_predicted_y,
 abline(a = 0, b = 1, col = "red", lwd = 2)
 ```
 
-Both `cat_glm_bayes_1` and `cat_glm_bayes_2` objects are outputs from the `cat_glm_bayes` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_glm_bayes_model` and `cat_glm_bayes_model` objects are outputs from the `cat_glm_bayes` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -617,18 +575,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please refer to `?cat_glm_bayes`.
 
-```{r}
-names(cat_glm_bayes_2)
+```{r, eval = FALSE}
+names(cat_glm_bayes_model)
 ```
 
 User can extract items mentioned above from `cat_glm_bayes` object.
 
-```{r}
+```{r, eval = FALSE}
 # The number of Markov chains used during MCMC sampling in `rstan`.
-cat_glm_bayes_2$chain
+cat_glm_bayes_model$chain
 
 # The mean estimated coefficients from the Bayesian GLM model
-cat_glm_bayes_2$coefficients
+cat_glm_bayes_model$coefficients
 ```
 
 ## Step 2.4: Choose Method(s) - Bayesian Posterior Sampling with Adaptive Tau{#cat_glm_bayes_joint}
@@ -658,49 +616,40 @@ Here's a breakdown of the parameters used:
 
 For more details, please refer to `?cat_glm_bayes_joint`.
 
-```{r}
-cat_glm_bayes_joint_1 <- cat_glm_bayes_joint(
+```{r, eval = FALSE}
+cat_glm_bayes_joint_model <- cat_glm_bayes_joint(
   formula = Y ~ ., # Same as `~ .`
   cat_init = cat_init,
-  chains = 2, # Default: 4
-  iter = 200, # Default: 2000
-  warmup = 100, # Default: 1000
+  chains = 1, # Default: 4
+  iter = 100, # Default: 2000
+  warmup = 50, # Default: 1000
   algorithm = "NUTS", # Default: NUTS
   tau_alpha = 2, # Default: 2
   tau_gamma = 1 # Default: 1
 )
 
-cat_glm_bayes_joint_1
+cat_glm_bayes_joint_model
 ```
 
-Here shows how users can simplify the input for `cat_glm_bayes_joint`. User do not have to specify `tau_alpha` and other attributes, as `tau_alpha` can derived from `cat_init` , while other attributes have default value, which mentioned above.
-
-```{r}
-cat_glm_bayes_joint_2 <- cat_glm_bayes_joint(
-  formula = ~., # Same as `Y ~ .`
-  cat_init = cat_init
-)
-
-cat_glm_bayes_joint_2
-```
+Here shows how users can simplify the input for `cat_glm_bayes_joint`. User do not have to specify `tau_alpha` and other attributes, as `tau_alpha` can derived from `cat_init` , while other attributes have default value, which mentioned above. Here we assign lower value to `chains`, `iter` and `warmup` for quicker processing time.
 
 User can also get the traceplot of the `rstan` model by using `traceplot()` directly into the output from `cat_glm_bayes_joint`.
 
-```{r }
-traceplot(cat_glm_bayes_joint_2)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_joint_model)
 ```
 
 Like the [`traceplot` shown in the `cat_glm_bayes` function](#cat_glm_bayes) , user can add parameters used in `rstan::traceplot`, like `include` and `inc_warmup`.
 
-```{r}
-traceplot(cat_glm_bayes_joint_2, inc_warmup = TRUE)
+```{r, eval = FALSE}
+traceplot(cat_glm_bayes_joint_model, inc_warmup = TRUE)
 ```
 
 Let's check the prediction error. 
 
-```{r}
+```{r, eval = FALSE}
 cat_glm_bayes_joint_predicted_y <- predict(
-  cat_glm_bayes_joint_2,
+  cat_glm_bayes_joint_model,
   newdata = test_data
 )
 
@@ -711,13 +660,13 @@ cat(
 
 cat(
   "\nCatalytic `cat_glm_bayes_joint` - Sum Square Error (Coefficients):",
-  sum((coef(cat_glm_bayes_joint_2) - true_coefs)^2)
+  sum((coef(cat_glm_bayes_joint_model) - true_coefs)^2)
 )
 ```
 
 Let us check the scatter plot of the `predicted_y` from `glm_model` versus the `test_data$Y`, this can be a great way to visually assess the accuracy and performance of the model.
 
-```{r}
+```{r, eval = FALSE}
 plot(test_data$Y,
   cat_glm_bayes_joint_predicted_y,
   main = "Scatter Plot of true Y vs Predicted Y (cat_glm_bayes_joint)",
@@ -731,7 +680,7 @@ plot(test_data$Y,
 abline(a = 0, b = 1, col = "red", lwd = 2)
 ```
 
-Both `cat_glm_bayes_joint_1` and `cat_glm_bayes_joint_2` objects are outputs from the `cat_glm_bayes_joint` function, providing a list of attributes for further analysis or user inspection.
+Both `cat_glm_bayes_joint_model` and `cat_glm_bayes_joint_model` objects are outputs from the `cat_glm_bayes_joint` function, providing a list of attributes for further analysis or user inspection.
 
 Here's a breakdown of all attributes except the input parameters:
 
@@ -743,18 +692,18 @@ Here's a breakdown of all attributes except the input parameters:
 
 For more details, please refer to `?cat_glm_bayes_joint`.
 
-```{r}
-names(cat_glm_bayes_joint_2)
+```{r, eval = FALSE}
+names(cat_glm_bayes_joint_model)
 ```
 
 User can extract items mentioned above from `cat_glm_bayes_joint` object.
 
-```{r}
+```{r, eval = FALSE}
 # The estimated tau parameter from the MCMC sampling `rstan::sampling`,
-cat_glm_bayes_joint_2$tau
+cat_glm_bayes_joint_model$tau
 
 # The mean estimated coefficients from the Bayesian GLM model
-cat_glm_bayes_joint_2$coefficients
+cat_glm_bayes_joint_model$coefficients
 ```
 
 # References

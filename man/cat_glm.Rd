@@ -32,7 +32,7 @@ gaussian_data <- data.frame(
 cat_init <- cat_glm_initialization(
   formula = Y ~ 1, # formula for simple model
   data = gaussian_data,
-  syn_size = 200, # Synthetic data size
+  syn_size = 100, # Synthetic data size
   custom_variance = NULL, # User customized variance value
   gaussian_known_variance = TRUE, # Indicating whether the data variance is known
   x_degree = c(1, 1), # Degrees for polynomial expansion of predictors

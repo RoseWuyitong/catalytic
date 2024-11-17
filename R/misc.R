@@ -879,7 +879,7 @@ validate_glm_initialization_input <- function(formula,
 
   if (!is.null(syn_size) && syn_size < (4 * ncol(data))) {
     warning(
-      "The provided `syn_size` should is too small, recommand to choose a larger value.",
+      "The provided `syn_size` is too small, recommand to choose a larger value.",
       call. = FALSE
     )
   }
@@ -1500,7 +1500,7 @@ validate_cox_initialization_input <- function(formula,
 
   if (!is.null(syn_size) && syn_size < (4 * ncol(data))) {
     warning(
-      "The provided `syn_size` should is too small, recommand to choose a larger value.",
+      "The provided `syn_size` is too small, recommand to choose a larger value.",
       call. = FALSE
     )
   }
@@ -1755,7 +1755,7 @@ validate_lmm_initialization_input <- function(
 
   if (!is.null(syn_size) && syn_size < (4 * ncol(data))) {
     warning(
-      "The provided `syn_size` should is too small, recommand to choose a larger value.",
+      "The provided `syn_size` is too small, recommand to choose a larger value.",
       call. = FALSE
     )
   }
@@ -1770,7 +1770,7 @@ validate_lmm_initialization_input <- function(
 #'
 #' @param param_name A string representing the name of the parameter. Used in the error message.
 #' @param param_value The parameter value to validate, either a single numeric or a numeric vector.
-#' @param incl_0 Logical, if `TRUE`, allows non-negative values (≥ 0); if `FALSE`, requires positive values (> 0).
+#' @param incl_0 Logical, if `TRUE`, allows non-negative values (larger or equal to 0); if `FALSE`, requires positive values (larger thab 0).
 #' @param is_vector Logical, if `TRUE`, treats `param_value` as a vector; otherwise, expects a single numeric value.
 #'
 #' @return `NULL` if validation passes; otherwise, an error is raised.
@@ -1813,11 +1813,10 @@ validate_positive <- function(param_name,
   }
 }
 
-#' Retrieve a Cached Stan Model Based on Specified Parameters
+#' Generate Stan Model Based on Specified Parameters
 #'
 #' This function retrieves a Stan model file based on a combination of input parameters,
-#' constructs the file path, and loads the Stan model. The function is memorized, so repeated
-#' calls with the same parameters will retrieve a cached result.
+#' constructs the file path, and loads the Stan model.
 #'
 #' @param type Character, either `"glm"` or `"cox"`, specifying the type of model to load.
 #' @param glm_family_string Character, specifying the family for GLM models, either `"binomial"` or `"gaussian"`.

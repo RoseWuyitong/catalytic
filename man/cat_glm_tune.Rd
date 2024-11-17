@@ -61,7 +61,7 @@ gaussian_data <- data.frame(
 cat_init <- cat_glm_initialization(
   formula = Y ~ 1, # formula for simple model
   data = gaussian_data,
-  syn_size = 200, # Synthetic data size
+  syn_size = 100, # Synthetic data size
   custom_variance = NULL, # User customized variance value
   gaussian_known_variance = TRUE, # Indicating whether the data variance is known
   x_degree = c(1, 1), # Degrees for polynomial expansion of predictors
@@ -74,7 +74,7 @@ cat_model <- cat_glm_tune(
   cat_init = cat_init, # Only accept object generated from `cat_glm_initialization`
   risk_estimate_method = "parametric_bootstrap",
   discrepancy_method = "mean_square_error",
-  tau_seq = c(1, 2, 3), # Weight for synthetic data
+  tau_seq = c(1, 2), # Weight for synthetic data
   tau_0 = 2,
   parametric_bootstrap_iteration_times = 20, # Number of bootstrap iterations
   cross_validation_fold_num = 5 # Number of folds

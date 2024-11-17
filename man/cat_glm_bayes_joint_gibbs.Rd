@@ -49,6 +49,7 @@ updated using Hamiltonian Monte Carlo (HMC) sampling. The model allows for progr
 warm-up iterations, and initial coefficient estimation based on initial tau value.
 }
 \examples{
+\donttest{
 binomial_data <- data.frame(
   X1 = stats::rnorm(10),
   X2 = stats::rnorm(10),
@@ -59,7 +60,7 @@ cat_init <- cat_glm_initialization(
   formula = Y ~ 1, # formula for simple model
   data = binomial_data,
   family = binomial,
-  syn_size = 200, # Synthetic data size
+  syn_size = 100, # Synthetic data size
   custom_variance = NULL, # User customized variance value
   gaussian_known_variance = FALSE, # Indicating whether the data variance is unknown
   x_degree = c(1, 1), # Degrees for polynomial expansion of predictors
@@ -70,12 +71,13 @@ cat_init <- cat_glm_initialization(
 cat_model <- cat_glm_bayes_joint_gibbs(
   formula = ~.,
   cat_init = cat_init, # Only accept object generated from `cat_glm_initialization`
-  iter = 100, # Number of Gibbs sampling iterations
-  warmup = 50, # Number of warm-up (or burn-in) iterations for initial iterations
+  iter = 10, # Number of Gibbs sampling iterations
+  warmup = 5, # Number of warm-up (or burn-in) iterations for initial iterations
   coefs_iter = 2, # Number of iterations for the HMC step to update coefficients
   tau_alpha = 1, # Shape parameter for the gamma distribution when updating tau
   tau_gamma = 2, # Scale parameter for the gamma distribution when updating tau
   refresh = TRUE # Indicator for displaying sampling progress
 )
 cat_model
+}
 }

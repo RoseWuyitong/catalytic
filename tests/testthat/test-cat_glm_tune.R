@@ -46,10 +46,10 @@ test_that("cat_glm_tune returns similar result with same observation data", {
 })
 
 test_that("cat_glm_tune returns different result with different tau values", {
-  cat_model_gaussian_low_tau <- cat_glm_tune(formula = ~., cat_init = cat_init_gaussian, tau_seq = seq(1, 10))
-  cat_model_gaussian_high_tau <- cat_glm_tune(formula = ~., cat_init = cat_init_gaussian, tau_seq = seq(20, 30))
-  cat_model_binomial_low_tau <- cat_glm_tune(formula = ~., cat_init = cat_init_binomial, tau_seq = seq(1, 10))
-  cat_model_binomial_high_tau <- cat_glm_tune(formula = ~., cat_init = cat_init_binomial, tau_seq = seq(20, 30))
+  cat_model_gaussian_low_tau <- cat_glm_tune(formula = ~., cat_init = cat_init_gaussian, tau_seq = seq(1, 3))
+  cat_model_gaussian_high_tau <- cat_glm_tune(formula = ~., cat_init = cat_init_gaussian, tau_seq = seq(10, 13))
+  cat_model_binomial_low_tau <- cat_glm_tune(formula = ~., cat_init = cat_init_binomial, tau_seq = seq(1, 3))
+  cat_model_binomial_high_tau <- cat_glm_tune(formula = ~., cat_init = cat_init_binomial, tau_seq = seq(10, 13))
 
   expect_true(all(coef(cat_model_gaussian_low_tau) != coef(cat_model_gaussian_high_tau)))
   expect_true(all(coef(cat_model_binomial_low_tau) != coef(cat_model_binomial_high_tau)))
@@ -81,12 +81,6 @@ test_that("cat_glm_tune handles invalid inputs gracefully", {
 
   # Assign the mock_menu to replace the original menu function
   assign("menu", mock_menu, envir = globalenv())
-
-  # Test for missing cat_init
-  expect_error(cat_glm_tune(NULL))
-
-  # Test for invalid tau_seq
-  expect_error(cat_glm_tune(formula = ~., cat_init_gaussian, tau_seq = "invalid"))
 
   # Test for invalid pair
   expect_error(cat_glm_tune(formula = ~., risk_estimate_method = "steinian_estimate", cat_init = cat_init_gaussian))

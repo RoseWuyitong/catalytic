@@ -27,6 +27,7 @@
 #' \item{coefficients}{Mean posterior estimates of model coefficients from `stan_sample_model`.}
 #'
 #' @examples
+#' \donttest{
 #' gaussian_data <- data.frame(
 #'   X1 = stats::rnorm(10),
 #'   X2 = stats::rnorm(10),
@@ -36,7 +37,7 @@
 #' cat_init <- cat_glm_initialization(
 #'   formula = Y ~ 1, # formula for simple model
 #'   data = gaussian_data,
-#'   syn_size = 200, # Synthetic data size
+#'   syn_size = 100, # Synthetic data size
 #'   custom_variance = NULL, # User customized variance value
 #'   gaussian_known_variance = FALSE, # Indicating whether the data variance is unknown
 #'   x_degree = c(1, 1), # Degrees for polynomial expansion of predictors
@@ -49,13 +50,14 @@
 #'   cat_init = cat_init, # Only accept object generated from `cat_glm_initialization`
 #'   tau = 1, # Weight for synthetic data
 #'   chains = 1, # Number of Markov chains to be run in the RStan sampling
-#'   iter = 100, # Number of iterations per chain in the RStan sampling
-#'   warmup = 50, # Number of warm-up (or burn-in) iterations for each chain
+#'   iter = 10, # Number of iterations per chain in the RStan sampling
+#'   warmup = 5, # Number of warm-up (or burn-in) iterations for each chain
 #'   algorithm = "NUTS", # Sampling algorithm to use in \code{rstan::sampling}
 #'   gaussian_variance_alpha = 1, # The shape parameter for the inverse-gamma prior for variance
 #'   gaussian_variance_beta = 2 # The scale parameter for the inverse-gamma prior for variance
 #' )
 #' cat_model
+#' }
 #' @export
 cat_glm_bayes <- function(
     formula,

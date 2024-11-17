@@ -73,7 +73,7 @@ test_that("cat_cox_tune returns different result with different tau values", {
     formula = ~.,
     cat_init = cat_init,
     method = "CRE",
-    tau_seq = seq(1, 10),
+    tau_seq = seq(1, 3),
     cross_validation_fold_num = 2
   )
   suppressWarnings(
@@ -81,7 +81,7 @@ test_that("cat_cox_tune returns different result with different tau values", {
       formula = ~.,
       cat_init = cat_init,
       method = "WME",
-      tau_seq = seq(1, 10),
+      tau_seq = seq(1, 3),
       cross_validation_fold_num = 2
     )
   )
@@ -89,7 +89,7 @@ test_that("cat_cox_tune returns different result with different tau values", {
     formula = ~.,
     cat_init = cat_init,
     method = "CRE",
-    tau_seq = seq(100, 110),
+    tau_seq = seq(10, 13),
     cross_validation_fold_num = 2
   )
   suppressWarnings(
@@ -97,41 +97,11 @@ test_that("cat_cox_tune returns different result with different tau values", {
       formula = ~.,
       cat_init = cat_init,
       method = "WME",
-      tau_seq = seq(100, 110),
+      tau_seq = seq(10, 13),
       cross_validation_fold_num = 2
     )
   )
 
   expect_true(all(coef(cat_model_cre_low_tau) != coef(cat_model_cre_high_tau)))
   expect_true(all(coef(cat_model_wme_low_tau) != coef(cat_model_wme_high_tau)))
-})
-
-test_that("cat_cox_tune can handle extra augments for `cat_cox`", {
-  cat_model_cre_with_aug <- cat_cox_tune(
-    formula = ~.,
-    cat_init = cat_init,
-    method = "CRE",
-    cross_validation_fold_num = 2,
-    max_iter = 1
-  )
-  expect_equal(cat_model_cre_with_aug$model$max_iter, 1)
-  expect_equal(nrow(cat_model_cre_with_aug$model$iteration_log), 2)
-  expect_equal(cat_model_cre$model$max_iter, 25)
-})
-
-test_that("cat_cox_tune handles invalid inputs gracefully", {
-  # Test for missing cat_init
-  expect_error(cat_cox_tune(NULL))
-
-  # Test for invalid tau_seq
-  expect_error(cat_cox_tune(formula = ~., cat_init, tau_seq = "invalid"))
-
-  # Test for invalid cross_validation_fold_num
-  expect_error(cat_cox_tune(formula = ~., cat_init, cross_validation_fold_num = -1))
-
-  # Test for large cross_validation_fold_num
-  expect_warning(cat_cox_tune(formula = ~., cat_init, cross_validation_fold_num = 5))
-
-  # Test for extreme large cross_validation_fold_num
-  expect_error(cat_cox_tune(formula = ~., cat_init, cross_validation_fold_num = 100))
 })

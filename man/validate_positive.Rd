@@ -11,7 +11,7 @@ validate_positive(param_name, param_value, incl_0 = FALSE, is_vector = FALSE)
 
 \item{param_value}{The parameter value to validate, either a single numeric or a numeric vector.}
 
-\item{incl_0}{Logical, if \code{TRUE}, allows non-negative values (≥ 0); if \code{FALSE}, requires positive values (> 0).}
+\item{incl_0}{Logical, if \code{TRUE}, allows non-negative values (larger or equal to 0); if \code{FALSE}, requires positive values (larger thab 0).}
 
 \item{is_vector}{Logical, if \code{TRUE}, treats \code{param_value} as a vector; otherwise, expects a single numeric value.}
 }

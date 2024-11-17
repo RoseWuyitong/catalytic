@@ -51,6 +51,7 @@ by using adaptive tau. It allows users to estimate the coefficients and cumulati
 over specified time intervals with Bayesian sampling.
 }
 \examples{
+\donttest{
 library(survival)
 data("cancer")
 cancer$status[cancer$status == 1] <- 0
@@ -59,7 +60,7 @@ cancer$status[cancer$status == 2] <- 1
 cat_init <- cat_cox_initialization(
   formula = Surv(time, status) ~ 1, # formula for simple model
   data = cancer,
-  syn_size = 200, # Synthetic data size
+  syn_size = 100, # Synthetic data size
   hazard_constant = 0.1, # Hazard rate value
   entry_points = rep(0, nrow(cancer)), # Entry points of each observation
   x_degree = rep(1, ncol(cancer) - 2), # Degrees for polynomial expansion of predictors
@@ -74,8 +75,9 @@ cat_model <- cat_cox_bayes_joint(
   tau_alpha = 2, # Shape parameter of the Gamma-like function for tau
   tau_gamma = 1, # Scale parameter of the Gamma-like function for tau
   chains = 1, # Number of Markov chains to be run in the RStan sampling
-  iter = 100, # Number of iterations per chain in the RStan sampling
-  warmup = 50 # Number of warm-up (or burn-in) iterations for each chain
+  iter = 10, # Number of iterations per chain in the RStan sampling
+  warmup = 5 # Number of warm-up (or burn-in) iterations for each chain
 )
 cat_model
+}
 }

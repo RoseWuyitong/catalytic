@@ -89,7 +89,7 @@ cancer$status[cancer$status == 2] <- 1
 cat_init <- cat_cox_initialization(
   formula = Surv(time, status) ~ 1, # formula for simple model
   data = cancer,
-  syn_size = 200, # Synthetic data size
+  syn_size = 100, # Synthetic data size
   hazard_constant = NULL, # Hazard rate value
   entry_points = rep(0, nrow(cancer)), # Entry points of each observation
   x_degree = rep(1, ncol(cancer) - 2), # Degrees for polynomial expansion of predictors

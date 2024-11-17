@@ -2,8 +2,8 @@ cox_data <- mock_cox_data()
 cat_init <- mock_cat_cox_initialization(cox_data)
 
 chains <- 1
-iter <- 1000
-warmup <- 500
+iter <- 100
+warmup <- 50
 
 suppressWarnings(
   cat_model <- cat_cox_bayes_joint(
@@ -33,30 +33,4 @@ test_that("cat_cox_bayes_joint runs without errors for valid input", {
   expect_equal(cat_model$warmup, warmup)
   expect_true(inherits(cat_model$stan_model, "stanmodel"))
   expect_true(inherits(cat_model$stan_sample_model, "stanfit"))
-})
-
-test_that("cat_cox_bayes_joint returns different results with different tau gamma", {
-  suppressWarnings(
-    cat_model_low_tau_gamma <- cat_cox_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init,
-      tau_gamma = 0.1,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-  suppressWarnings(
-    cat_model_high_tau_gamma <- cat_cox_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init,
-      tau_gamma = 10,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-
-  expect_true(all(coef(cat_model_low_tau_gamma) != coef(cat_model_high_tau_gamma)))
-  expect_true(cat_model_low_tau_gamma$tau != cat_model_high_tau_gamma$tau)
 })

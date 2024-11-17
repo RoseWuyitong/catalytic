@@ -44,8 +44,9 @@ cat_init <- cat_lmm_initialization(
 
 cat_model <- cat_lmm_tune(
   cat_init = cat_init, # Only accept object generated from cat_lmm_initialization
-  tau_seq = seq(1, 5), # Vector of weights for synthetic data
-  cross_validation_fold_num = 5 # number of folds for cross-validation
+  tau_seq = c(1, 2), # Vector of weights for synthetic data
+  cross_validation_fold_num = 3 # number of folds for cross-validation
 )
 cat_model
+
 }

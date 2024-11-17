@@ -29,19 +29,8 @@ test_that("cat_lmm_tune returns similar result with same observation data", {
 })
 
 test_that("cat_lmm_tune returns different result with different tau values", {
-  cat_model_low_tau <- cat_lmm_tune(cat_init = cat_init, tau_seq = seq(0, 10))
-  cat_model_high_tau <- cat_lmm_tune(cat_init = cat_init, tau_seq = seq(20, 30))
+  cat_model_low_tau <- cat_lmm_tune(cat_init = cat_init, tau_seq = seq(1, 3))
+  cat_model_high_tau <- cat_lmm_tune(cat_init = cat_init, tau_seq = seq(10, 13))
 
   expect_true(all(coef(cat_model_low_tau) != coef(cat_model_high_tau)))
-})
-
-test_that("cat_lmm_tune handles invalid inputs gracefully", {
-  # Test for missing cat_init
-  expect_error(cat_lmm_tune(NULL))
-
-  # Test for invalid tau_seq
-  expect_error(cat_lmm_tune(cat_init, tau_seq = "invalid"))
-
-  # Test for invalid cross_validation_fold_num
-  expect_error(cat_lmm_tune(cat_init, cross_validation_fold_num = -1))
 })

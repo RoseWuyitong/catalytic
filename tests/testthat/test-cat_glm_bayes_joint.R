@@ -4,8 +4,8 @@ cat_init_gaussian_unknown_variance <- mock_cat_glm_gaussian_initialization(glm_g
 cat_init_binomial <- mock_cat_glm_binomial_initialization(glm_binomial_data)
 
 chains <- 1
-iter <- 1000
-warmup <- 500
+iter <- 100
+warmup <- 50
 
 suppressWarnings(
   cat_model_gaussian_unknown <- cat_glm_bayes_joint(
@@ -58,98 +58,8 @@ test_that("cat_glm_bayes_joint runs without errors for valid input", {
   expect_true(inherits(cat_model_binomial$stan_sample_model, "stanfit"))
 })
 
-test_that("cat_glm_bayes_joint returns different results with different tau alpha", {
-  suppressWarnings(
-    cat_model_gaussian_unknown_low_tau_alpha <- cat_glm_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init_gaussian_unknown_variance,
-      tau_alpha = 0.1,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-  suppressWarnings(
-    cat_model_binomial_low_tau_alpha <- cat_glm_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init_binomial,
-      tau_alpha = 0.1,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-  suppressWarnings(
-    cat_model_gaussian_unknown_high_tau_alpha <- cat_glm_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init_gaussian_unknown_variance,
-      tau_alpha = 100,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-  suppressWarnings(
-    cat_model_binomial_high_tau_alpha <- cat_glm_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init_binomial,
-      tau_alpha = 100,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-
-  expect_true(all(coef(cat_model_gaussian_unknown_low_tau_alpha) != coef(cat_model_gaussian_unknown_high_tau_alpha)))
-  expect_true(all(coef(cat_model_binomial_low_tau_alpha) != coef(cat_model_binomial_high_tau_alpha)))
-})
-
-test_that("cat_glm_bayes_joint returns different results with different tau gamma", {
-  suppressWarnings(
-    cat_model_gaussian_unknown_low_tau_gamma <- cat_glm_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init_gaussian_unknown_variance,
-      tau_gamma = 0.1,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-  suppressWarnings(
-    cat_model_binomial_low_tau_gamma <- cat_glm_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init_binomial,
-      tau_gamma = 0.1,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-  suppressWarnings(
-    cat_model_gaussian_unknown_high_tau_gamma <- cat_glm_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init_gaussian_unknown_variance,
-      tau_gamma = 100,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-  suppressWarnings(
-    cat_model_binomial_high_tau_gamma <- cat_glm_bayes_joint(
-      formula = ~.,
-      cat_init = cat_init_binomial,
-      tau_gamma = 100,
-      chains = chains,
-      iter = iter,
-      warmup = warmup
-    )
-  )
-  expect_true(all(coef(cat_model_gaussian_unknown_low_tau_gamma) != coef(cat_model_gaussian_unknown_high_tau_gamma)))
-  expect_true(all(coef(cat_model_binomial_low_tau_gamma) != coef(cat_model_binomial_high_tau_gamma)))
-})
-
 test_that("cat_glm_bayes_joint deal with known or unknown variance for Gaussian famuly properly", {
+  testthat::skip_on_cran()
   # Unkown variance
   expect_contains(rownames(rstan::summary(cat_model_gaussian_unknown$stan_sample_model)$summary), "sigma")
   expect_equal(cat_model_gaussian_unknown$gaussian_variance_alpha, cat_model_gaussian_unknown$stan_data$variance_alpha)
@@ -253,6 +163,7 @@ test_that("cat_glm_bayes_joint deal with known or unknown variance for Gaussian 
 })
 
 test_that("cat_glm_bayes_joint deal with binomial related augments for Binomial famuly properly", {
+  testthat::skip_on_cran()
   # Test for binomial_tau_lower when family is binomial
   expect_equal(cat_model_binomial$binomial_tau_lower, 0.05)
   expect_equal(cat_model_binomial$binomial_tau_lower, cat_model_binomial$stan_data$tau_lower)

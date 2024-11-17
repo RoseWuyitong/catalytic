@@ -26,7 +26,7 @@
 #' cat_init <- cat_cox_initialization(
 #'   formula = Surv(time, status) ~ 1, # formula for simple model
 #'   data = cancer,
-#'   syn_size = 200, # Synthetic data size
+#'   syn_size = 100, # Synthetic data size
 #'   hazard_constant = 0.1, # Hazard rate value
 #'   entry_points = rep(0, nrow(cancer)), # Entry points of each observation
 #'   x_degree = rep(1, ncol(cancer) - 2), # Degrees for polynomial expansion of predictors
@@ -40,8 +40,8 @@
 #'   tau = 1, # Weight for synthetic data
 #'   method = "CRE", # Choose from `"CRE"` or `"WME"`
 #'   init_coefficients = rep(0, ncol(cat_init$x)), # Initial coefficient values (Only for `CRE`)
-#'   tol = 1e-4, # Tolerance for convergence criterion  (Only for `CRE`)
-#'   max_iter = 10 # Maximum number of iterations for convergence  (Only for `CRE`)
+#'   tol = 1e-1, # Tolerance for convergence criterion  (Only for `CRE`)
+#'   max_iter = 3 # Maximum number of iterations for convergence  (Only for `CRE`)
 #' )
 #' cat_model_cre
 #'

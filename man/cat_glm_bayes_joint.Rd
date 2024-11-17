@@ -70,6 +70,7 @@ by using adaptive tau. It supports both Gaussian and Binomial family models, ena
 flexibility in prior specifications and algorithm configurations.
 }
 \examples{
+\donttest{
 gaussian_data <- data.frame(
   X1 = stats::rnorm(10),
   X2 = stats::rnorm(10),
@@ -79,7 +80,7 @@ gaussian_data <- data.frame(
 cat_init <- cat_glm_initialization(
   formula = Y ~ 1, # formula for simple model
   data = gaussian_data,
-  syn_size = 200, # Synthetic data size
+  syn_size = 100, # Synthetic data size
   custom_variance = NULL, # User customized variance value
   gaussian_known_variance = FALSE, # Indicating whether the data variance is unknown
   x_degree = c(1, 1), # Degrees for polynomial expansion of predictors
@@ -91,8 +92,8 @@ cat_model <- cat_glm_bayes_joint(
   formula = ~.,
   cat_init = cat_init, # Only accept object generated from `cat_glm_initialization`
   chains = 1, # Number of Markov chains to be run in the RStan sampling
-  iter = 100, # Number of iterations per chain in the RStan sampling
-  warmup = 50, # Number of warm-up (or burn-in) iterations for each chain
+  iter = 10, # Number of iterations per chain in the RStan sampling
+  warmup = 5, # Number of warm-up (or burn-in) iterations for each chain
   algorithm = "NUTS", # Sampling algorithm to use in \code{rstan::sampling}
   tau_alpha = 1, # Shape parameter of the prior for tau
   tau_gamma = 2, # Scale parameter of the prior for tau
@@ -103,4 +104,5 @@ cat_model <- cat_glm_bayes_joint(
   gaussian_variance_beta = 2 # The scale parameter for the inverse-gamma prior for variance
 )
 cat_model
+}
 }

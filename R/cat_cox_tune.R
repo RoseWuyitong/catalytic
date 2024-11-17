@@ -28,7 +28,7 @@
 #' cat_init <- cat_cox_initialization(
 #'   formula = Surv(time, status) ~ 1, # formula for simple model
 #'   data = cancer,
-#'   syn_size = 200, # Synthetic data size
+#'   syn_size = 100, # Synthetic data size
 #'   hazard_constant = 0.1, # Hazard rate value
 #'   entry_points = rep(0, nrow(cancer)), # Entry points of each observation
 #'   x_degree = rep(1, ncol(cancer) - 2), # Degrees for polynomial expansion of predictors
@@ -39,7 +39,7 @@
 #' cat_model <- cat_cox_tune(
 #'   formula = ~., # Should at least include response variables
 #'   cat_init = cat_init, # Only accept object generated from `cat_cox_initialization`
-#'   tau_seq = seq(1, 5), # Vector of weights for synthetic data
+#'   tau_seq = c(1, 2), # Vector of weights for synthetic data
 #'   cross_validation_fold_num = 5 # number of folds for cross-validation
 #' )
 #' cat_model

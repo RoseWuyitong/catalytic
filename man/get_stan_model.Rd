@@ -2,7 +2,7 @@
 % Please edit documentation in R/misc.R
 \name{get_stan_model}
 \alias{get_stan_model}
-\title{Retrieve a Cached Stan Model Based on Specified Parameters}
+\title{Generate Stan Model Based on Specified Parameters}
 \usage{
 get_stan_model(
   type = c("glm", "cox"),
@@ -35,6 +35,5 @@ A compiled Stan model loaded by \code{rstan::stan_model}.
 }
 \description{
 This function retrieves a Stan model file based on a combination of input parameters,
-constructs the file path, and loads the Stan model. The function is memorized, so repeated
-calls with the same parameters will retrieve a cached result.
+constructs the file path, and loads the Stan model.
 }
