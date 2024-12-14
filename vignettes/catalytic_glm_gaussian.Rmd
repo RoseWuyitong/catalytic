@@ -41,7 +41,7 @@ The two steps of using catalytic package for GLM Linear Regression are
 
 Creating a high-dimensional dataset with a low data size. This step involves increasing the number of features (dimensions) while keeping the number of observations (data size) relatively small. This is useful for testing the performance of `catalytic` models in high-dimensional settings.
 
-A randomly generated dataset is splitted into training (`train_data`) and test (`test_data`) datasets.
+A randomly generated dataset is split into training (`train_data`) and test (`test_data`) datasets.
 
 ```{r}
 library(catalytic)

@@ -1770,7 +1770,7 @@ validate_lmm_initialization_input <- function(
 #'
 #' @param param_name A string representing the name of the parameter. Used in the error message.
 #' @param param_value The parameter value to validate, either a single numeric or a numeric vector.
-#' @param incl_0 Logical, if `TRUE`, allows non-negative values (larger or equal to 0); if `FALSE`, requires positive values (larger thab 0).
+#' @param incl_0 Logical, if `TRUE`, allows non-negative values (larger or equal to 0); if `FALSE`, requires positive values (larger than 0).
 #' @param is_vector Logical, if `TRUE`, treats `param_value` as a vector; otherwise, expects a single numeric value.
 #'
 #' @return `NULL` if validation passes; otherwise, an error is raised.

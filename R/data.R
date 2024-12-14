@@ -18,7 +18,7 @@
 #'      \item{hisp}{Binary variable indicating if the individual is Hispanic (1 = Newly Hispanic, 0 = Otherwise).}
 #'      \item{earnyrm1}{Numerical variable indicating the individual's earnings one year prior to the study (possibly negative earnings or debt).}
 #'      \item{empyrm1}{Binary variable indicating if the individual was employed one year prior to the study (1 = Employed, 0 = Unemployed).}
-#'      \item{enrol}{Binary variable indicating if the individual was enrolled the job hunting training session (1 = Enrolled, 0 = Un-enrolled).}
+#'      \item{enrol}{Binary variable indicating if the individual was enrolled the job hunting training session (1 = Enrolled, 0 = Unenrolled).}
 #'   \item{y}{A 3211 by 1 matrix containing zeros and ones.}
 #'      \item{empyr1}{Binary variable indicating if the individual was employed one year after the start of the study (1 = Employed, 0 = Unemployed).}
 #' }
