@@ -58,7 +58,7 @@ test_that("cat_glm_bayes runs without errors for valid input", {
 })
 
 test_that("cat_glm_bayes returns different results with different tau values", {
-  testthat::skip_on_cran()
+
   suppressWarnings(
     cat_model_gaussian_unknown_low_tau <- cat_glm_bayes(
       formula = ~.,
@@ -104,7 +104,7 @@ test_that("cat_glm_bayes returns different results with different tau values", {
 })
 
 test_that("cat_glm_bayes deal with known or unknown variance for Gaussian famuly properly", {
-  testthat::skip_on_cran()
+
   # Unkown variance
   expect_contains(rownames(rstan::summary(cat_model_gaussian_unknown$stan_sample_model)$summary), "sigma")
   expect_equal(cat_model_gaussian_unknown$gaussian_variance_alpha, cat_model_gaussian_unknown$stan_data$variance_alpha)

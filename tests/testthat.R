@@ -9,4 +9,8 @@
 library(testthat)
 library(catalytic)
 
-test_check("catalytic")
+if (identical(Sys.getenv("NOT_CRAN"), "true")) {
+  test_check("catalytic")
+} else {
+  message("Skipping tests on CRAN") # Save Checking Time for CRAN
+}

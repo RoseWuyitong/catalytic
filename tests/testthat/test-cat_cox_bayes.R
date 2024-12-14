@@ -36,7 +36,7 @@ test_that("cat_cox_bayes runs without errors for valid input", {
 })
 
 test_that("cat_cox_bayes returns different results with different tau values", {
-  testthat::skip_on_cran()
+
   cat_model_low_tau <- cat_cox_bayes(
     formula = ~.,
     cat_init = cat_init,
