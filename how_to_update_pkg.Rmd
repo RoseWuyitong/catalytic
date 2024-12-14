@@ -157,12 +157,3 @@ Or, if it is a major change, you added a big block of code for new feature, with
 Now, package looks complete.
 
 Finally, we go through all the checks determined in website: https://r-pkgs.org/release.html.
-
-
-## 2. cran-comments.md
-
-This file is intended for **CRAN**. This file is for you to tell CRAN. 
-
-Kindly check website for details: https://r-pkgs.org/release.html.
-
-
