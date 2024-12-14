@@ -221,7 +221,8 @@ Let's check the prediction error.
 ```{r, eval=FALSE}
 cat_glm_predicted_y <- predict(
   cat_glm_model,
-  newdata = test_data
+  newdata = test_data,
+  type = "response"
 )
 
 cat(
@@ -394,7 +395,8 @@ Let's check the prediction error.
 ```{r, eval=FALSE}
 cat_glm_tune_predicted_y <- predict(
   cat_glm_tune_auto,
-  newdata = test_data
+  newdata = test_data,
+  type = "response"
 )
 
 cat(
@@ -504,7 +506,8 @@ Let's check the prediction error.
 ```{r, eval = FALSE}
 cat_glm_bayes_predicted_y <- predict(
   cat_glm_bayes_model,
-  newdata = test_data
+  newdata = test_data,
+  type = "response"
 )
 
 cat(
@@ -614,7 +617,8 @@ Let's check the prediction error.
 ```{r, eval = FALSE}
 cat_glm_bayes_joint_predicted_y <- predict(
   cat_glm_bayes_joint_model,
-  newdata = test_data
+  newdata = test_data,
+  type = "response"
 )
 
 cat(
@@ -748,7 +752,8 @@ Let's check the prediction error.
 ```{r, eval = FALSE}
 cat_glm_bayes_joint_gibbs_predicted_y <- predict(
   cat_glm_bayes_joint_gibbs_model,
-  newdata = test_data
+  newdata = test_data,
+  type = "response"
 )
 
 cat(
@@ -826,7 +831,8 @@ Let's check the prediction error.
 ```{r, eval = FALSE}
 cat_glm_bayes_joint_tau_lower_predicted_y <- predict(
   cat_glm_bayes_joint_tau_lower,
-  newdata = test_data
+  newdata = test_data,
+  type = "response"
 )
 
 cat(
@@ -873,7 +879,8 @@ Let's check the prediction error.
 ```{r, eval = FALSE}
 cat_glm_bayes_joint_theta_predicted_y <- predict(
   cat_glm_bayes_joint_theta,
-  newdata = test_data
+  newdata = test_data,
+  type = "response"
 )
 
 cat(
@@ -917,7 +924,8 @@ Let's check the prediction error.
 ```{r, eval = FALSE}
 cat_glm_bayes_joint_alpha_predicted_y <- predict(
   cat_glm_bayes_joint_alpha,
-  newdata = test_data
+  newdata = test_data,
+  type = "response"
 )
 
 cat(

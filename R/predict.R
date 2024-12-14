@@ -7,6 +7,7 @@
 #' @param newdata An optional data frame containing new predictor values. If `NULL`,
 #' the function uses the observation data from the model's initialization object.
 #' @param ... Additional arguments passed to `stats::predict.glm`, if applicable.
+#' User should input `type = c("link", "response", "terms")` for different regression models.
 #'
 #' @return A vector of predicted values for the specified new data.
 #' @export

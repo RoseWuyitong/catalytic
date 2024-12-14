@@ -524,17 +524,17 @@ steinian_estimate <- function(
 
       #  Steinian Covariance Penalty
       steinian_penalty_sum <- steinian_penalty_sum +
-        mean(
-          tau_0_varience[obs_i] * (
+        tau_0_varience[obs_i] * (
             2 * cat_init$obs_y[obs_i] - 1) * (
-            lambda_mu_tau_df - get_glm_lambda(
+            lambda_mu_tau_df[obs_i] - get_glm_lambda(
               discrepancy_method = "logistic_deviance",
-              X = cat_init$adj_x,
+              X = cat_init$adj_x[obs_i,],
               coefs = stats::coef(triangle_tau_model)
             )
           )
-        )
+
     }
+
     risk_estimate_list <- c(risk_estimate_list, D + steinian_penalty_sum)
   }
 

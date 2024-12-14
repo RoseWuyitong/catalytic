@@ -1,0 +1,1007 @@
+---
+title: "simulation"
+author: Wu Yitong
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.align = "center",
+  fig.width = 7,
+  fig.height = 6
+)
+```
+
+# Load Package and Specific Functions
+
+```{r}
+devtools::load_all()
+
+# Linear Regression
+linear_reg_data_generation <- function(
+    n,
+    n_test,
+    p) {
+  true_coefs <- rnorm(p)
+  noise_sd <- runif(1, 5, 8)
+  noise <- rnorm(n, 0, noise_sd)
+
+  train_x <- matrix(rnorm(n * (p - 1)), ncol = (p - 1))
+  train_y <- true_coefs[1] + train_x %*% true_coefs[-1] + noise
+  train_data <- as.data.frame(cbind(train_x, train_y))
+
+  test_x <- matrix(rnorm(n_test * (p - 1)), ncol = (p - 1))
+  test_y <- true_coefs[1] + test_x %*% true_coefs[-1]
+  test_data <- as.data.frame(cbind(test_x, test_y))
+
+  names(train_data) <- names(test_data) <- c(paste0("X", 1:(p - 1)), "Y")
+
+  return(list(
+    true_sigma = noise_sd,
+    train_data = train_data,
+    test_data = test_data,
+    true_coefs = true_coefs
+  ))
+}
+
+linear_reg_run_simulation <- function(
+    train_data,
+    test_data,
+    approaches,
+    syn_size,
+    true_coefs,
+    true_sigma) {
+  model_error_df <- data.frame(
+    Approaches = names(approaches),
+    PE = numeric(length(approaches)),
+    EE = numeric(length(approaches))
+  )
+
+  cat_init <- cat_glm_initialization(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = train_data,
+    syn_size = syn_size
+  )
+
+  cat_init_custom_variance <- cat_glm_initialization(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = train_data,
+    syn_size = syn_size,
+    custom_variance = (true_sigma^2),
+    gaussian_known_variance = TRUE
+  )
+
+  cat_init_known_variance <- cat_glm_initialization(
+    formula = Y ~ 1,
+    family = gaussian,
+    data = train_data,
+    syn_size = syn_size,
+    gaussian_known_variance = TRUE
+  )
+
+  model_list <- vector("list", length(approaches))
+  for (app_i in seq_along(approaches)) {
+    cat("\n\n", names(approaches)[app_i])
+
+    model_input <- if (names(approaches)[app_i] == "MLE") {
+      c(
+        approaches[[app_i]][[2]],
+        list(
+          formula = Y ~ .,
+          family = gaussian,
+          data = train_data
+        )
+      )
+    } else if (grepl("known", names(approaches)[app_i])) {
+      c(
+        approaches[[app_i]][[2]],
+        list(
+          formula = Y ~ .,
+          cat_init = cat_init_known_variance
+        )
+      )
+    } else if (grepl("custom", names(approaches)[app_i])) {
+      c(
+        approaches[[app_i]][[2]],
+        list(
+          formula = Y ~ .,
+          cat_init = cat_init_custom_variance
+        )
+      )
+    } else {
+      c(
+        approaches[[app_i]][[2]],
+        list(
+          formula = Y ~ .,
+          cat_init = cat_init
+        )
+      )
+    }
+
+    app_model <- do.call(
+      approaches[[app_i]][[1]],
+      model_input
+    )
+
+    model_list[[app_i]] <- app_model
+    if (NA %in% coef(app_model)) {
+      model_error_df[app_i, "PE"] <- model_error_df[app_i, "EE"] <- NA
+    } else {
+      model_error_df[app_i, "PE"] <- as.numeric(mean(
+        (predict(
+          app_model,
+          newdata = test_data
+        ) - test_data$Y)^2
+      ))
+
+      model_error_df[app_i, "EE"] <- as.numeric(sum(
+        (coef(app_model) - true_coefs)^2
+      ))
+    }
+  }
+
+  return(model_error_df)
+}
+
+linear_reg_result_df <- function(
+    all_error_list,
+    simulation_times) {
+  result_df <- vector("list", length(all_error_list))
+
+  apps <- all_error_list[[1]][[1]]$Approaches
+
+  for (tbls_i in seq_along(all_error_list)) {
+    add_to_result_df <- data.frame(
+      Approaches = apps,
+      PE_MEAN = numeric(length(apps)),
+      PE_SE = numeric(length(apps)),
+      EE_MEAN = numeric(length(apps)),
+      EE_SE = numeric(length(apps))
+    )
+
+    tbls <- all_error_list[[tbls_i]]
+
+    for (i in seq_along(apps)) {
+      PE_values <- sapply(tbls, function(df) df$PE[i])
+      EE_values <- sapply(tbls, function(df) df$EE[i])
+
+      add_to_result_df$PE_MEAN[i] <- mean(
+        PE_values,
+        na.rm = TRUE
+      )
+      add_to_result_df$PE_SE[i] <- sd(
+        PE_values,
+        na.rm = TRUE
+      ) / sqrt(simulation_times)
+
+      add_to_result_df$EE_MEAN[i] <- mean(
+        EE_values,
+        na.rm = TRUE
+      )
+      add_to_result_df$EE_SE[i] <- sd(
+        EE_values,
+        na.rm = TRUE
+      ) / sqrt(simulation_times)
+    }
+
+    result_df[[tbls_i]] <- add_to_result_df
+  }
+  return(result_df)
+}
+
+# Function to format the entire table for all approaches
+linear_reg_latex_table <- function(result_df) {
+  # Function to format a single row for LaTeX output
+format_row_multiple <- function(result_df, index) {
+  pe_mean <- sapply(result_df, function(df) round(df$PE_MEAN[index], 3))
+  pe_se <- sapply(result_df, function(df) round(df$PE_SE[index], 3))
+  ee_mean <- sapply(result_df, function(df) round(df$EE_MEAN[index], 3))
+  ee_se <- sapply(result_df, function(df) round(df$EE_SE[index], 3))
+
+  # Function to format numbers into scientific notation
+
+  format_sci <- function(x) {
+    if (is.nan(x) | is.na(x)) {
+      return("-")
+    } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
+      base <- formatC(x, format = "e", digits = 3)
+      base_parts <- strsplit(base, "e")[[1]]
+      base_parts[2] <- sub("\\+", "", base_parts[2])
+      return(paste0(
+        "$",
+        base_parts[1],
+        " \\times 10^{",
+        base_parts[2],
+        "}$"
+      ))
+    } else {
+      return(return(formatC(round(x, 3), format = "f", digits = 3)))
+    }
+  }
+
+  # Apply the formatting function to each mean and standard error
+  pe_means_formatted <- sapply(pe_mean, format_sci)
+  pe_ses_formatted <- sapply(pe_se, format_sci)
+  ee_means_formatted <- sapply(ee_mean, format_sci)
+  ee_ses_formatted <- sapply(ee_se, format_sci)
+
+  # Create one row for LaTeX combining values across dataframes for each approach
+  paste0(
+    "\\makecell{", result_df[[1]]$Approaches[index], "} & ",
+    "\\makecell{", pe_means_formatted[1], " \\\\ \\small{(", pe_ses_formatted[1], ")}} & ",
+    "\\makecell{", ee_means_formatted[1], " \\\\ \\small{(", ee_ses_formatted[1], ")}} & ",
+    "\\makecell{", pe_means_formatted[2], " \\\\ \\small{(", pe_ses_formatted[2], ")}} & ",
+    "\\makecell{", ee_means_formatted[2], " \\\\ \\small{(", ee_ses_formatted[2], ")}} & ",
+    "\\makecell{", pe_means_formatted[3], " \\\\ \\small{(", pe_ses_formatted[3], ")}} & ",
+    "\\makecell{", ee_means_formatted[3], " \\\\ \\small{(", ee_ses_formatted[3], ")}} \\\\ ",
+    "\\addlinespace"
+  )
+}
+
+  n <- nrow(result_df[[1]]) # Assuming all dataframes have the same number of rows
+  latex_rows <- sapply(1:n, function(i) format_row_multiple(result_df, i))
+  return(latex_rows)
+}
+
+# Logistic Regression
+logistic_reg_data_generation <- function(
+    swim_data,
+    n) {
+  swim_train_idx <- sample(1:nrow(swim_data), n)
+
+  train_data <- swim_data[swim_train_idx, ]
+  test_data <- swim_data[-swim_train_idx, ]
+
+  if (any(sapply(
+    train_data,
+    function(col) length(unique(col)) == 1
+  ))) {
+    return(logistic_reg_data_generation(swim_data, n))
+  }
+
+  return(list(
+    train_data = train_data,
+    test_data = test_data
+  ))
+}
+
+logistic_reg_run_simulation <- function(
+    train_data,
+                                        test_data,
+                                        approaches,
+                                        syn_size) {
+  model_error_df <- data.frame(
+    Approaches = names(approaches),
+    PBD = numeric(length(approaches))
+  )
+
+
+  cat_init <- cat_glm_initialization(
+    formula = empyr1 ~ 1,
+    family = binomial,
+    data = train_data,
+    syn_size = syn_size
+  )
+
+  for (app_i in seq_along(approaches)) {
+    cat("\n\n", names(approaches)[app_i])
+
+    model_input <- if (names(approaches)[app_i] == "MLE") {
+      c(
+        approaches[[app_i]][[2]],
+        list(
+          formula = empyr1 ~ .,
+          family = binomial,
+          data = train_data
+        )
+      )
+    } else {
+      c(
+        approaches[[app_i]][[2]],
+        list(
+          formula = empyr1 ~ .,
+          cat_init = cat_init
+          )
+      )
+    }
+
+    app_model <- do.call(approaches[[app_i]][[1]], model_input)
+
+    if (NA %in% coef(app_model)) {
+      model_error_df[app_i, "PBD"] <- NA
+    } else {
+      model_error_df[app_i, "PBD"] <- as.numeric(get_discrepancy(
+        "mean_logarithmic_error",
+        Y = test_data$empyr1,
+        est_Y = predict(
+          app_model,
+          newdata = test_data,
+          type = "response"
+        )
+      ))
+    }
+  }
+  return(model_error_df)
+}
+
+logistic_reg_result_df <- function(
+    all_error_list, 
+    simulation_times) {
+  result_df <- vector("list", length(all_error_list))
+
+  apps <- all_error_list[[1]][[1]]$Approaches
+
+  for (tbls_i in seq_along(all_error_list)) {
+    add_to_result_df <- data.frame(
+      Approaches = apps,
+      PBD_MEAN = numeric(length(apps)),
+      PBD_SE = numeric(length(apps))
+    )
+    tbls <- all_error_list[[tbls_i]]
+
+    for (i in seq_along(apps)) {
+      pbd_values <- sapply(tbls, function(df) df$PBD[i])
+
+      add_to_result_df$PBD_MEAN[i] <- mean(pbd_values,
+        na.rm = TRUE
+      )
+
+      add_to_result_df$PBD_SE[i] <- sd(pbd_values, na.rm = TRUE) / sqrt(simulation_times)
+      
+    }
+    result_df[[tbls_i]] <- add_to_result_df
+  }
+  
+  return(result_df)
+}
+
+logistic_reg_latex_table <- generate_latex_table_multiple <- function(df_list) {
+# Function to format a single row for LaTeX output
+format_row_multiple <- function(df_list, index) {
+  pbd_means <- sapply(df_list, function(df) round(df$PBD_MEAN[index], 3))
+  pbd_ses <- sapply(df_list, function(df) round(df$PBD_SE[index], 3))
+
+  # Function to format numbers into scientific notation
+  format_sci <- function(x) {
+    if (is.nan(x) | is.na(x)) {
+      return("-")
+    } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
+      base <- formatC(x, format = "e", digits = 3)
+      base_parts <- strsplit(base, "e")[[1]]
+      base_parts[2] <- sub("\\+", "", base_parts[2])
+      return(paste0(
+        "$",
+        base_parts[1],
+        " \\times 10^{",
+        base_parts[2],
+        "}$"
+      ))
+    } else {
+      return(return(formatC(round(x, 3), format = "f", digits = 3)))
+    }
+  }
+
+  # Apply the formatting function to each mean and standard error
+  pbd_means_formatted <- sapply(pbd_means, format_sci)
+  pbd_ses_formatted <- sapply(pbd_ses, format_sci)
+
+  # Create one row for LaTeX combining values across dataframes for each approach
+  paste0(
+    "\\makecell{", df_list[[1]]$Approaches[index], "} & ",
+    "\\makecell{", pbd_means_formatted[1], " \\\\ \\small{(", pbd_ses_formatted[1], ")}} & ",
+    "\\makecell{", pbd_means_formatted[2], " \\\\ \\small{(", pbd_ses_formatted[2], ")}} & ",
+    "\\makecell{", pbd_means_formatted[3], " \\\\ \\small{(", pbd_ses_formatted[3], ")}} \\\\ ",
+    "\\addlinespace"
+  )
+}
+
+  n <- nrow(df_list[[1]]) # Assuming all dataframes have the same number of rows
+  latex_rows <- sapply(1:n, function(i) format_row_multiple(df_list, i))
+  return(latex_rows)
+}
+
+# COX
+cox_data_genaration <- function(n,
+                                p,
+                                n_test,
+                                lambda = 1,
+                                censor_rate = 0.8) {
+  true_coefs <- rnorm(p)
+
+  x <- matrix(rnorm((n + n_test) * p), ncol = p)
+
+  # Choose half of the cols to be binomial and gamma
+  to_change_cols <- sample(1:p, as.integer(p / 2))
+
+  binomial_cols <- to_change_cols[
+    1:(length(to_change_cols) / 2)
+  ]
+
+  chi_square_cols <- to_change_cols[
+    (length(to_change_cols) / 2 + 1):length(to_change_cols)
+  ]
+
+
+  for (col in binomial_cols) {
+    x[, col] <- rbinom((n + n_test), 1, runif(1, 0.25, 0.75))
+  }
+
+  for (col in chi_square_cols) {
+    x[, col] <- rgamma((n + n_test),
+      shape = runif(1, 1, 5),
+      rate = runif(1, 1, 5)
+    )
+  }
+
+  # Calculate linear predictor eta
+  eta <- x %*% true_coefs
+
+  # Simulate event times from an exponential distribution
+  event_time <- rexp((n + n_test), rate = (lambda * exp(eta)))
+
+  # Simulate censoring times (uniformly distributed)
+  censor_time <- runif((n + n_test),
+    min = 0,
+    max = quantile(
+      event_time,
+      censor_rate
+    )
+  )
+
+  # observed time is the minimum of event or censoring time
+  time <- pmin(event_time, censor_time)
+
+  # event occurred if T <= C, otherwise censored
+  status <- as.numeric(event_time <= censor_time)
+
+  names(x) <- c(paste0("X", 1:p))
+
+  train_data <- data.frame(
+    time = time[1:n],
+    status = status[1:n],
+    x[1:n, ]
+  )
+
+  test_data <- data.frame(
+    time = time[(n + 1):(n + n_test)],
+    status = status[(n + 1):(n + n_test)],
+    x[(n + 1):(n + n_test), ]
+  )
+
+  return(list(
+    train_data = train_data,
+    test_data = test_data,
+    true_coefs = true_coefs
+  ))
+}
+
+cox_run_simulation <- function(train_data,
+                               test_data,
+                               MPLE_0,
+                               approaches,
+                               syn_size,
+                               true_coefs,
+                               entry_points) {
+  out_df <- data.frame(
+    Approaches = names(approaches),
+    PD = numeric(length(approaches)),
+    EE = numeric(length(approaches))
+  )
+
+  cat_init <- cat_cox_initialization(
+    formula = survival::Surv(time, status) ~ 1,
+    data = train_data,
+    syn_size = syn_size,
+    entry_points = entry_points
+  )
+
+  for (app_i in seq_along(approaches)) {
+    cat("\n\n", names(approaches)[app_i])
+
+    model_input <- if (names(approaches)[app_i] == "MPLE") {
+      c(
+        approaches[[app_i]][[2]],
+        list(
+          formula = survival::Surv(time, status) ~ .,
+          data = train_data
+        )
+      )
+    } else {
+      c(
+        approaches[[app_i]][[2]],
+        list(
+          formula = survival::Surv(time, status) ~ .,
+          cat_init = cat_init)
+      )
+    }
+    app_model <- do.call(approaches[[app_i]][[1]], model_input)
+
+    out_df[app_i, "PD"] <- MPLE_0 -
+      get_cox_partial_likelihood(
+        X = test_data[
+          ,
+          !(colnames(test_data) %in% c(
+            "time", "status"
+          ))
+        ],
+        time = test_data$time,
+        status = test_data$status,
+        coefs = coef(app_model),
+        entry_points = entry_points
+      )
+
+    out_df[app_i, "EE"] <- as.numeric(sum(
+      (coef(app_model) - true_coefs)^2
+    ))
+  }
+
+  return(out_df)
+}
+
+cox_reg_result_df <- function(
+    all_p_list, 
+    simulation_times) {
+  result_df <- vector("list", length(all_p_list))
+    
+    apps <- all_p_list[[1]][[1]]$Approaches
+    
+    for (tbls_i in seq_along(all_p_list)) {
+        add_to_result_df <- data.frame(
+            Approaches = apps,
+            PD_MEAN = numeric(length(apps)),
+            PD_SE = numeric(length(apps)),
+            EE_MEAN = numeric(length(apps)),
+            EE_SE = numeric(length(apps))
+        )
+        tbls <- all_p_list[[tbls_i]]
+        for (i in seq_along(apps)) {
+        pd_values <- sapply(tbls, function(sim) sim$PD[i])
+        ee_values <- sapply(tbls, function(sim) sim$EE[i])
+        add_to_result_df$PD_MEAN[i] <- mean(pd_values, na.rm = TRUE)
+        add_to_result_df$PD_SE[i] <- sd(pd_values, na.rm = TRUE) / sqrt(simulation_times)
+        add_to_result_df$EE_MEAN[i] <-mean(ee_values, na.rm = TRUE)
+        add_to_result_df$EE_SE[i] <- sd(ee_values, na.rm = TRUE) / sqrt(simulation_times)
+        }
+        result_df[[tbls_i]] <- add_to_result_df
+    }
+    return(result_df)
+}
+
+# Function to format the entire table for all approaches
+cox_reg_latex_table <- function(df_list) {
+  # Function to format a single row for LaTeX output
+format_row_multiple <- function(df_list, index) {
+  pd_means <- sapply(df_list, function(df) round(df$PD_MEAN[index], 3))
+  pd_ses <- sapply(df_list, function(df) round(df$PD_SE[index], 3))
+  ee_means <- sapply(df_list, function(df) round(df$EE_MEAN[index], 3))
+  ee_ses <- sapply(df_list, function(df) round(df$EE_SE[index], 3))
+
+  # Function to format numbers into scientific notation
+
+  format_sci <- function(x) {
+    if (is.nan(x) | is.na(x)) {
+      return("-")
+    } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
+      base <- formatC(x, format = "e", digits = 3)
+      base_parts <- strsplit(base, "e")[[1]]
+      base_parts[2] <- sub("\\+", "", base_parts[2])
+      return(paste0(
+        "$",
+        base_parts[1],
+        " \\times 10^{",
+        base_parts[2],
+        "}$"
+      ))
+    } else {
+      return(return(formatC(round(x, 3), format = "f", digits = 3)))
+    }
+  }
+
+  # Apply the formatting function to each mean and standard error
+  pd_means_formatted <- sapply(pd_means, format_sci)
+  pd_ses_formatted <- sapply(pd_ses, format_sci)
+  ee_means_formatted <- sapply(ee_means, format_sci)
+  ee_ses_formatted <- sapply(ee_ses, format_sci)
+
+  # Create one row for LaTeX combining values across dataframes for each approach
+  paste0(
+    "\\makecell{", df_list[[1]]$Approaches[index], "} & ",
+    "\\makecell{", pd_means_formatted[1], " \\\\ \\small{(", pd_ses_formatted[1], ")}} & ",
+    "\\makecell{", ee_means_formatted[1], " \\\\ \\small{(", ee_ses_formatted[1], ")}} & ",
+    "\\makecell{", pd_means_formatted[2], " \\\\ \\small{(", pd_ses_formatted[2], ")}} & ",
+    "\\makecell{", ee_means_formatted[2], " \\\\ \\small{(", ee_ses_formatted[2], ")}} & ",
+    "\\makecell{", pd_means_formatted[3], " \\\\ \\small{(", pd_ses_formatted[3], ")}} & ",
+    "\\makecell{", ee_means_formatted[3], " \\\\ \\small{(", ee_ses_formatted[3], ")}} \\\\ ",
+    "\\addlinespace"
+  )
+}
+
+  n <- nrow(df_list[[1]]) # Assuming all dataframes have the same number of rows
+  latex_rows <- sapply(1:n, function(i) format_row_multiple(df_list, i))
+  return(latex_rows)
+}
+
+
+```
+
+# Linear Regression
+
+```{r}
+n <- 50
+n_test <- 100
+p_list <- c(30, 50, 70)
+simulation_times <- 3
+tau_seq <- seq(0.5, 50, 0.5)
+seed_start <- 0
+
+all_p_error_list <- vector("list", length(p_list))
+
+for (p_i in seq_along(p_list)) {
+  p <- p_list[p_i]
+
+  cat("\n\n n = ", n, "; p = ", p)
+
+  approaches <- list(
+    "MLE" = list(
+      stats::glm,
+      list()
+    ),
+    "Post$.$ Mode \\\\ ($\\tau = p/4$)" = list(
+      cat_glm,
+      list(tau = p / 4)
+    ),
+    "Post$.$ Mode \\\\ (Bootstrap)" = list(
+      cat_glm_tune,
+      list(
+        risk_estimate_method = "parametric_bootstrap",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mode  \\\\ with custom $\\sigma^2$ \\\\ (Bootstrap)" = list(
+      cat_glm_tune,
+      list(
+        risk_estimate_method = "parametric_bootstrap",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mode \\\\ (Mallowian)" = list(
+      cat_glm_tune,
+      list(
+        risk_estimate_method = "mallowian_estimate",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mode  \\\\ with custom $\\sigma^2$ \\\\ (Mallowian)" = list(
+      cat_glm_tune,
+      list(
+        risk_estimate_method = "mallowian_estimate",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mode \\\\ (Cross-Validation)" = list(
+      cat_glm_tune,
+      list(
+        risk_estimate_method = "cross_validation",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mean \\\\ ($\\tau = p/4$)" = list(
+      cat_glm_bayes,
+      list(
+        tau = p / 4,
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ with known $\\sigma$ \\\\ ($\\tau = p/4$)" = list(
+      cat_glm_bayes,
+      list(
+        tau = p / 4,
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ with custom $\\sigma^2$ \\\\ ($\\tau = p/4$)" = list(
+      cat_glm_bayes,
+      list(
+        tau = p / 4,
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ (Joint $\\tau$)" = list(
+      cat_glm_bayes_joint,
+      list(
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ with known $\\sigma^2$ \\\\ (Joint $\\tau$)" = list(
+      cat_glm_bayes_joint,
+      list(
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ with custom $\\sigma^2$ \\\\ (Joint $\\tau$)" = list(
+      cat_glm_bayes_joint,
+      list(
+        refresh = 0
+      )
+    )
+  )
+
+
+  all_sim_error_list <- vector("list", simulation_times)
+
+  for (simulation_times in 1:simulation_times) {
+    cat("\n\n Simulation times:", simulation_times)
+
+    set.seed(simulation_times + seed_start)
+
+    data <- linear_reg_data_generation(
+      n = n,
+      n_test = n_test,
+      p = p
+    )
+
+    true_sigma <- data$true_sigma
+    train_data <- data$train_data
+    test_data <- data$test_data
+    true_coefs <- data$true_coefs
+
+    all_sim_error_list[[simulation_times]] <- linear_reg_run_simulation(
+      train_data = train_data,
+      test_data = test_data,
+      syn_size = p * 10,
+      approaches = approaches,
+      true_coefs = true_coefs,
+      true_sigma = true_sigma
+    )
+  }
+  all_p_error_list[[p_i]] <- all_sim_error_list
+}
+
+# glm_gaussian_result_df <- linear_reg_result_df(all_p_error_list, simulation_times)
+# glm_gaussian_latex <- linear_reg_latex_table(glm_gaussian_result_df)
+# cat(glm_gaussian_latex, sep="\n")
+```
+
+# Logistic Regression
+
+```{r}
+n_list <- c(52, 39, 26)
+p <- 13
+simulation_times <- 3
+seed_start <- 0
+tau_seq <- seq(0.5, 50, 0.5)
+
+data("swim")
+swim_data <- cbind(swim$x, swim$y)
+
+all_n_error_list <- vector("list", length(n_list))
+
+for (n_i in seq_along(n_list)) {
+  n <- n_list[n_i]
+
+  cat("\n n = ", n, "; p = ", p)
+
+  approaches <- list(
+    "MLE" = list(
+      stats::glm,
+      list()
+    ),
+    "Post$.$ Mode \\\\ ($\\tau = p$)" = list(
+      cat_glm,
+      list(tau = p)
+    ),
+    "Post$.$ Mode \\\\ (Bootstrap)" = list(
+      cat_glm_tune,
+      list(
+        risk_estimate_method = "parametric_bootstrap",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mode \\\\ (Steinian)" = list(
+      cat_glm_tune,
+      list(
+        risk_estimate_method = "steinian_estimate",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mode \\\\ (Cross-Validation)" = list(
+      cat_glm_tune,
+      list(
+        risk_estimate_method = "cross_validation",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mean \\\\ ($\\tau = p$)" = list(
+      cat_glm_bayes,
+      list(
+        tau = p,
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ (Joint $\\tau$: $\\tau \\geq 0$)" = list(
+      cat_glm_bayes_joint,
+      list(
+        binomial_tau_lower = 0,
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ (Joint $\\tau$: $\\tau \\geq 0.1$)" = list(
+      cat_glm_bayes_joint,
+      list(
+        binomial_tau_lower = 0.1,
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ (Joint $\\theta$)" = list(
+      cat_glm_bayes_joint,
+      list(
+        binomial_joint_theta = TRUE,
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ (Joint $\\theta$ \\& $\\alpha$)" = list(
+      cat_glm_bayes_joint,
+      list(
+        binomial_joint_theta = TRUE,
+        binomial_joint_alpha = TRUE,
+        refresh = 0
+      )
+    ),
+    "Gibbs Sampling" = list(
+      cat_glm_bayes_joint_gibbs,
+      list(
+        refresh = FALSE
+      )
+    )
+  )
+
+  all_sim_error_list <- vector("list", simulation_times)
+
+  for (sim_t in seq(1, simulation_times)) {
+    cat("\n\n Simulation times:", sim_t)
+    
+    set.seed(sim_t + seed_start)
+
+    data <- logistic_reg_data_generation(
+      swim_data = swim_data,
+      n = n
+    )
+    train_data <- data$train_data
+    test_data <- data$test_data
+
+    all_sim_error_list[[sim_t]] <- logistic_reg_run_simulation(
+      train_data = train_data,
+      test_data = test_data,
+      syn_size = 10 * p,
+      approaches = approaches
+    )
+  }
+  all_n_error_list[[n_i]] <- all_sim_error_list
+}
+
+# glm_binomial_result_df <- logistic_reg_result_df(all_n_error_list, simulation_times)
+# glm_binomial_latex<- logistic_reg_latex_table(cox_result_df)
+# cat(glm_binomial_latex, sep="\n")
+```
+
+# Cox Regression
+
+```{r}
+n <- 100
+n_test <- 200
+p_list <- c(10, 30, 50)
+cre_max_iter <- 50
+center_rate <- 0.5
+lambda <- 1
+simulation_times <- 3
+seed_start <- 0
+tau_seq <- seq(0.1, 100.1, 0.5)
+
+all_p_list <- vector("list", length(p_list))
+
+for (p_i in seq_along(p_list)) {
+  p <- p_list[[p_i]]
+  
+  cat("\n\n n = ", n, "; p = ", p)
+
+  approaches <- list(
+    "MPLE" = list(
+      survival::coxph,
+      list()
+    ),
+    "Post$.$ Mode: CRE \\\\ ($\\tau = p$)" = list(
+      cat_cox,
+      list(
+        method = "CRE",
+        tau = p,
+        max_iter = cre_max_iter
+      )
+    ),
+    "Post$.$ Mode: WME \\\\ ($\\tau = p$)" = list(
+      cat_cox,
+      list(
+        method = "WME",
+        tau = p
+      )
+    ),
+    "Post$.$ Mode: CRE \\\\ (Cross-Validation)" = list(
+      cat_cox_tune,
+      list(
+        method = "CRE",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mode: WME \\\\ (Cross-Validation)" = list(
+      cat_cox_tune,
+      list(
+        method = "WME",
+        tau_seq = tau_seq
+      )
+    ),
+    "Post$.$ Mean \\\\ ($\\tau = p$)" = list(
+      cat_cox_bayes,
+      list(
+        tau = p,
+        refresh = 0
+      )
+    ),
+    "Post$.$ Mean \\\\ (Joint $\\tau$)" = list(
+      cat_cox_bayes_joint,
+      list(
+        refresh = 0
+      )
+    )
+  )
+
+  all_sim_list <- vector("list", simulation_times)
+
+  for (sim_t in seq_len(simulation_times)) {
+    cat("\n\n Simulation Times: ", sim_t)
+    set.seed(seed_start + sim_t)
+
+    data_list <- cox_data_genaration(
+      n,
+      p,
+      n_test,
+      lambda,
+      center_rate
+    )
+
+    train_data <- data_list$train_data
+    test_data <- data_list$test_data
+    true_coefs <- data_list$true_coefs
+    entry_points <- rep(0, n)
+
+    MPLE_0 <- get_cox_partial_likelihood(
+      X = test_data[
+        ,
+        !(colnames(test_data) %in% c(
+          "time", "status"
+        ))
+      ],
+      time = test_data$time,
+      status = test_data$status,
+      coefs = true_coefs,
+      entry_points = entry_points
+    )
+
+    all_sim_list[[sim_t]] <- cox_run_simulation(
+      train_data = train_data,
+      test_data = test_data,
+      syn_size = 10 * p,
+      entry_points = entry_points,
+      approaches = approaches,
+      MPLE_0 = MPLE_0,
+      true_coefs = true_coefs
+    )
+  }
+  all_p_list[[p_i]] <- all_sim_list
+}
+
+# cox_result_df <- cox_reg_result_df(all_p_list, simulation_times)
+# cox_latex<- cox_reg_latex_table(cox_result_df)
+# cat(cox_latex, sep="\n")
+```

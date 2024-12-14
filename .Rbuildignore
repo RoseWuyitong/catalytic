@@ -7,3 +7,6 @@
 ^pkgdown$
 ^cran-comments\.md$
 ^\.github$
+^CRAN-SUBMISSION$
+^numerical_study$
+^how_to_update_pkg\Rmd$
