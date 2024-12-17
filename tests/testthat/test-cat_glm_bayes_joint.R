@@ -59,7 +59,6 @@ test_that("cat_glm_bayes_joint runs without errors for valid input", {
 })
 
 test_that("cat_glm_bayes_joint deal with known or unknown variance for Gaussian famuly properly", {
-
   # Unkown variance
   expect_contains(rownames(rstan::summary(cat_model_gaussian_unknown$stan_sample_model)$summary), "sigma")
   expect_equal(cat_model_gaussian_unknown$gaussian_variance_alpha, cat_model_gaussian_unknown$stan_data$variance_alpha)
@@ -163,7 +162,6 @@ test_that("cat_glm_bayes_joint deal with known or unknown variance for Gaussian 
 })
 
 test_that("cat_glm_bayes_joint deal with binomial related augments for Binomial famuly properly", {
-
   # Test for binomial_tau_lower when family is binomial
   expect_equal(cat_model_binomial$binomial_tau_lower, 0.05)
   expect_equal(cat_model_binomial$binomial_tau_lower, cat_model_binomial$stan_data$tau_lower)

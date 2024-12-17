@@ -25,17 +25,18 @@ library(testthat)
 #' @param how Method for calculating number `a` and `b`, chose from "add" and "minus".
 #'
 #' @return Numeric. The result of calculating number `a` and `b`
-calculate_a_and_b <- function(a, b, how = c("add", "minus")){
+calculate_a_and_b <- function(a, b, how = c("add", "minus")) {
   switch(how,
-         "add" = a + b,
-         "minus" = a - b)
+    "add" = a + b,
+    "minus" = a - b
+  )
 }
 
 # Corresponding Test
 test_that("calculate_a_and_b works correctly", {
   a <- 3
   b <- 2
-  
+
   expect_equal(calculate_a_and_b(a, b, "add"), a + b)
   expect_equal(calculate_a_and_b(a, b, "minus"), a - b)
   expect_null(calculate_a_and_b(a, b, "other_method"))
@@ -51,22 +52,23 @@ And after you modify the code, you should update the document and test:
 #'
 #' @param a Numeric. The first number.
 #' @param b Numeric. The second number.
-#' @param how Method for calculating number `a` and `b`, chose from "add", 
+#' @param how Method for calculating number `a` and `b`, chose from "add",
 #' "minus" and "multiply".
 #'
 #' @return Numeric. The result of calculating number `a` and `b`
-calculate_a_and_b <- function(a, b, how = c("add", "minus", "multiply")){
-    switch(how,
-         "add" = a + b,
-         "minus" = a - b,
-         "multiply" = a * b)
+calculate_a_and_b <- function(a, b, how = c("add", "minus", "multiply")) {
+  switch(how,
+    "add" = a + b,
+    "minus" = a - b,
+    "multiply" = a * b
+  )
 }
 
 # Corresponding Test
 test_that("calculate_a_and_b works correctly", {
   a <- 3
   b <- 2
-  
+
   expect_equal(calculate_a_and_b(a, b, "add"), a + b)
   expect_equal(calculate_a_and_b(a, b, "minus"), a - b)
   expect_equal(calculate_a_and_b(a, b, "multiply"), a * b) # NEW TEST

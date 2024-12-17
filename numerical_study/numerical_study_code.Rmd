@@ -195,51 +195,51 @@ linear_reg_result_df <- function(
 # Function to format the entire table for all approaches
 linear_reg_latex_table <- function(result_df) {
   # Function to format a single row for LaTeX output
-format_row_multiple <- function(result_df, index) {
-  pe_mean <- sapply(result_df, function(df) round(df$PE_MEAN[index], 3))
-  pe_se <- sapply(result_df, function(df) round(df$PE_SE[index], 3))
-  ee_mean <- sapply(result_df, function(df) round(df$EE_MEAN[index], 3))
-  ee_se <- sapply(result_df, function(df) round(df$EE_SE[index], 3))
+  format_row_multiple <- function(result_df, index) {
+    pe_mean <- sapply(result_df, function(df) round(df$PE_MEAN[index], 3))
+    pe_se <- sapply(result_df, function(df) round(df$PE_SE[index], 3))
+    ee_mean <- sapply(result_df, function(df) round(df$EE_MEAN[index], 3))
+    ee_se <- sapply(result_df, function(df) round(df$EE_SE[index], 3))
 
-  # Function to format numbers into scientific notation
+    # Function to format numbers into scientific notation
 
-  format_sci <- function(x) {
-    if (is.nan(x) | is.na(x)) {
-      return("-")
-    } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
-      base <- formatC(x, format = "e", digits = 3)
-      base_parts <- strsplit(base, "e")[[1]]
-      base_parts[2] <- sub("\\+", "", base_parts[2])
-      return(paste0(
-        "$",
-        base_parts[1],
-        " \\times 10^{",
-        base_parts[2],
-        "}$"
-      ))
-    } else {
-      return(return(formatC(round(x, 3), format = "f", digits = 3)))
+    format_sci <- function(x) {
+      if (is.nan(x) | is.na(x)) {
+        return("-")
+      } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
+        base <- formatC(x, format = "e", digits = 3)
+        base_parts <- strsplit(base, "e")[[1]]
+        base_parts[2] <- sub("\\+", "", base_parts[2])
+        return(paste0(
+          "$",
+          base_parts[1],
+          " \\times 10^{",
+          base_parts[2],
+          "}$"
+        ))
+      } else {
+        return(return(formatC(round(x, 3), format = "f", digits = 3)))
+      }
     }
+
+    # Apply the formatting function to each mean and standard error
+    pe_means_formatted <- sapply(pe_mean, format_sci)
+    pe_ses_formatted <- sapply(pe_se, format_sci)
+    ee_means_formatted <- sapply(ee_mean, format_sci)
+    ee_ses_formatted <- sapply(ee_se, format_sci)
+
+    # Create one row for LaTeX combining values across dataframes for each approach
+    paste0(
+      "\\makecell{", result_df[[1]]$Approaches[index], "} & ",
+      "\\makecell{", pe_means_formatted[1], " \\\\ \\small{(", pe_ses_formatted[1], ")}} & ",
+      "\\makecell{", ee_means_formatted[1], " \\\\ \\small{(", ee_ses_formatted[1], ")}} & ",
+      "\\makecell{", pe_means_formatted[2], " \\\\ \\small{(", pe_ses_formatted[2], ")}} & ",
+      "\\makecell{", ee_means_formatted[2], " \\\\ \\small{(", ee_ses_formatted[2], ")}} & ",
+      "\\makecell{", pe_means_formatted[3], " \\\\ \\small{(", pe_ses_formatted[3], ")}} & ",
+      "\\makecell{", ee_means_formatted[3], " \\\\ \\small{(", ee_ses_formatted[3], ")}} \\\\ ",
+      "\\addlinespace"
+    )
   }
-
-  # Apply the formatting function to each mean and standard error
-  pe_means_formatted <- sapply(pe_mean, format_sci)
-  pe_ses_formatted <- sapply(pe_se, format_sci)
-  ee_means_formatted <- sapply(ee_mean, format_sci)
-  ee_ses_formatted <- sapply(ee_se, format_sci)
-
-  # Create one row for LaTeX combining values across dataframes for each approach
-  paste0(
-    "\\makecell{", result_df[[1]]$Approaches[index], "} & ",
-    "\\makecell{", pe_means_formatted[1], " \\\\ \\small{(", pe_ses_formatted[1], ")}} & ",
-    "\\makecell{", ee_means_formatted[1], " \\\\ \\small{(", ee_ses_formatted[1], ")}} & ",
-    "\\makecell{", pe_means_formatted[2], " \\\\ \\small{(", pe_ses_formatted[2], ")}} & ",
-    "\\makecell{", ee_means_formatted[2], " \\\\ \\small{(", ee_ses_formatted[2], ")}} & ",
-    "\\makecell{", pe_means_formatted[3], " \\\\ \\small{(", pe_ses_formatted[3], ")}} & ",
-    "\\makecell{", ee_means_formatted[3], " \\\\ \\small{(", ee_ses_formatted[3], ")}} \\\\ ",
-    "\\addlinespace"
-  )
-}
 
   n <- nrow(result_df[[1]]) # Assuming all dataframes have the same number of rows
   latex_rows <- sapply(1:n, function(i) format_row_multiple(result_df, i))
@@ -270,9 +270,9 @@ logistic_reg_data_generation <- function(
 
 logistic_reg_run_simulation <- function(
     train_data,
-                                        test_data,
-                                        approaches,
-                                        syn_size) {
+    test_data,
+    approaches,
+    syn_size) {
   model_error_df <- data.frame(
     Approaches = names(approaches),
     PBD = numeric(length(approaches))
@@ -304,7 +304,7 @@ logistic_reg_run_simulation <- function(
         list(
           formula = empyr1 ~ .,
           cat_init = cat_init
-          )
+        )
       )
     }
 
@@ -328,7 +328,7 @@ logistic_reg_run_simulation <- function(
 }
 
 logistic_reg_result_df <- function(
-    all_error_list, 
+    all_error_list,
     simulation_times) {
   result_df <- vector("list", length(all_error_list))
 
@@ -350,53 +350,52 @@ logistic_reg_result_df <- function(
       )
 
       add_to_result_df$PBD_SE[i] <- sd(pbd_values, na.rm = TRUE) / sqrt(simulation_times)
-      
     }
     result_df[[tbls_i]] <- add_to_result_df
   }
-  
+
   return(result_df)
 }
 
 logistic_reg_latex_table <- generate_latex_table_multiple <- function(df_list) {
-# Function to format a single row for LaTeX output
-format_row_multiple <- function(df_list, index) {
-  pbd_means <- sapply(df_list, function(df) round(df$PBD_MEAN[index], 3))
-  pbd_ses <- sapply(df_list, function(df) round(df$PBD_SE[index], 3))
+  # Function to format a single row for LaTeX output
+  format_row_multiple <- function(df_list, index) {
+    pbd_means <- sapply(df_list, function(df) round(df$PBD_MEAN[index], 3))
+    pbd_ses <- sapply(df_list, function(df) round(df$PBD_SE[index], 3))
 
-  # Function to format numbers into scientific notation
-  format_sci <- function(x) {
-    if (is.nan(x) | is.na(x)) {
-      return("-")
-    } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
-      base <- formatC(x, format = "e", digits = 3)
-      base_parts <- strsplit(base, "e")[[1]]
-      base_parts[2] <- sub("\\+", "", base_parts[2])
-      return(paste0(
-        "$",
-        base_parts[1],
-        " \\times 10^{",
-        base_parts[2],
-        "}$"
-      ))
-    } else {
-      return(return(formatC(round(x, 3), format = "f", digits = 3)))
+    # Function to format numbers into scientific notation
+    format_sci <- function(x) {
+      if (is.nan(x) | is.na(x)) {
+        return("-")
+      } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
+        base <- formatC(x, format = "e", digits = 3)
+        base_parts <- strsplit(base, "e")[[1]]
+        base_parts[2] <- sub("\\+", "", base_parts[2])
+        return(paste0(
+          "$",
+          base_parts[1],
+          " \\times 10^{",
+          base_parts[2],
+          "}$"
+        ))
+      } else {
+        return(return(formatC(round(x, 3), format = "f", digits = 3)))
+      }
     }
+
+    # Apply the formatting function to each mean and standard error
+    pbd_means_formatted <- sapply(pbd_means, format_sci)
+    pbd_ses_formatted <- sapply(pbd_ses, format_sci)
+
+    # Create one row for LaTeX combining values across dataframes for each approach
+    paste0(
+      "\\makecell{", df_list[[1]]$Approaches[index], "} & ",
+      "\\makecell{", pbd_means_formatted[1], " \\\\ \\small{(", pbd_ses_formatted[1], ")}} & ",
+      "\\makecell{", pbd_means_formatted[2], " \\\\ \\small{(", pbd_ses_formatted[2], ")}} & ",
+      "\\makecell{", pbd_means_formatted[3], " \\\\ \\small{(", pbd_ses_formatted[3], ")}} \\\\ ",
+      "\\addlinespace"
+    )
   }
-
-  # Apply the formatting function to each mean and standard error
-  pbd_means_formatted <- sapply(pbd_means, format_sci)
-  pbd_ses_formatted <- sapply(pbd_ses, format_sci)
-
-  # Create one row for LaTeX combining values across dataframes for each approach
-  paste0(
-    "\\makecell{", df_list[[1]]$Approaches[index], "} & ",
-    "\\makecell{", pbd_means_formatted[1], " \\\\ \\small{(", pbd_ses_formatted[1], ")}} & ",
-    "\\makecell{", pbd_means_formatted[2], " \\\\ \\small{(", pbd_ses_formatted[2], ")}} & ",
-    "\\makecell{", pbd_means_formatted[3], " \\\\ \\small{(", pbd_ses_formatted[3], ")}} \\\\ ",
-    "\\addlinespace"
-  )
-}
 
   n <- nrow(df_list[[1]]) # Assuming all dataframes have the same number of rows
   latex_rows <- sapply(1:n, function(i) format_row_multiple(df_list, i))
@@ -514,7 +513,8 @@ cox_run_simulation <- function(train_data,
         approaches[[app_i]][[2]],
         list(
           formula = survival::Surv(time, status) ~ .,
-          cat_init = cat_init)
+          cat_init = cat_init
+        )
       )
     }
     app_model <- do.call(approaches[[app_i]][[1]], model_input)
@@ -542,89 +542,87 @@ cox_run_simulation <- function(train_data,
 }
 
 cox_reg_result_df <- function(
-    all_p_list, 
+    all_p_list,
     simulation_times) {
   result_df <- vector("list", length(all_p_list))
-    
-    apps <- all_p_list[[1]][[1]]$Approaches
-    
-    for (tbls_i in seq_along(all_p_list)) {
-        add_to_result_df <- data.frame(
-            Approaches = apps,
-            PD_MEAN = numeric(length(apps)),
-            PD_SE = numeric(length(apps)),
-            EE_MEAN = numeric(length(apps)),
-            EE_SE = numeric(length(apps))
-        )
-        tbls <- all_p_list[[tbls_i]]
-        for (i in seq_along(apps)) {
-        pd_values <- sapply(tbls, function(sim) sim$PD[i])
-        ee_values <- sapply(tbls, function(sim) sim$EE[i])
-        add_to_result_df$PD_MEAN[i] <- mean(pd_values, na.rm = TRUE)
-        add_to_result_df$PD_SE[i] <- sd(pd_values, na.rm = TRUE) / sqrt(simulation_times)
-        add_to_result_df$EE_MEAN[i] <-mean(ee_values, na.rm = TRUE)
-        add_to_result_df$EE_SE[i] <- sd(ee_values, na.rm = TRUE) / sqrt(simulation_times)
-        }
-        result_df[[tbls_i]] <- add_to_result_df
+
+  apps <- all_p_list[[1]][[1]]$Approaches
+
+  for (tbls_i in seq_along(all_p_list)) {
+    add_to_result_df <- data.frame(
+      Approaches = apps,
+      PD_MEAN = numeric(length(apps)),
+      PD_SE = numeric(length(apps)),
+      EE_MEAN = numeric(length(apps)),
+      EE_SE = numeric(length(apps))
+    )
+    tbls <- all_p_list[[tbls_i]]
+    for (i in seq_along(apps)) {
+      pd_values <- sapply(tbls, function(sim) sim$PD[i])
+      ee_values <- sapply(tbls, function(sim) sim$EE[i])
+      add_to_result_df$PD_MEAN[i] <- mean(pd_values, na.rm = TRUE)
+      add_to_result_df$PD_SE[i] <- sd(pd_values, na.rm = TRUE) / sqrt(simulation_times)
+      add_to_result_df$EE_MEAN[i] <- mean(ee_values, na.rm = TRUE)
+      add_to_result_df$EE_SE[i] <- sd(ee_values, na.rm = TRUE) / sqrt(simulation_times)
     }
-    return(result_df)
+    result_df[[tbls_i]] <- add_to_result_df
+  }
+  return(result_df)
 }
 
 # Function to format the entire table for all approaches
 cox_reg_latex_table <- function(df_list) {
   # Function to format a single row for LaTeX output
-format_row_multiple <- function(df_list, index) {
-  pd_means <- sapply(df_list, function(df) round(df$PD_MEAN[index], 3))
-  pd_ses <- sapply(df_list, function(df) round(df$PD_SE[index], 3))
-  ee_means <- sapply(df_list, function(df) round(df$EE_MEAN[index], 3))
-  ee_ses <- sapply(df_list, function(df) round(df$EE_SE[index], 3))
+  format_row_multiple <- function(df_list, index) {
+    pd_means <- sapply(df_list, function(df) round(df$PD_MEAN[index], 3))
+    pd_ses <- sapply(df_list, function(df) round(df$PD_SE[index], 3))
+    ee_means <- sapply(df_list, function(df) round(df$EE_MEAN[index], 3))
+    ee_ses <- sapply(df_list, function(df) round(df$EE_SE[index], 3))
 
-  # Function to format numbers into scientific notation
+    # Function to format numbers into scientific notation
 
-  format_sci <- function(x) {
-    if (is.nan(x) | is.na(x)) {
-      return("-")
-    } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
-      base <- formatC(x, format = "e", digits = 3)
-      base_parts <- strsplit(base, "e")[[1]]
-      base_parts[2] <- sub("\\+", "", base_parts[2])
-      return(paste0(
-        "$",
-        base_parts[1],
-        " \\times 10^{",
-        base_parts[2],
-        "}$"
-      ))
-    } else {
-      return(return(formatC(round(x, 3), format = "f", digits = 3)))
+    format_sci <- function(x) {
+      if (is.nan(x) | is.na(x)) {
+        return("-")
+      } else if (abs(x) >= 1e10 || abs(x) < 1e-3) {
+        base <- formatC(x, format = "e", digits = 3)
+        base_parts <- strsplit(base, "e")[[1]]
+        base_parts[2] <- sub("\\+", "", base_parts[2])
+        return(paste0(
+          "$",
+          base_parts[1],
+          " \\times 10^{",
+          base_parts[2],
+          "}$"
+        ))
+      } else {
+        return(return(formatC(round(x, 3), format = "f", digits = 3)))
+      }
     }
+
+    # Apply the formatting function to each mean and standard error
+    pd_means_formatted <- sapply(pd_means, format_sci)
+    pd_ses_formatted <- sapply(pd_ses, format_sci)
+    ee_means_formatted <- sapply(ee_means, format_sci)
+    ee_ses_formatted <- sapply(ee_ses, format_sci)
+
+    # Create one row for LaTeX combining values across dataframes for each approach
+    paste0(
+      "\\makecell{", df_list[[1]]$Approaches[index], "} & ",
+      "\\makecell{", pd_means_formatted[1], " \\\\ \\small{(", pd_ses_formatted[1], ")}} & ",
+      "\\makecell{", ee_means_formatted[1], " \\\\ \\small{(", ee_ses_formatted[1], ")}} & ",
+      "\\makecell{", pd_means_formatted[2], " \\\\ \\small{(", pd_ses_formatted[2], ")}} & ",
+      "\\makecell{", ee_means_formatted[2], " \\\\ \\small{(", ee_ses_formatted[2], ")}} & ",
+      "\\makecell{", pd_means_formatted[3], " \\\\ \\small{(", pd_ses_formatted[3], ")}} & ",
+      "\\makecell{", ee_means_formatted[3], " \\\\ \\small{(", ee_ses_formatted[3], ")}} \\\\ ",
+      "\\addlinespace"
+    )
   }
-
-  # Apply the formatting function to each mean and standard error
-  pd_means_formatted <- sapply(pd_means, format_sci)
-  pd_ses_formatted <- sapply(pd_ses, format_sci)
-  ee_means_formatted <- sapply(ee_means, format_sci)
-  ee_ses_formatted <- sapply(ee_ses, format_sci)
-
-  # Create one row for LaTeX combining values across dataframes for each approach
-  paste0(
-    "\\makecell{", df_list[[1]]$Approaches[index], "} & ",
-    "\\makecell{", pd_means_formatted[1], " \\\\ \\small{(", pd_ses_formatted[1], ")}} & ",
-    "\\makecell{", ee_means_formatted[1], " \\\\ \\small{(", ee_ses_formatted[1], ")}} & ",
-    "\\makecell{", pd_means_formatted[2], " \\\\ \\small{(", pd_ses_formatted[2], ")}} & ",
-    "\\makecell{", ee_means_formatted[2], " \\\\ \\small{(", ee_ses_formatted[2], ")}} & ",
-    "\\makecell{", pd_means_formatted[3], " \\\\ \\small{(", pd_ses_formatted[3], ")}} & ",
-    "\\makecell{", ee_means_formatted[3], " \\\\ \\small{(", ee_ses_formatted[3], ")}} \\\\ ",
-    "\\addlinespace"
-  )
-}
 
   n <- nrow(df_list[[1]]) # Assuming all dataframes have the same number of rows
   latex_rows <- sapply(1:n, function(i) format_row_multiple(df_list, i))
   return(latex_rows)
 }
-
-
 ```
 
 # Linear Regression
@@ -862,7 +860,7 @@ for (n_i in seq_along(n_list)) {
 
   for (sim_t in seq(1, simulation_times)) {
     cat("\n\n Simulation times:", sim_t)
-    
+
     set.seed(sim_t + seed_start)
 
     data <- logistic_reg_data_generation(
@@ -904,7 +902,7 @@ all_p_list <- vector("list", length(p_list))
 
 for (p_i in seq_along(p_list)) {
   p <- p_list[[p_i]]
-  
+
   cat("\n\n n = ", n, "; p = ", p)
 
   approaches <- list(

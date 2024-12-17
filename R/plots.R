@@ -147,9 +147,8 @@ traceplot.cat_gibbs <- function(
     pars = NULL,
     inc_warmup = FALSE,
     ...) {
-
-  oldpar <- graphics::par(no.readonly = TRUE)  # Save original graphical parameters
-  on.exit(graphics::par(oldpar))               # Ensure they are restored on exit
+  oldpar <- graphics::par(no.readonly = TRUE) # Save original graphical parameters
+  on.exit(graphics::par(oldpar)) # Ensure they are restored on exit
 
   print_df <- if (inc_warmup) object$gibbs_iteration_log else object$gibbs_iteration_log[object$warmup:object$iter, ]
 
