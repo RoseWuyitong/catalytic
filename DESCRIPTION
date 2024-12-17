@@ -10,7 +10,7 @@ Authors@R: c(
     person("Ministry of Education, Singapore", role = "fnd",
            comment = "The development of this package is supported by the Ministry of Education, Singapore, under the Academic Research Fund Tier 1 A-8000466-00-00 (FY2022).")
   )
-Description: To improve estimation accuracy and stability in statistical modeling, catalytic prior distributions are employed, integrating observed data with synthetic data generated from a simpler model's predictive distribution. This approach enhances model robustness, stability, and flexibility in complex data scenarios.
+Description: To improve estimation accuracy and stability in statistical modeling, catalytic prior distributions are employed, integrating observed data with synthetic data generated from a simpler model's predictive distribution. This approach enhances model robustness, stability, and flexibility in complex data scenarios. The catalytic prior distributions are introduced by Huang et al. (2020) <doi:10.1073/pnas.1920913117>, Li and Huang (2023) <doi:10.48550/arXiv.2312.01411>.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
